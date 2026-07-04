@@ -2,9 +2,7 @@ name: Update Parking Data
 
 on:
   schedule:
-    # 每 5 分鐘執行一次 (UTC)
     - cron: "*/5 * * * *"
-
   workflow_dispatch:
 
 permissions:
@@ -18,19 +16,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Create parking.json
+      - name: Fetch Parking Data
         run: |
           mkdir -p data
 
-          cat > data/parking.json << EOF
-          {
-            "BOT":"--",
-            "TSA":"--",
-            "RD1A":"--",
-            "RD1B":"--",
-            "updatedAt":"$(date -u +"%Y-%m-%d %H:%M UTC")"
-          }
-          EOF
+          curl -s "http://1.34.202.50:9130/parking_place/huahang" \
+          | jq '{
+              BOT: (map(select(.name=="BOT"))[0].remaining_space // "--"),
+              TSA: (map(select(.name=="TSA"))[0].remaining_space // "--"),
+              RD1A: (map(select(.name=="RD1 A"))[0].remaining_space // "--"),
+              RD1B: (map(select(.name=="RD1 B"))[0].remaining_space // "--"),
+              updatedAt: (map(.updateTime) | max // "--"),
+              raw: .
+            }' > data/parking.json
 
       - name: Commit Changes
         run: |
