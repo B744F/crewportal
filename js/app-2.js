@@ -1,7 +1,7 @@
 (function(){
   const PARKING_JSON = "data/parking.json";
   const REFRESH_MS = 30000;
-  const STALE_AFTER_MS = 10 * 60 * 1000;
+  const STALE_AFTER_MS = 15 * 60 * 1000;
 
   const els = {
     BOT: document.getElementById("parkingBOT"),
@@ -29,16 +29,16 @@
     if(updateEl) updateEl.textContent = value || "--";
   }
 
-  function setStatus(text, offline=false){
+  function setStatus(text, state){
     if(!statusEl) return;
     statusEl.textContent = text;
-    statusEl.classList.toggle("offline", offline);
+    statusEl.classList.remove("offline", "syncing", "stale");
+    if(state) statusEl.classList.add(state);
   }
 
   function parseTaipeiTime(value){
     if(!value || value === "--") return null;
-    // Source format: 2026-07-08 19:40:35 (Taipei time)
-    const normalized = value.replace(" ", "T") + "+08:00";
+    const normalized = String(value).replace(" ", "T") + "+08:00";
     const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
   }
@@ -94,11 +94,11 @@
     setUpdateTime(data.updatedAt);
 
     if(!data.online){
-      setStatus("● 離線", true);
+      setStatus("● 離線", "offline");
     }else if(isStale(data.updatedAt)){
-      setStatus("● 資料逾時", true);
+      setStatus("● 資料逾時", "stale");
     }else{
-      setStatus("● 在線", false);
+      setStatus("● GitHub 同步", "");
     }
   }
 
@@ -110,12 +110,12 @@
 
   async function updateParking(){
     try{
-      setStatus("● 更新中", false);
+      setStatus("● 更新中", "syncing");
       const data = await fetchJson(PARKING_JSON);
       applyParkingData(data);
     }catch(err){
       console.warn("Parking data load failed", err);
-      setStatus("● 離線", true);
+      setStatus("● 離線", "offline");
     }
   }
 
