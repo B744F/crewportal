@@ -53,6 +53,8 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .parking-meta{display:flex;align-items:center;gap:10px;white-space:nowrap}
 .parking-status-dot{font-size:12px;color:#82f0a6;font-weight:800;letter-spacing:.03em}
 .parking-status-dot.offline{color:#ff8b8b}
+.parking-status-dot.syncing{color:#ffd983}
+.parking-status-dot.stale{color:#ffb45e}
 .parking-update{float:right;color:#aab8ca;font-size:12px;letter-spacing:.02em}
 .parking-body{padding:0 18px 8px;color:#d9e5f2;font-size:13px}
 .parking-grid{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid rgba(255,255,255,.10);margin-top:4px}
