@@ -106,3 +106,12 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .footer-version{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end;font-size:12px;color:#9fb0c7;}
 .version-pill{border:1px solid rgba(216,178,93,.42);background:rgba(216,178,93,.10);color:#f1d590;border-radius:999px;padding:6px 10px;font-weight:800;letter-spacing:.03em;}
 @media(max-width:720px){.footer-version{justify-content:flex-start}.footer-shell{align-items:flex-start}}
+
+
+/* v5.4 live parking telemetry */
+.parking-status-dot.live{color:#68f39c;}
+.parking-sync-meta{clear:both;display:flex;gap:12px;flex-wrap:wrap;margin-top:7px;color:#93a4bb;font-size:11px;letter-spacing:.02em;}
+.parking-sync-meta span{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);border-radius:999px;padding:3px 7px;}
+.parking-pulse{animation:parkingPulse .65s ease;}
+@keyframes parkingPulse{0%{transform:scale(1);filter:brightness(1)}35%{transform:scale(1.14);filter:brightness(1.45)}100%{transform:scale(1);filter:brightness(1)}}
+@media(max-width:720px){.parking-sync-meta{font-size:10px;gap:6px}.parking-update{float:none;display:block;margin-top:4px}}
