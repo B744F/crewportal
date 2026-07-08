@@ -1,0 +1,7 @@
+{
+  "name": "FlightDeck Crew Portal",
+  "version": "v5.0.1",
+  "build": "20260708-001",
+  "updatedAt": "2026-07-08",
+  "notes": "Optimized project structure with visible footer version metadata."
+}

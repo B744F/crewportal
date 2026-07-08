@@ -95,3 +95,12 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .parking-cell strong.parking-ok{color:#88f0aa;}
 .parking-cell strong.parking-warn{color:#ffd36a;}
 .parking-cell strong.parking-full{color:#ff7b7b;}
+
+
+/* Footer version metadata */
+.footer-shell{align-items:flex-start;}
+.footer-brand{display:flex;flex-direction:column;gap:5px;}
+.footer-brand span{font-size:12px;color:#93a4bb;letter-spacing:.04em;}
+.footer-version{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end;font-size:12px;color:#9fb0c7;}
+.version-pill{border:1px solid rgba(216,178,93,.42);background:rgba(216,178,93,.10);color:#f1d590;border-radius:999px;padding:6px 10px;font-weight:800;letter-spacing:.03em;}
+@media(max-width:720px){.footer-version{justify-content:flex-start}.footer-shell{align-items:flex-start}}
