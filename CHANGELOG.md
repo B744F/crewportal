@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.5.0 - 2026-07-08
+- Changed parking panel to re-read `data/parking.json` every 15 seconds.
+- Added immediate refresh when returning to the browser tab/window.
+- Added cache-busting query strings to `app-1.js` and `app-2.js` so GitHub Pages loads the latest JavaScript after upload.
+- Updated footer/version metadata to v5.5.0 / Build 20260708-005.
+
+
 ## v5.4.1 - 2026-07-08
 - Fixed parking next sync display so it shows the next 5-minute cron time even before fresh data loads.
 - Added absolute next sync clock time with countdown.

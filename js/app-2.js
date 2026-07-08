@@ -1,6 +1,6 @@
 (function(){
   const PARKING_JSON = "data/parking.json";
-  const REFRESH_MS = 30000;
+  const REFRESH_MS = 15000;
   const STALE_AFTER_MS = 10 * 60 * 1000;
   const CRON_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -159,7 +159,7 @@
     }else if(!lastDataTime || (Date.now() - lastDataTime.getTime()) > STALE_AFTER_MS){
       setStatus("● 資料可能過期", "stale");
     }else{
-      setStatus("● Live 自動同步", "live");
+      setStatus("● Live 最新同步", "live");
     }
 
     startCountdown();
@@ -173,7 +173,7 @@
 
   async function updateParking(){
     try{
-      if(!lastDataTime) setStatus("● 讀取中", "syncing");
+      if(!lastDataTime) setStatus("● 正在讀取最新資料", "syncing");
       const data = await fetchJson(PARKING_JSON);
       applyParkingData(data);
     }catch(err){
@@ -183,6 +183,13 @@
     }
   }
 
+  // Initial load and automatic refresh. The query string in fetchJson() prevents GitHub Pages/browser caching.
   updateParking();
-  setInterval(updateParking, REFRESH_MS);
+  window.setInterval(updateParking, REFRESH_MS);
+
+  // Refresh immediately when the user returns to the tab or window.
+  document.addEventListener("visibilitychange", () => {
+    if(!document.hidden) updateParking();
+  });
+  window.addEventListener("focus", updateParking);
 })();
