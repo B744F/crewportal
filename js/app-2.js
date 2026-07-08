@@ -1,7 +1,8 @@
-
 (function(){
-  const API_URL = "http://1.34.202.50:9130/parking_place/huahang";
-  const FALLBACK_JSON = "data/parking.json";
+  const PARKING_JSON = "data/parking.json";
+  const REFRESH_MS = 30000;
+  const STALE_AFTER_MS = 10 * 60 * 1000;
+
   const els = {
     BOT: document.getElementById("parkingBOT"),
     TSA: document.getElementById("parkingTSA"),
@@ -18,21 +19,34 @@
     els[key].classList.remove("parking-ok", "parking-warn", "parking-full");
     const n = Number(display);
     if(Number.isFinite(n)){
-      if(n <= 0) els[key].classList.add("parking-full");
-      else if(n < 30) els[key].classList.add("parking-warn");
+      if(n < 20) els[key].classList.add("parking-full");
+      else if(n < 100) els[key].classList.add("parking-warn");
       else els[key].classList.add("parking-ok");
     }
   }
 
   function setUpdateTime(value){
-    if(!updateEl) return;
-    updateEl.textContent = value || "--";
+    if(updateEl) updateEl.textContent = value || "--";
   }
 
   function setStatus(text, offline=false){
     if(!statusEl) return;
     statusEl.textContent = text;
     statusEl.classList.toggle("offline", offline);
+  }
+
+  function parseTaipeiTime(value){
+    if(!value || value === "--") return null;
+    // Source format: 2026-07-08 19:40:35 (Taipei time)
+    const normalized = value.replace(" ", "T") + "+08:00";
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function isStale(value){
+    const date = parseTaipeiTime(value);
+    if(!date) return true;
+    return (Date.now() - date.getTime()) > STALE_AFTER_MS;
   }
 
   function latestUpdateTimeFromArray(data){
@@ -43,49 +57,68 @@
       .pop() || "--";
   }
 
-  function applyParkingData(data, source="api"){
+  function normalizeParkingData(data){
     if(Array.isArray(data)){
       const find = name => data.find(item => item.name === name)?.remaining_space ?? "--";
-      setValue("BOT", find("BOT"));
-      setValue("TSA", find("TSA"));
-      setValue("RD1A", find("RD1 A"));
-      setValue("RD1B", find("RD1 B"));
-      setUpdateTime(latestUpdateTimeFromArray(data));
-      setStatus(source === "api" ? "● 即時更新" : "● 備援資料", source !== "api");
-      return;
+      return {
+        online: true,
+        updatedAt: latestUpdateTimeFromArray(data),
+        BOT: find("BOT"),
+        TSA: find("TSA"),
+        RD1A: find("RD1 A"),
+        RD1B: find("RD1 B")
+      };
     }
+
     if(data && typeof data === "object"){
-      setValue("BOT", data.BOT);
-      setValue("TSA", data.TSA);
-      setValue("RD1A", data.RD1A);
-      setValue("RD1B", data.RD1B);
-      setUpdateTime(data.updatedAt || data.updateTime || "--");
-      setStatus("● 備援資料", true);
+      return {
+        online: data.online !== false,
+        updatedAt: data.updatedAt || data.updateTime || data.lastUpdate || "--",
+        BOT: data.BOT ?? "--",
+        TSA: data.TSA ?? "--",
+        RD1A: data.RD1A ?? data["RD1 A"] ?? "--",
+        RD1B: data.RD1B ?? data["RD1 B"] ?? "--"
+      };
+    }
+
+    return { online:false, updatedAt:"--", BOT:"--", TSA:"--", RD1A:"--", RD1B:"--" };
+  }
+
+  function applyParkingData(raw){
+    const data = normalizeParkingData(raw);
+
+    setValue("BOT", data.BOT);
+    setValue("TSA", data.TSA);
+    setValue("RD1A", data.RD1A);
+    setValue("RD1B", data.RD1B);
+    setUpdateTime(data.updatedAt);
+
+    if(!data.online){
+      setStatus("● 離線", true);
+    }else if(isStale(data.updatedAt)){
+      setStatus("● 資料逾時", true);
+    }else{
+      setStatus("● 在線", false);
     }
   }
 
   async function fetchJson(url){
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
     if(!res.ok) throw new Error("HTTP " + res.status);
     return await res.json();
   }
 
   async function updateParking(){
     try{
-      const data = await fetchJson(API_URL);
-      applyParkingData(data, "api");
-    }catch(apiError){
-      console.warn("Direct parking API failed; trying data/parking.json", apiError);
-      try{
-        const data = await fetchJson(FALLBACK_JSON);
-        applyParkingData(data, "fallback");
-      }catch(jsonError){
-        console.warn("Parking fallback failed", jsonError);
-        setStatus("● 離線", true);
-      }
+      setStatus("● 更新中", false);
+      const data = await fetchJson(PARKING_JSON);
+      applyParkingData(data);
+    }catch(err){
+      console.warn("Parking data load failed", err);
+      setStatus("● 離線", true);
     }
   }
 
   updateParking();
-  setInterval(updateParking, 15000);
+  setInterval(updateParking, REFRESH_MS);
 })();
