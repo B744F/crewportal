@@ -1,7 +1,8 @@
 (function(){
   const PARKING_JSON = "data/parking.json";
   const REFRESH_MS = 30000;
-  const STALE_AFTER_MS = 15 * 60 * 1000;
+  const STALE_AFTER_MS = 10 * 60 * 1000;
+  const CRON_INTERVAL_MS = 5 * 60 * 1000;
 
   const els = {
     BOT: document.getElementById("parkingBOT"),
@@ -11,10 +12,19 @@
   };
   const updateEl = document.getElementById("parkingUpdateTime");
   const statusEl = document.getElementById("parkingStatus");
+  const nextEl = document.getElementById("parkingNextUpdate");
+  const ageEl = document.getElementById("parkingAge");
+
+  let lastDataTime = null;
+  let countdownTimer = null;
 
   function setValue(key, value){
     if(!els[key]) return;
     const display = (value === null || value === undefined || value === "") ? "--" : String(value);
+    if(els[key].textContent !== display){
+      els[key].classList.add("parking-pulse");
+      window.setTimeout(() => els[key].classList.remove("parking-pulse"), 650);
+    }
     els[key].textContent = display;
     els[key].classList.remove("parking-ok", "parking-warn", "parking-full");
     const n = Number(display);
@@ -32,7 +42,7 @@
   function setStatus(text, state){
     if(!statusEl) return;
     statusEl.textContent = text;
-    statusEl.classList.remove("offline", "syncing", "stale");
+    statusEl.classList.remove("offline", "syncing", "stale", "live");
     if(state) statusEl.classList.add(state);
   }
 
@@ -41,12 +51,6 @@
     const normalized = String(value).replace(" ", "T") + "+08:00";
     const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  function isStale(value){
-    const date = parseTaipeiTime(value);
-    if(!date) return true;
-    return (Date.now() - date.getTime()) > STALE_AFTER_MS;
   }
 
   function latestUpdateTimeFromArray(data){
@@ -84,6 +88,37 @@
     return { online:false, updatedAt:"--", BOT:"--", TSA:"--", RD1A:"--", RD1B:"--" };
   }
 
+  function secondsText(ms){
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m > 0 ? `${m}分${String(s).padStart(2,"0")}秒` : `${s}秒`;
+  }
+
+  function updateCountdown(){
+    if(!lastDataTime){
+      if(nextEl) nextEl.textContent = "下次同步：--";
+      if(ageEl) ageEl.textContent = "資料年齡：--";
+      return;
+    }
+
+    const ageMs = Date.now() - lastDataTime.getTime();
+    const nextMs = CRON_INTERVAL_MS - (ageMs % CRON_INTERVAL_MS);
+
+    if(nextEl) nextEl.textContent = `下次同步約 ${secondsText(nextMs)}`;
+    if(ageEl) ageEl.textContent = `資料約 ${secondsText(ageMs)} 前更新`;
+
+    if(ageMs > STALE_AFTER_MS){
+      setStatus("● 資料可能過期", "stale");
+    }
+  }
+
+  function startCountdown(){
+    if(countdownTimer) window.clearInterval(countdownTimer);
+    updateCountdown();
+    countdownTimer = window.setInterval(updateCountdown, 1000);
+  }
+
   function applyParkingData(raw){
     const data = normalizeParkingData(raw);
 
@@ -93,13 +128,17 @@
     setValue("RD1B", data.RD1B);
     setUpdateTime(data.updatedAt);
 
+    lastDataTime = parseTaipeiTime(data.updatedAt);
+
     if(!data.online){
       setStatus("● 離線", "offline");
-    }else if(isStale(data.updatedAt)){
-      setStatus("● 資料逾時", "stale");
+    }else if(!lastDataTime || (Date.now() - lastDataTime.getTime()) > STALE_AFTER_MS){
+      setStatus("● 資料可能過期", "stale");
     }else{
-      setStatus("● GitHub 同步", "");
+      setStatus("● Live 自動同步", "live");
     }
+
+    startCountdown();
   }
 
   async function fetchJson(url){
@@ -110,12 +149,13 @@
 
   async function updateParking(){
     try{
-      setStatus("● 更新中", "syncing");
+      if(!lastDataTime) setStatus("● 讀取中", "syncing");
       const data = await fetchJson(PARKING_JSON);
       applyParkingData(data);
     }catch(err){
       console.warn("Parking data load failed", err);
       setStatus("● 離線", "offline");
+      if(nextEl) nextEl.textContent = "同步失敗，稍後重試";
     }
   }
 
