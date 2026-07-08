@@ -1,30 +1,14 @@
-[
-  {
-    "id": 1,
-    "name": "BOT",
-    "total_space": null,
-    "remaining_space": 271,
-    "updateTime": "2026-07-08 21:55:45"
-  },
-  {
-    "id": 5,
-    "name": "TSA",
-    "total_space": null,
-    "remaining_space": 208,
-    "updateTime": "2026-07-08 21:55:44"
-  },
-  {
-    "id": 6,
-    "name": "RD1 A",
-    "total_space": null,
-    "remaining_space": 29,
-    "updateTime": "2026-07-08 21:55:46"
-  },
-  {
-    "id": 7,
-    "name": "RD1 B",
-    "total_space": null,
-    "remaining_space": 16,
-    "updateTime": "2026-07-08 21:55:43"
-  }
-]
+{
+  "online": true,
+  "updatedAt": "2026-07-08 19:40:35",
+  "BOT": 272,
+  "TSA": 195,
+  "RD1A": 25,
+  "RD1B": 15,
+  "raw": [
+    {"id": 1, "name": "BOT", "total_space": null, "remaining_space": 272, "updateTime": "2026-07-08 19:40:35"},
+    {"id": 5, "name": "TSA", "total_space": null, "remaining_space": 195, "updateTime": "2026-07-08 19:40:35"},
+    {"id": 6, "name": "RD1 A", "total_space": null, "remaining_space": 25, "updateTime": "2026-07-08 19:40:36"},
+    {"id": 7, "name": "RD1 B", "total_space": null, "remaining_space": 15, "updateTime": "2026-07-08 19:40:33"}
+  ]
+}

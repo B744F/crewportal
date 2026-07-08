@@ -1,7 +1,6 @@
 {
+  "version": "v5.4.1",
+  "build": "20260708-002",
   "name": "FlightDeck Crew Portal",
-  "version": "v5.4.0",
-  "build": "20260708-004",
-  "updatedAt": "2026-07-08",
-  "notes": "Adds parking countdown, data age display, Live/Expired status logic, and smooth value update animation."
+  "notes": "Fix parking next sync display and cron countdown."
 }

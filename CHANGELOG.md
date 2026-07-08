@@ -1,3 +1,10 @@
+# Changelog
+
+## v5.4.1 - 2026-07-08
+- Fixed parking next sync display so it shows the next 5-minute cron time even before fresh data loads.
+- Added absolute next sync clock time with countdown.
+- Kept existing parking JSON fallback and live/stale status logic.
+
 # FlightDeck Changelog
 
 ## v5.4.0 - 2026-07-08

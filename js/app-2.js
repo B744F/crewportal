@@ -95,17 +95,41 @@
     return m > 0 ? `${m}分${String(s).padStart(2,"0")}秒` : `${s}秒`;
   }
 
+  function formatClock(date){
+    const hh = String(date.getHours()).padStart(2,"0");
+    const mm = String(date.getMinutes()).padStart(2,"0");
+    const ss = String(date.getSeconds()).padStart(2,"0");
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  function nextCronTime(now){
+    const next = new Date(now.getTime());
+    next.setSeconds(0, 0);
+    const minute = next.getMinutes();
+    const remainder = minute % 5;
+    if(remainder === 0 && now.getSeconds() === 0){
+      return next;
+    }
+    const addMinutes = remainder === 0 ? 5 : (5 - remainder);
+    next.setMinutes(minute + addMinutes);
+    return next;
+  }
+
   function updateCountdown(){
+    const now = new Date();
+    const next = nextCronTime(now);
+    const nextMs = next.getTime() - now.getTime();
+
+    if(nextEl){
+      nextEl.textContent = `下次同步：${formatClock(next)}（約 ${secondsText(nextMs)}）`;
+    }
+
     if(!lastDataTime){
-      if(nextEl) nextEl.textContent = "下次同步：--";
       if(ageEl) ageEl.textContent = "資料年齡：--";
       return;
     }
 
-    const ageMs = Date.now() - lastDataTime.getTime();
-    const nextMs = CRON_INTERVAL_MS - (ageMs % CRON_INTERVAL_MS);
-
-    if(nextEl) nextEl.textContent = `下次同步約 ${secondsText(nextMs)}`;
+    const ageMs = now.getTime() - lastDataTime.getTime();
     if(ageEl) ageEl.textContent = `資料約 ${secondsText(ageMs)} 前更新`;
 
     if(ageMs > STALE_AFTER_MS){
