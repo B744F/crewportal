@@ -1,5 +1,14 @@
 # FlightDeck Changelog
 
+## v5.4.0 - 2026-07-08
+- Added parking data age display.
+- Added next sync countdown for cron/GitHub Actions updates.
+- Added Live / expired / offline parking status behavior.
+- Added smooth number pulse animation when parking values change.
+- Updated footer and version metadata to v5.4.0.
+
+# FlightDeck Changelog
+
 ## v5.3.0 - 2026-07-08
 
 - Improved parking status wording from generic fallback to GitHub sync status.
