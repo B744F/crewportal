@@ -3,6 +3,8 @@
   const REFRESH_MS = 15000;
   const STALE_AFTER_MS = 10 * 60 * 1000;
   const CRON_INTERVAL_MS = 5 * 60 * 1000;
+  const STORAGE_KEY = "crewportal-parking-last-good";
+  const BUNDLED_FALLBACK = [{"name":"BOT","remaining_space":25,"updateTime":"2026-07-16 10:40:32"},{"name":"TSA","remaining_space":127,"updateTime":"2026-07-16 10:40:24"},{"name":"RD1 A","remaining_space":1,"updateTime":"2026-07-16 10:40:31"},{"name":"RD1 B","remaining_space":4,"updateTime":"2026-07-16 10:40:27"}];
 
   const els = {
     BOT: document.getElementById("parkingBOT"),
@@ -165,21 +167,53 @@
     startCountdown();
   }
 
+  function parsePossiblyConflictedJson(text){
+    try{ return JSON.parse(text); }catch(firstError){
+      // When a merge accidentally leaves Git conflict markers in parking.json,
+      // try each side independently and use the first valid JSON document.
+      if(!text.includes("<<<<<<<")) throw firstError;
+      const candidates = [];
+      const block = /<<<<<<<[^\n]*\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>>[^\n]*/g;
+      let match;
+      while((match = block.exec(text))){
+        candidates.push(match[2], match[1]);
+      }
+      for(const candidate of candidates){
+        try{ return JSON.parse(candidate.trim()); }catch(_err){}
+      }
+      throw firstError;
+    }
+  }
+
   async function fetchJson(url){
     const res = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
     if(!res.ok) throw new Error("HTTP " + res.status);
-    return await res.json();
+    return parsePossiblyConflictedJson(await res.text());
+  }
+
+  function saveLastGood(data){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(_err){}
+  }
+
+  function loadLastGood(){
+    try{
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    }catch(_err){ return null; }
   }
 
   async function updateParking(){
     try{
       if(!lastDataTime) setStatus("● 正在讀取最新資料", "syncing");
       const data = await fetchJson(PARKING_JSON);
+      saveLastGood(data);
       applyParkingData(data);
     }catch(err){
       console.warn("Parking data load failed", err);
-      setStatus("● 離線", "offline");
-      if(nextEl) nextEl.textContent = "同步失敗，稍後重試";
+      const fallback = loadLastGood() || BUNDLED_FALLBACK;
+      applyParkingData(fallback);
+      setStatus(loadLastGood() ? "● 暫存資料，等待同步" : "● 備援資料，等待同步", "stale");
+      if(nextEl) nextEl.textContent = "同步失敗，15 秒後重試";
     }
   }
 

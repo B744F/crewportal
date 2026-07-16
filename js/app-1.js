@@ -20,7 +20,9 @@ form.addEventListener('submit',(e)=>{
 function pad(n){return String(n).padStart(2,'0')}
 function updateTime(){
   const now=new Date();
-  document.getElementById('localTime').textContent=pad(now.getHours())+':'+pad(now.getMinutes());
-  document.getElementById('utcTime').textContent=pad(now.getUTCHours())+':'+pad(now.getUTCMinutes());
+  const localTime=document.getElementById('localTime');
+  const utcTime=document.getElementById('utcTime');
+  if(localTime) localTime.textContent=pad(now.getHours())+':'+pad(now.getMinutes());
+  if(utcTime) utcTime.textContent=pad(now.getUTCHours())+':'+pad(now.getUTCMinutes());
 }
 updateTime();setInterval(updateTime,30000);
