@@ -1,3 +1,8 @@
+# v5.7.3
+- 縮小首頁 ATIS、華航園區停車位與 PACIFIC HF 三個資訊區塊的垂直高度。
+- 移除 PACIFIC HF 頻率數值後方的 kHz 單位。
+- 微調標題、內距、表格列高與手機版間距，維持三欄對齊。
+
 ## v5.7.2
 - 修正 ARINC 有效日期來源：只擷取頁面最上端「Pacific HF Frequency Assignments」標題下方的 Valid from。
 - 同時抓取多個快取變體並選擇最新的有效時間，避免 CDN 舊快取造成日期落後。
