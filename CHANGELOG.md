@@ -37,3 +37,8 @@
 - Added parking display from `data/parking.json`.
 - Added Last Update display and status detection.
 - Added GitHub Actions parking workflow foundation.
+
+## v5.5.1 — 2026-07-16
+- 修正手機與直向裝置 Hero 圖被裁切的問題。
+- Hero 圖在窄螢幕改為依原始比例完整顯示，剩餘區域延續深藍背景。
+- 加入 CSS 版本參數，避免瀏覽器沿用舊快取。

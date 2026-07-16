@@ -115,3 +115,15 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .parking-pulse{animation:parkingPulse .65s ease;}
 @keyframes parkingPulse{0%{transform:scale(1);filter:brightness(1)}35%{transform:scale(1.14);filter:brightness(1.45)}100%{transform:scale(1);filter:brightness(1)}}
 @media(max-width:720px){.parking-sync-meta{font-size:10px;gap:6px}.parking-update{float:none;display:block;margin-top:4px}}
+
+/* v5.5.1 — Responsive Hero image
+   Portrait / narrow screens show the complete 16:9 Hero artwork without cropping.
+   The lower Hero area continues with the same navy background so all content remains readable. */
+@media (max-width: 900px), (orientation: portrait) {
+  .hero {
+    background-color: #03152c;
+    background-size: cover, cover, 100% auto;
+    background-position: center, center, center top;
+    background-repeat: no-repeat, no-repeat, no-repeat;
+  }
+}

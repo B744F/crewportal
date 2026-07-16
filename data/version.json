@@ -1,5 +1,5 @@
 {
-  "version": "v5.5.0",
+  "version": "v5.5.1",
   "build": "20260708-005",
   "name": "FlightDeck Crew Portal",
   "notes": "Improve parking front-end auto refresh and cache-busting for GitHub Pages."
