@@ -1,3 +1,11 @@
+## v5.7.0 — 2026-07-16
+- 在「華航園區停車位」右側新增 PACIFIC HF 資訊卡。
+- 顯示 ARINC Pacific 表格最上方有效時間。
+- 僅顯示「North America → Asia」與「Alaska/North Pacific (West of 150W)」的 Primary／Secondary；不顯示 Tertiary。
+- 新增 `data/arinc.json`、前端自動刷新與瀏覽器備援快取。
+- 新增 GitHub Actions 每 30 分鐘檢查官方資料；內容變更時自動更新網站資料。
+- 桌面版採 ATIS／停車位／PACIFIC HF 三欄，窄螢幕自動改為直向排列。
+
 ## v5.6.1 — 2026-07-16
 - 調整 Hero 上方留白，讓浮動 Logo 不再遮住「China Airlines Crew Portal」文字。
 - 修正停車資訊讀取失敗時全部顯示「--」的問題。

@@ -32,7 +32,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;background-ima
 h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;letter-spacing:-.045em;text-shadow:0 10px 30px rgba(0,0,0,.42)}
 .gold-line{margin-top:22px;color:var(--gold2);font-size:clamp(20px,2.2vw,30px);font-weight:800;letter-spacing:.02em}
 .hero-sub{font-size:clamp(18px,1.6vw,24px);margin-top:18px;color:#f2f7ff;line-height:1.4}
-.ops-row{margin-top:84px;display:grid;grid-template-columns:minmax(320px,560px) minmax(300px,500px);gap:28px;align-items:stretch;max-width:1100px}
+.ops-row{margin-top:84px;display:grid;grid-template-columns:minmax(330px,1.12fr) minmax(300px,.94fr) minmax(360px,1.02fr);gap:22px;align-items:stretch;max-width:1400px}
 .glass-panel{border:1px solid rgba(105,189,255,.40);background:linear-gradient(180deg,rgba(8,25,44,.30),rgba(4,13,24,.18));box-shadow:0 14px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.10);backdrop-filter:blur(10px);border-radius:16px;overflow:hidden}
 .atis-panel{padding:16px 18px}
 .panel-title{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:17px;font-weight:900;letter-spacing:.02em}
@@ -62,6 +62,32 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .parking-cell:last-child{border-right:0}
 .parking-cell b{display:block;color:var(--gold2);font-size:13px;margin-bottom:2px}
 .parking-cell strong{font-size:18px;letter-spacing:.04em}
+
+/* Pacific HF frequency panel */
+.arinc-panel{padding:0;min-width:0}
+.arinc-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px;gap:12px}
+.arinc-title{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:900;letter-spacing:.03em}
+.arinc-icon{min-width:34px;height:28px;padding:0 6px;border-radius:7px;display:grid;place-items:center;border:1px solid rgba(216,178,93,.75);color:var(--gold2);font-weight:1000;font-size:13px}
+.arinc-meta{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.arinc-status-dot{font-size:12px;color:#82f0a6;font-weight:800;letter-spacing:.03em}
+.arinc-status-dot.syncing{color:#ffd983}.arinc-status-dot.stale{color:#ffb45e}.arinc-status-dot.offline{color:#ff8b8b}
+.arinc-open{color:#e8d4a2;text-decoration:none;font-size:13px;letter-spacing:.04em}.arinc-open:hover{color:#fff}
+.arinc-valid{padding:0 18px 10px;color:#aab8ca;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arinc-valid strong{color:#eef7ff;font-weight:800}
+.arinc-table{border-top:1px solid rgba(255,255,255,.10)}
+.arinc-row{display:grid;grid-template-columns:minmax(170px,1fr) 76px 86px;align-items:center;min-height:42px;border-top:1px solid rgba(255,255,255,.08)}
+.arinc-row:first-child{border-top:0}
+.arinc-row>span,.arinc-row>b,.arinc-row>strong{padding:8px 10px;border-right:1px solid rgba(255,255,255,.12)}
+.arinc-row>*:last-child{border-right:0}
+.arinc-row b{font-size:12px;line-height:1.25;color:#eef7ff}
+.arinc-row b small{font-weight:650;color:#9fb0c5;font-size:10px}
+.arinc-row strong{text-align:center;font-size:16px;color:var(--gold2);letter-spacing:.03em}
+.arinc-row strong::after{content:" kHz";font-size:9px;color:#aab8ca;letter-spacing:0}
+.arinc-row strong:empty::after,.arinc-row strong[data-empty="true"]::after{content:""}
+.arinc-table-head{min-height:28px;background:rgba(255,255,255,.035);color:#9fb0c5;font-size:9px;font-weight:900;letter-spacing:.06em}
+.arinc-table-head span:nth-child(n+2){text-align:center}
+.arinc-pulse{animation:parkingPulse .65s ease}
+
 .quick-wrap{position:relative;z-index:3;margin-top:-4px;padding:34px 0 10px;background:linear-gradient(180deg,rgba(3,9,20,.70),rgba(3,9,20,0))}
 .section-title-center{display:flex;align-items:center;justify-content:center;gap:34px;color:var(--gold2);font-size:26px;font-weight:900;letter-spacing:.16em;margin:0 0 28px;text-transform:uppercase}
 .section-title-center::before,.section-title-center::after{content:"";height:1px;width:150px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
@@ -91,8 +117,8 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .footer{border-top:1px solid rgba(255,255,255,.12);padding:28px 0 36px;color:#aebbd0;background:rgba(0,0,0,.12)}
 .footer .shell{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
 .footer b{color:#d9e9ff}
-@media(max-width:1150px){.nav-links{display:none}.ops-row{grid-template-columns:1fr;max-width:760px;margin-top:54px}.quick-grid{grid-template-columns:repeat(3,1fr)}.category-grid{grid-template-columns:1fr}.resource-section.wide{grid-column:auto}}
-@media(max-width:720px){.shell{width:min(100% - 24px,1440px)}.nav{height:auto;padding:10px 0}.brand-logo{width:54px;height:54px}.brand-mark b{font-size:22px}.brand-mark span{font-size:12px}.header-time{display:none}.hero{min-height:auto}.hero-grid{padding:70px 0 28px;min-height:auto}h1{font-size:42px}.gold-line{font-size:20px}.hero-sub{font-size:17px}.ops-row{margin-top:42px;gap:18px}.atis-panel{padding:14px}.parking-head{padding:14px}.atis-form{grid-template-columns:64px 1fr;grid-template-rows:44px 44px;height:auto}.atis-button{grid-column:1/3;border-left:0;border-top:1px solid rgba(216,178,93,.75)}.section-title-center{font-size:20px;gap:14px}.section-title-center::before,.section-title-center::after{width:50px}.quick-grid{grid-template-columns:repeat(2,1fr);gap:12px}.quick-card{min-height:168px}.category-grid{gap:14px}}
+@media(max-width:1250px){.nav-links{display:none}.ops-row{grid-template-columns:1fr;max-width:760px;margin-top:54px}.quick-grid{grid-template-columns:repeat(3,1fr)}.category-grid{grid-template-columns:1fr}.resource-section.wide{grid-column:auto}}
+@media(max-width:720px){.shell{width:min(100% - 24px,1440px)}.nav{height:auto;padding:10px 0}.brand-logo{width:54px;height:54px}.brand-mark b{font-size:22px}.brand-mark span{font-size:12px}.header-time{display:none}.hero{min-height:auto}.hero-grid{padding:70px 0 28px;min-height:auto}h1{font-size:42px}.gold-line{font-size:20px}.hero-sub{font-size:17px}.ops-row{margin-top:42px;gap:18px}.atis-panel{padding:14px}.parking-head,.arinc-head{padding:14px}.arinc-row{grid-template-columns:minmax(150px,1fr) 74px 82px}.atis-form{grid-template-columns:64px 1fr;grid-template-rows:44px 44px;height:auto}.atis-button{grid-column:1/3;border-left:0;border-top:1px solid rgba(216,178,93,.75)}.section-title-center{font-size:20px;gap:14px}.section-title-center::before,.section-title-center::after{width:50px}.quick-grid{grid-template-columns:repeat(2,1fr);gap:12px}.quick-card{min-height:168px}.category-grid{gap:14px}}
 
 .parking-cell strong.parking-ok{color:#88f0aa;}
 .parking-cell strong.parking-warn{color:#ffd36a;}

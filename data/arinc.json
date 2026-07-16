@@ -1,0 +1,12 @@
+{
+  "source": "https://radio.arinc.net/pacific/",
+  "validFrom": "June 3, 2026, 0525Z",
+  "northAmericaAsia": {
+    "primary": 11282,
+    "secondary": 5547
+  },
+  "alaskaNorthPacific": {
+    "primary": 17946,
+    "secondary": 10048
+  }
+}

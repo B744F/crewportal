@@ -7,7 +7,7 @@
 <title>FlightDeck｜China Airlines Crew Portal</title>
 <meta content="FlightDeck - China Airlines flight crew resource portal with quick links, ATIS access, weather, ATC, AI tools, and operational resources." name="description"/>
 <link href="images/flightdeck-logo.webp" rel="icon" type="image/png"/>
-<link href="css/style.css?v=5.6.1" rel="stylesheet"/>
+<link href="css/style.css?v=5.7.0" rel="stylesheet"/>
 </head>
 <body>
 <main id="top">
@@ -36,6 +36,18 @@
 <div class="parking-head"><div class="parking-title"><span class="parking-icon">P</span><span>華航園區停車位</span></div><div class="parking-meta"><span class="parking-status-dot" id="parkingStatus">● GitHub 同步</span><a class="parking-open" href="http://1.34.202.50:9130/huahang_spaces.html" rel="noopener noreferrer" target="_blank">查看 ↗</a></div></div>
 <div class="parking-body">剩餘車位 <span class="parking-update">Last Update：<span id="parkingUpdateTime">--</span></span><div class="parking-sync-meta"><span id="parkingNextUpdate">下次同步：--</span><span id="parkingAge">資料年齡：--</span></div></div>
 <div class="parking-grid"><div class="parking-cell"><b>BOT</b><strong id="parkingBOT">--</strong></div><div class="parking-cell"><b>TSA</b><strong id="parkingTSA">--</strong></div><div class="parking-cell"><b>RD1A</b><strong id="parkingRD1A">--</strong></div><div class="parking-cell"><b>RD1B</b><strong id="parkingRD1B">--</strong></div></div>
+</section>
+<section aria-label="Pacific HF 頻率" class="glass-panel arinc-panel">
+<div class="arinc-head">
+  <div class="arinc-title"><span class="arinc-icon">HF</span><span>PACIFIC HF</span></div>
+  <div class="arinc-meta"><span class="arinc-status-dot" id="arincStatus">● 同步資料</span><a class="arinc-open" href="https://radio.arinc.net/pacific/" rel="noopener noreferrer" target="_blank">查看 ↗</a></div>
+</div>
+<div class="arinc-valid">有效時間 <strong id="arincValidFrom">--</strong></div>
+<div class="arinc-table" role="table" aria-label="Pacific HF frequency assignments">
+  <div class="arinc-row arinc-table-head" role="row"><span>區域</span><span>PRIMARY</span><span>SECONDARY</span></div>
+  <div class="arinc-row" role="row"><b>North America → Asia</b><strong id="arincNorthAmericaPrimary">--</strong><strong id="arincNorthAmericaSecondary">--</strong></div>
+  <div class="arinc-row" role="row"><b>Alaska / North Pacific<br/><small>West of 150W</small></b><strong id="arincAlaskaPrimary">--</strong><strong id="arincAlaskaSecondary">--</strong></div>
+</div>
 </section>
 </div>
 </div>
@@ -193,13 +205,14 @@
       <span>China Airlines Crew Portal</span>
     </div>
     <div class="footer-version" aria-label="Version information">
-      <span class="version-pill">Version v5.6.1</span>
-      <span>Build 20260716-007</span>
+      <span class="version-pill">Version v5.7.0</span>
+      <span>Build 20260716-008</span>
       <span>Designed for Flight Crew</span>
     </div>
   </div>
 </footer>
-<script src="js/app-1.js?v=5.6.1"></script>
-<script src="js/app-2.js?v=5.6.1"></script>
+<script src="js/app-1.js?v=5.7.0"></script>
+<script src="js/app-2.js?v=5.7.0"></script>
+<script src="js/app-3.js?v=5.7.0"></script>
 </body>
 </html>
