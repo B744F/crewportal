@@ -95,6 +95,22 @@
     }
   }
 
+  async function updateFooterVersion(){
+    const versionEl = document.getElementById("footerVersion");
+    const buildEl = document.getElementById("footerBuild");
+    if(!versionEl && !buildEl) return;
+    try{
+      const response = await fetch("data/version.json?t=" + Date.now(), { cache:"no-store" });
+      if(!response.ok) throw new Error("HTTP " + response.status);
+      const meta = await response.json();
+      if(versionEl && meta.version) versionEl.textContent = `Version v${meta.version}`;
+      if(buildEl && meta.build) buildEl.textContent = `Build ${meta.build}`;
+    }catch(error){
+      console.warn("Version metadata load failed", error);
+    }
+  }
+
+  updateFooterVersion();
   update();
   window.setInterval(update, REFRESH_MS);
   document.addEventListener("visibilitychange", () => { if(!document.hidden) update(); });
