@@ -3,7 +3,8 @@
   const REFRESH_MS = 5 * 60 * 1000;
   const STORAGE_KEY = "crewportal-arinc-last-good";
   const FALLBACK = {
-    validFrom: "June 3, 2026, 0525Z",
+    validFrom: "July 16, 2026, 1300Z",
+    validFromUtc: "2026-07-16T13:00:00Z",
     northAmericaAsia: { primary: 11282, secondary: 5547 },
     alaskaNorthPacific: { primary: 17946, secondary: 10048 }
   };
@@ -35,9 +36,25 @@
     if(frequency) el.dataset.empty = text === "--" ? "true" : "false";
   }
 
+  function formatValidTime(data){
+    const iso = data?.validFromUtc;
+    if(!iso) return data?.validFrom || "--";
+    const date = new Date(iso);
+    if(Number.isNaN(date.getTime())) return data?.validFrom || "--";
+    const utc = new Intl.DateTimeFormat("zh-TW", {
+      timeZone:"UTC", year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", hour12:false
+    }).format(date);
+    const taipei = new Intl.DateTimeFormat("zh-TW", {
+      timeZone:"Asia/Taipei", year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", hour12:false
+    }).format(date);
+    return `${utc} UTC｜台灣 ${taipei}`;
+  }
+
   function normalize(data){
     return {
-      validFrom: data?.validFrom || "--",
+      validFrom: formatValidTime(data),
       northAmericaAsia: {
         primary: data?.northAmericaAsia?.primary ?? "--",
         secondary: data?.northAmericaAsia?.secondary ?? "--"

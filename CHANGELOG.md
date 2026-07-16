@@ -1,3 +1,13 @@
+## v5.7.2
+- 修正 ARINC 有效日期來源：只擷取頁面最上端「Pacific HF Frequency Assignments」標題下方的 Valid from。
+- 同時抓取多個快取變體並選擇最新的有效時間，避免 CDN 舊快取造成日期落後。
+- 初始有效時間更新為 July 16, 2026, 1300Z。
+
+## v5.7.1
+- 修正 ARINC 生效時間：辨識 Zulu/UTC 並同步顯示台灣時間（UTC+8）。
+- ARINC 抓取加入 cache-busting 與 no-cache headers，降低取得舊快取資料的機率。
+- JSON 新增 validFromUtc 與 fetchedAtUtc。
+
 ## v5.7.0 — 2026-07-16
 - 在「華航園區停車位」右側新增 PACIFIC HF 資訊卡。
 - 顯示 ARINC Pacific 表格最上方有效時間。

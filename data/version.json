@@ -1,6 +1,6 @@
 {
-  "version": "v5.7.0",
-  "build": "20260716-008",
+  "version": "v5.7.2",
+  "build": "20260716-010",
   "name": "FlightDeck Crew Portal",
-  "notes": "Added automatically synchronized ARINC Pacific HF validity and Primary/Secondary assignments for North America to Asia and Alaska/North Pacific."
+  "notes": "Fixed ARINC validity extraction to use the page header and select the newest response across cache variants."
 }
