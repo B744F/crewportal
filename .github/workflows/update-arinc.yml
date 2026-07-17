@@ -1,0 +1,37 @@
+name: Update ARINC Pacific HF
+
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-arinc-pacific
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Fetch latest ARINC assignments
+        run: python3 scripts/update_arinc.py
+
+      - name: Commit changed assignments
+        run: |
+          if git diff --quiet -- data/arinc.json; then
+            echo "No ARINC changes detected."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/arinc.json
+          git commit -m "Update ARINC Pacific HF assignments"
+          git push origin HEAD:main
