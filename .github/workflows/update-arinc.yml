@@ -15,23 +15,39 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
-      - name: Checkout repository
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
 
-      - name: Fetch latest ARINC assignments
-        run: python3 scripts/update_arinc.py
+      - name: Fetch latest assignment
+        shell: bash
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            echo "ARINC fetch attempt ${attempt}/3"
+            if python3 scripts/update_arinc.py; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 60
+          done
 
-      - name: Commit changed assignments
+      - name: Commit data heartbeat
+        shell: bash
         run: |
           if git diff --quiet -- data/arinc.json; then
-            echo "No ARINC changes detected."
+            echo "No file change detected."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/arinc.json
-          git commit -m "Update ARINC Pacific HF assignments"
+          git commit -m "Update ARINC Pacific HF data"
+          git pull --rebase origin main
           git push origin HEAD:main
