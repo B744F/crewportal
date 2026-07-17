@@ -277,6 +277,7 @@ def main() -> int:
         "validFrom": selected["valid_raw"],
         "validFromUtc": selected["valid_dt"].isoformat().replace("+00:00", "Z"),
         "fetchedAtUtc": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "checkedAtUtc": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
         "northAmericaAsia": {"primary": selected["na"][0], "secondary": selected["na"][1]},
         "alaskaNorthPacific": {"primary": selected["ak"][0], "secondary": selected["ak"][1]},
         "diagnostics": [
@@ -290,10 +291,11 @@ def main() -> int:
         ],
     }
 
-    comparable = ("validFromUtc", "northAmericaAsia", "alaskaNorthPacific")
-    if previous and all(previous.get(k) == data.get(k) for k in comparable):
-        print(f"Assignments unchanged ({data['validFrom']}); no repository write needed.")
-        return 0
+    # Always publish the latest successful check timestamp, even when the
+    # assignment itself is unchanged. This keeps the monitoring dashboard
+    # truthful and distinguishes bulletin age from workflow health.
+    if previous:
+        data["firstFetchedAtUtc"] = previous.get("firstFetchedAtUtc") or previous.get("fetchedAtUtc") or data["fetchedAtUtc"]
 
     OUTPUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Selected {selected['route']} with {selected['agreementCount']} agreeing route(s): {data['validFrom']}")

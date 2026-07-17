@@ -23,10 +23,10 @@
     $("systemParkingLast").textContent=pt?clock(pt):"--";$("systemParkingAge").textContent=ageText(pa);$("systemParkingNext").textContent=clock(nextSlot(PARKING_INTERVAL));
     $("systemGithubParking").textContent=state.parking?"Loaded":"Unavailable";
 
-    const af=dateOf(state.arinc?.fetchedAtUtc),vf=dateOf(state.arinc?.validFromUtc);
+    const af=dateOf(state.arinc?.checkedAtUtc||state.arinc?.fetchedAtUtc),vf=dateOf(state.arinc?.validFromUtc);
     const arincLevel=state.arinc?"normal":"offline";
     setState("systemArincState",state.arinc?"Normal":"Offline",arincLevel);
-    $("systemArincValid").textContent=vf?clock(vf,true):"--";$("systemArincLast").textContent=af?clock(af,true):"--";$("systemArincNext").textContent=clock(nextSlot(ARINC_INTERVAL),true);
+    $("systemArincValid").textContent=vf?new Intl.DateTimeFormat("zh-TW",{timeZone:"UTC",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(vf)+" UTC":"--";$("systemArincLast").textContent=af?clock(af,true):"--";$("systemArincNext").textContent=clock(nextSlot(ARINC_INTERVAL),true);
     $("systemGithubArinc").textContent=state.arinc?"Loaded":"Unavailable";$("systemCheckedAt").textContent=clock(new Date());
     $("diagParkingSource").textContent=PARKING_URL;$("diagParkingHttp").textContent=state.parkingHttp;$("diagArincRoute").textContent=state.arinc?.route||"--";$("diagArincHttp").textContent=state.arincHttp;
     const levels=[parkingLevel,arincLevel];
