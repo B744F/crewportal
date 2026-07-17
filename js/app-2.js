@@ -4,7 +4,7 @@
   const STALE_AFTER_MS = 10 * 60 * 1000;
   const CRON_INTERVAL_MS = 5 * 60 * 1000;
   const STORAGE_KEY = "crewportal-parking-last-good";
-  const BUNDLED_FALLBACK = [{"name":"BOT","remaining_space":25,"updateTime":"2026-07-16 10:40:32"},{"name":"TSA","remaining_space":127,"updateTime":"2026-07-16 10:40:24"},{"name":"RD1 A","remaining_space":1,"updateTime":"2026-07-16 10:40:31"},{"name":"RD1 B","remaining_space":4,"updateTime":"2026-07-16 10:40:27"}];
+  const BUNDLED_FALLBACK = [{"name":"BOT","remaining_space":65,"updateTime":"2026-07-17 09:20:17"},{"name":"TSA","remaining_space":130,"updateTime":"2026-07-17 09:20:19"},{"name":"RD1 A","remaining_space":9,"updateTime":"2026-07-17 09:20:16"},{"name":"RD1 B","remaining_space":7,"updateTime":"2026-07-17 09:20:17"}];
 
   const els = {
     BOT: document.getElementById("parkingBOT"),

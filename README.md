@@ -1,4 +1,4 @@
-# CrewPortal v6.1.1
+# CrewPortal v6.1.2
 
 GitHub Pages 版本。
 
@@ -20,3 +20,9 @@ GitHub Pages 版本。
 ## ARINC 更新排程
 - GitHub Actions 於 UTC 每小時 00、15、30、45 分檢查一次。
 - 網頁會在每個 UTC 15 分鐘節點後約 5 秒重新讀取最新資料，並在回到分頁或視窗取得焦點時再次檢查。
+
+
+## v6.1.2 deployment safety
+- `data/parking.json` is intentionally excluded from this update package.
+- Dragging the update files to GitHub will therefore preserve the live parking file maintained by the parking updater.
+- Do not manually upload an old `data/parking.json`, because it can overwrite current parking availability.

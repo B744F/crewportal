@@ -1,3 +1,8 @@
+## v6.1.2
+- Prevent website update packages from overwriting live `data/parking.json`.
+- Refresh bundled emergency fallback with the latest verified parking snapshot.
+- Keep Pacific HF and parking update paths isolated.
+
 # Changelog
 
 ## v6.1 — 2026-07-17
