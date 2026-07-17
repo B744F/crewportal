@@ -1,18 +1,3 @@
-# CrewPortal v6.3.2 Hotfix
-
-- Separate ARINC bulletin effective time from workflow check time.
-- Add `checkedAtUtc` and publish it after every successful 15-minute check.
-- Show the complete UTC date and time for Pacific HF Valid From.
-- Use `checkedAtUtc` for System Status Last Check.
-- Upgrade GitHub checkout action to v5.
-- Version v6.3.2 / Build 20260717-025.
-
-## v6.3.1 Hotfix
-- Restored data/parking.json so GitHub Pages no longer returns HTTP 404.
-- Monitoring now reads the same local JSON files as the main cards.
-- Pacific HF is no longer marked delayed merely because the official bulletin did not change.
-- Version updated to v6.3.1 / Build 20260717-024.
-
 # Changelog
 
 ## v6.2 — Build 20260717-022

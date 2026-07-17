@@ -1,9 +1,3 @@
-## v6.3.1 Hotfix
-- Restored data/parking.json so GitHub Pages no longer returns HTTP 404.
-- Monitoring now reads the same local JSON files as the main cards.
-- Pacific HF is no longer marked delayed merely because the official bulletin did not change.
-- Version updated to v6.3.1 / Build 20260717-024.
-
 # FlightDeck Crew Portal v6.2
 
 Long-term stable GitHub Pages package.
