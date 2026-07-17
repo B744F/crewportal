@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Fetch and publish the newest ARINC Pacific HF assignment for GitHub Pages.
 
-Runs from GitHub Actions at UTC minute 05. Multiple independent routes are
-queried because ARINC edge caches may disagree. The newest complete assignment
-is selected. Only Primary and Secondary are stored.
+v6.0.1: routes are fetched concurrently with strict per-request timeouts so a
+slow public proxy cannot stall the GitHub Actions job.
 """
 from __future__ import annotations
 
@@ -12,6 +11,7 @@ import json
 import re
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -19,7 +19,8 @@ from urllib.request import Request, urlopen
 
 SOURCE = "https://radio.arinc.net/pacific/"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "arinc.json"
-TIMEOUT = 40
+REQUEST_TIMEOUT = 10
+MAX_WORKERS = 8
 
 
 def page_text(markup: str) -> str:
@@ -62,12 +63,21 @@ def request_text(url: str, *, json_wrapper: bool = False) -> str:
         "Cache-Control": "no-cache, no-store, max-age=0",
         "Pragma": "no-cache",
     })
-    with urlopen(req, timeout=TIMEOUT) as response:
+    with urlopen(req, timeout=REQUEST_TIMEOUT) as response:
         body = response.read().decode("utf-8", errors="replace")
     if json_wrapper:
         payload = json.loads(body)
         body = payload.get("contents") or payload.get("body") or ""
     return body
+
+
+def fetch_route(route: tuple[str, str, bool]) -> dict:
+    name, url, wrapped = route
+    text = page_text(request_text(url, json_wrapper=wrapped))
+    valid_raw, valid_dt = parse_valid_from(text)
+    na = frequencies(text, r"North\s+America\s*(?:→|&rarr;|->|to)\s*Asia")
+    ak = frequencies(text, r"Alaska/North\s+Pacific\s*\(West\s+of\s+150W\)")
+    return {"route": name, "valid_raw": valid_raw, "valid_dt": valid_dt, "na": na, "ak": ak}
 
 
 def fetch_candidates() -> list[dict]:
@@ -83,49 +93,59 @@ def fetch_candidates() -> list[dict]:
         ("allorigins", f"https://api.allorigins.win/get?url={encoded}%3Fcrewportal%3D{stamp}", True),
         ("corsproxy", f"https://corsproxy.io/?url={encoded}%3Fcrewportal%3D{stamp}", False),
     ]
-    parsed=[]
-    for name,url,wrapped in routes:
-        try:
-            text=page_text(request_text(url,json_wrapper=wrapped))
-            valid_raw,valid_dt=parse_valid_from(text)
-            na=frequencies(text,r"North\s+America\s*(?:→|&rarr;|->|to)\s*Asia")
-            ak=frequencies(text,r"Alaska/North\s+Pacific\s*\(West\s+of\s+150W\)")
-            parsed.append({"route":name,"valid_raw":valid_raw,"valid_dt":valid_dt,"na":na,"ak":ak})
-            print(f"Candidate {name}: {valid_raw} | NA {na[0]}/{na[1]} | AK {ak[0]}/{ak[1]}")
-        except Exception as exc:
-            print(f"Route {name} unavailable: {exc}",file=sys.stderr)
+
+    parsed: list[dict] = []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(fetch_route, route): route[0] for route in routes}
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                item = future.result()
+                parsed.append(item)
+                print(f"Candidate {name}: {item['valid_raw']} | NA {item['na'][0]}/{item['na'][1]} | AK {item['ak'][0]}/{item['ak'][1]}")
+            except Exception as exc:
+                print(f"Route {name} unavailable: {exc}", file=sys.stderr)
     return parsed
 
 
 def main() -> int:
-    candidates=fetch_candidates()
+    candidates = fetch_candidates()
     if not candidates:
         raise RuntimeError("No complete ARINC response was available")
-    newest=max(candidates,key=lambda x:x["valid_dt"])
-    now=datetime.now(timezone.utc)
-    data={
-        "schemaVersion":2,
-        "source":SOURCE,
-        "route":newest["route"],
-        "validFrom":newest["valid_raw"],
-        "validFromUtc":newest["valid_dt"].isoformat().replace("+00:00","Z"),
-        "fetchedAtUtc":now.isoformat(timespec="seconds").replace("+00:00","Z"),
-        "northAmericaAsia":{"primary":newest["na"][0],"secondary":newest["na"][1]},
-        "alaskaNorthPacific":{"primary":newest["ak"][0],"secondary":newest["ak"][1]},
-        "diagnostics":[{"route":c["route"],"validFrom":c["valid_raw"]} for c in sorted(candidates,key=lambda x:x["valid_dt"],reverse=True)],
+    newest = max(candidates, key=lambda x: x["valid_dt"])
+    now = datetime.now(timezone.utc)
+    data = {
+        "schemaVersion": 2,
+        "source": SOURCE,
+        "route": newest["route"],
+        "validFrom": newest["valid_raw"],
+        "validFromUtc": newest["valid_dt"].isoformat().replace("+00:00", "Z"),
+        "fetchedAtUtc": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "northAmericaAsia": {"primary": newest["na"][0], "secondary": newest["na"][1]},
+        "alaskaNorthPacific": {"primary": newest["ak"][0], "secondary": newest["ak"][1]},
+        "diagnostics": [
+            {"route": c["route"], "validFrom": c["valid_raw"]}
+            for c in sorted(candidates, key=lambda x: x["valid_dt"], reverse=True)
+        ],
     }
-    previous=None
+    previous = None
     if OUTPUT.exists():
-        try: previous=json.loads(OUTPUT.read_text(encoding="utf-8"))
-        except Exception: pass
-    keys=("validFromUtc","northAmericaAsia","alaskaNorthPacific")
-    if previous and all(previous.get(k)==data.get(k) for k in keys):
-        # Still refresh fetchedAtUtc and diagnostics, so the site can prove the schedule ran.
-        previous.update({"route":data["route"],"fetchedAtUtc":data["fetchedAtUtc"],"diagnostics":data["diagnostics"],"schemaVersion":2})
-        OUTPUT.write_text(json.dumps(previous,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+        try:
+            previous = json.loads(OUTPUT.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    keys = ("validFromUtc", "northAmericaAsia", "alaskaNorthPacific")
+    if previous and all(previous.get(k) == data.get(k) for k in keys):
+        previous.update({
+            "route": data["route"],
+            "fetchedAtUtc": data["fetchedAtUtc"],
+            "diagnostics": data["diagnostics"],
+            "schemaVersion": 2,
+        })
+        OUTPUT.write_text(json.dumps(previous, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"Assignments unchanged; heartbeat refreshed ({data['validFrom']})")
         return 0
-    OUTPUT.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    OUTPUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Selected {newest['route']}: {data['validFrom']}")
     return 0
 
@@ -134,5 +154,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        print(f"ARINC update failed: {exc}",file=sys.stderr)
+        print(f"ARINC update failed: {exc}", file=sys.stderr)
         raise

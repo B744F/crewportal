@@ -1,4 +1,4 @@
-# CrewPortal v6.0
+# CrewPortal v6.0.1
 
 GitHub Pages 版本。
 
