@@ -7,7 +7,7 @@
 <title>FlightDeck｜China Airlines Crew Portal</title>
 <meta content="FlightDeck - China Airlines flight crew resource portal with quick links, ATIS access, weather, ATC, AI tools, and operational resources." name="description"/>
 <link href="images/flightdeck-logo.webp" rel="icon" type="image/png"/>
-<link href="css/style.css?v=6.1" rel="stylesheet"/>
+<link href="css/style.css?v=6.3" rel="stylesheet"/>
 </head>
 <body>
 <main id="top">
@@ -198,6 +198,41 @@
 </div>
 </div>
 </main>
+<section class="system-status-wrap" aria-label="System Status 系統資訊">
+  <div class="shell">
+    <details class="system-status-panel" open>
+      <summary>
+        <span class="system-status-title"><span class="system-dot" id="systemOverallDot"></span><span>System Status</span><small>系統資訊</small></span>
+        <span class="system-overall" id="systemOverallText">正在檢查…</span>
+      </summary>
+      <div class="system-status-grid">
+        <article class="system-status-card">
+          <div class="system-card-head"><span>Parking</span><strong id="systemParkingState">Checking</strong></div>
+          <dl><div><dt>Last Sync</dt><dd id="systemParkingLast">--</dd></div><div><dt>Age</dt><dd id="systemParkingAge">--</dd></div><div><dt>Next Sync</dt><dd id="systemParkingNext">--</dd></div></dl>
+        </article>
+        <article class="system-status-card">
+          <div class="system-card-head"><span>Pacific HF</span><strong id="systemArincState">Checking</strong></div>
+          <dl><div><dt>Valid From</dt><dd id="systemArincValid">--</dd></div><div><dt>Last Check</dt><dd id="systemArincLast">--</dd></div><div><dt>Next Check</dt><dd id="systemArincNext">--</dd></div></dl>
+        </article>
+        <article class="system-status-card">
+          <div class="system-card-head"><span>GitHub Data</span><strong id="systemGithubState">Checking</strong></div>
+          <dl><div><dt>Parking JSON</dt><dd id="systemGithubParking">--</dd></div><div><dt>ARINC JSON</dt><dd id="systemGithubArinc">--</dd></div><div><dt>Checked</dt><dd id="systemCheckedAt">--</dd></div></dl>
+        </article>
+      </div>
+      <details class="system-advanced">
+        <summary>Advanced Diagnostics</summary>
+        <div class="system-diagnostics">
+          <div><b>Parking source</b><span id="diagParkingSource">--</span></div>
+          <div><b>Parking HTTP</b><span id="diagParkingHttp">--</span></div>
+          <div><b>ARINC route</b><span id="diagArincRoute">--</span></div>
+          <div><b>ARINC HTTP</b><span id="diagArincHttp">--</span></div>
+          <div><b>Browser cache</b><span id="diagCache">No-store requests</span></div>
+          <div><b>Version</b><span id="diagVersion">v6.3 · 20260717-023</span></div>
+        </div>
+      </details>
+    </details>
+  </div>
+</section>
 <footer class="footer">
   <div class="shell footer-shell">
     <div class="footer-brand">
@@ -205,14 +240,15 @@
       <span>China Airlines Crew Portal</span>
     </div>
     <div class="footer-version" aria-label="Version information">
-      <span class="version-pill" id="footerVersion">Version v6.1.3</span>
-      <span id="footerBuild">Build 20260717-021</span>
+      <span class="version-pill" id="footerVersion">Version v6.3</span>
+      <span id="footerBuild">Build 20260717-023</span>
       <span>Designed for Flight Crew</span>
     </div>
   </div>
 </footer>
-<script src="js/app-1.js?v=6.1"></script>
-<script src="js/app-2.js?v=6.1"></script>
-<script src="js/app-3.js?v=6.1"></script>
+<script src="js/app-1.js?v=6.3"></script>
+<script src="js/app-2.js?v=6.3"></script>
+<script src="js/app-3.js?v=6.3"></script>
+<script src="js/app-4.js?v=6.3"></script>
 </body>
 </html>
