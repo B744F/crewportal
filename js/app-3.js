@@ -1,5 +1,5 @@
 (function(){
-  const VERSION = "6.3";
+  const VERSION = "6.3.1";
   const RAW_ARINC = "https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
   const LOCAL_ARINC = "data/arinc.json";
   const REFRESH_MS = 15 * 60 * 1000;
@@ -57,12 +57,10 @@
     if(available.length){
       const newest=available.sort((a,b)=>validDate(b)-validDate(a))[0];
       apply(newest); save(newest);
-      const fetched=new Date(newest.fetchedAtUtc||0);
-      const age=Number.isNaN(fetched.getTime())?Infinity:(Date.now()-fetched.getTime())/3600000;
       const fromRaw=settled[0].status==="fulfilled" && newest===settled[0].value;
       const diagnostics=(newest.diagnostics||[]).map(x=>`${x.route}: ${x.validFrom}`).join("\n");
-      const title=[`資料來源：${fromRaw?"GitHub 儲存庫即時檔":"網站備援檔"}`,newest.fetchedAtUtc?`最後檢查：${newest.fetchedAtUtc}`:"",diagnostics].filter(Boolean).join("\n");
-      setStatus(age>2.5?"● 排程可能延遲":(fromRaw?"● GitHub 即時同步":"● 網站檔案同步"),age>2.5?"stale":"live",title);
+      const title=[`資料來源：${fromRaw?"GitHub 儲存庫即時檔":"網站備援檔"}`,newest.fetchedAtUtc?`最後成功檢查：${newest.fetchedAtUtc}`:"",diagnostics].filter(Boolean).join("\n");
+      setStatus(fromRaw?"● GitHub 即時同步":"● 網站檔案同步","live",title);
       return;
     }
     const cached=load();
