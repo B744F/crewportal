@@ -4,6 +4,27 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+    inputs:
+      valid_from:
+        description: "Optional verified UTC bulletin time: YYYY-MM-DD HHMMZ"
+        required: false
+        type: string
+      north_america_primary:
+        description: "Optional North America → Asia primary"
+        required: false
+        type: string
+      north_america_secondary:
+        description: "Optional North America → Asia secondary"
+        required: false
+        type: string
+      alaska_primary:
+        description: "Optional Alaska/North Pacific primary"
+        required: false
+        type: string
+      alaska_secondary:
+        description: "Optional Alaska/North Pacific secondary"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -25,6 +46,12 @@ jobs:
 
       - name: Fetch and validate complete assignment
         shell: bash
+        env:
+          ARINC_OVERRIDE_VALID_FROM: ${{ inputs.valid_from }}
+          ARINC_OVERRIDE_NA_PRIMARY: ${{ inputs.north_america_primary }}
+          ARINC_OVERRIDE_NA_SECONDARY: ${{ inputs.north_america_secondary }}
+          ARINC_OVERRIDE_AK_PRIMARY: ${{ inputs.alaska_primary }}
+          ARINC_OVERRIDE_AK_SECONDARY: ${{ inputs.alaska_secondary }}
         run: timeout 45s python3 scripts/update_arinc.py
 
       - name: Publish verified ARINC data safely

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import sys
 import time
@@ -151,6 +152,55 @@ def parse_assignment(markup: str) -> dict:
     return {"valid_raw": valid_raw, "valid_dt": valid_dt, "na": na, "ak": ak}
 
 
+
+def iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def parse_override() -> dict | None:
+    """Read an optional verified manual assignment from workflow inputs.
+
+    Automatic fetching remains the default. The override is a recovery path for
+    the known upstream CDN-cache problem where browsers and server-side clients
+    can receive different bulletins. All six values must be supplied together.
+    """
+    fields = {
+        "valid": os.getenv("ARINC_OVERRIDE_VALID_FROM", "").strip(),
+        "na_primary": os.getenv("ARINC_OVERRIDE_NA_PRIMARY", "").strip(),
+        "na_secondary": os.getenv("ARINC_OVERRIDE_NA_SECONDARY", "").strip(),
+        "ak_primary": os.getenv("ARINC_OVERRIDE_AK_PRIMARY", "").strip(),
+        "ak_secondary": os.getenv("ARINC_OVERRIDE_AK_SECONDARY", "").strip(),
+    }
+    supplied = [bool(v) for v in fields.values()]
+    if not any(supplied):
+        return None
+    if not all(supplied):
+        raise RuntimeError("Manual override requires valid-from and all four frequencies")
+
+    raw = fields["valid"]
+    accepted = None
+    for fmt in ("%Y-%m-%d %H%MZ", "%Y-%m-%dT%H:%MZ", "%B %d, %Y, %H%MZ"):
+        try:
+            accepted = datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
+            break
+        except ValueError:
+            pass
+    if accepted is None:
+        raise RuntimeError("Invalid override time; use YYYY-MM-DD HHMMZ")
+
+    na = (number_from_cell(fields["na_primary"]), number_from_cell(fields["na_secondary"]))
+    ak = (number_from_cell(fields["ak_primary"]), number_from_cell(fields["ak_secondary"]))
+    if na[0] == na[1] or ak[0] == ak[1]:
+        raise RuntimeError("Manual override primary and secondary must differ")
+    return {
+        "valid_raw": accepted.strftime("%B %-d, %Y, %H%MZ"),
+        "valid_dt": accepted,
+        "na": na,
+        "ak": ak,
+        "route": "verified-manual-override",
+        "agreementCount": 1,
+    }
+
 def request_text(url: str, *, json_wrapper: bool = False) -> str:
     req = Request(
         url,
@@ -260,24 +310,51 @@ def load_previous() -> dict | None:
 
 def main() -> int:
     previous = load_previous()
-    candidates = fetch_candidates()
-    selected = choose_candidate(candidates, previous)
-    if selected is None:
-        if previous:
-            print("No safe replacement selected; existing verified assignment retained.")
-            return 0
-        raise RuntimeError("No complete ARINC response was available")
+    override = parse_override()
+    candidates: list[dict] = []
 
-    now = datetime.now(timezone.utc)
+    if override is not None:
+        selected = override
+        print("Using complete verified manual override from workflow inputs.")
+    else:
+        candidates = fetch_candidates()
+        selected = choose_candidate(candidates, previous)
+
+    now_text = iso_now()
+
+    # If every route is unavailable or only returns an older cached bulletin,
+    # retain the last verified assignment but still publish an honest check
+    # timestamp and status. This prevents an old CDN response from rolling back
+    # correct data while keeping the monitoring dashboard current.
+    if selected is None:
+        if not previous:
+            raise RuntimeError("No complete ARINC response was available")
+        data = dict(previous)
+        data["checkedAtUtc"] = now_text
+        data["fetchStatus"] = "upstream-stale-cache" if candidates else "source-unavailable"
+        data["diagnostics"] = [
+            {
+                "route": c["route"],
+                "validFrom": c["valid_raw"],
+                "northAmericaAsia": list(c["na"]),
+                "alaskaNorthPacific": list(c["ak"]),
+            }
+            for c in sorted(candidates, key=lambda x: x["valid_dt"], reverse=True)
+        ]
+        OUTPUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"Retained verified assignment; status={data['fetchStatus']}")
+        return 0
+
     data = {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "source": SOURCE,
         "route": selected["route"],
-        "agreementCount": selected["agreementCount"],
+        "agreementCount": selected.get("agreementCount", 1),
         "validFrom": selected["valid_raw"],
         "validFromUtc": selected["valid_dt"].isoformat().replace("+00:00", "Z"),
-        "fetchedAtUtc": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "checkedAtUtc": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "fetchedAtUtc": now_text,
+        "checkedAtUtc": now_text,
+        "fetchStatus": "verified-manual-override" if override else "fresh-official-data",
         "northAmericaAsia": {"primary": selected["na"][0], "secondary": selected["na"][1]},
         "alaskaNorthPacific": {"primary": selected["ak"][0], "secondary": selected["ak"][1]},
         "diagnostics": [
@@ -291,14 +368,14 @@ def main() -> int:
         ],
     }
 
-    # Always publish the latest successful check timestamp, even when the
-    # assignment itself is unchanged. This keeps the monitoring dashboard
-    # truthful and distinguishes bulletin age from workflow health.
     if previous:
-        data["firstFetchedAtUtc"] = previous.get("firstFetchedAtUtc") or previous.get("fetchedAtUtc") or data["fetchedAtUtc"]
+        previous_dt = datetime.fromisoformat(previous["validFromUtc"].replace("Z", "+00:00"))
+        if selected["valid_dt"] < previous_dt:
+            raise RuntimeError("Refusing to replace newer verified data with an older assignment")
+        data["firstFetchedAtUtc"] = previous.get("firstFetchedAtUtc") or previous.get("fetchedAtUtc") or now_text
 
     OUTPUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Selected {selected['route']} with {selected['agreementCount']} agreeing route(s): {data['validFrom']}")
+    print(f"Selected {selected['route']}: {data['validFrom']}")
     return 0
 
 
