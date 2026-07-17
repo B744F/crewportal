@@ -1,11 +1,19 @@
-# CrewPortal v6.3.2 Hotfix
+# v6.3.3 Emergency ARINC Correction
+
+- Corrected official bulletin to July 17, 2026, 0215Z.
+- Corrected North America → Asia to 11282 / 5547.
+- Preserved Alaska/North Pacific at 17946 / 13339.
+- Older CDN/cache responses can no longer replace newer verified data.
+- Every workflow run now records whether the upstream response was fresh, stale, or unavailable.
+
+# CrewPortal v6.3.3 Hotfix
 
 - Separate ARINC bulletin effective time from workflow check time.
 - Add `checkedAtUtc` and publish it after every successful 15-minute check.
 - Show the complete UTC date and time for Pacific HF Valid From.
 - Use `checkedAtUtc` for System Status Last Check.
 - Upgrade GitHub checkout action to v5.
-- Version v6.3.2 / Build 20260717-025.
+- Version v6.3.3 / Build 20260717-026.
 
 ## v6.3.1 Hotfix
 - Restored data/parking.json so GitHub Pages no longer returns HTTP 404.

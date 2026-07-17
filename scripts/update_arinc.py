@@ -264,13 +264,27 @@ def main() -> int:
     selected = choose_candidate(candidates, previous)
     if selected is None:
         if previous:
-            print("No safe replacement selected; existing verified assignment retained.")
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+            previous["schemaVersion"] = 4
+            previous["checkedAtUtc"] = now
+            previous["checkResult"] = "upstream-stale-cache" if candidates else "source-unavailable"
+            previous["diagnostics"] = [
+                {
+                    "route": c["route"],
+                    "validFrom": c["valid_raw"],
+                    "northAmericaAsia": list(c["na"]),
+                    "alaskaNorthPacific": list(c["ak"]),
+                }
+                for c in sorted(candidates, key=lambda x: x["valid_dt"], reverse=True)
+            ]
+            OUTPUT.write_text(json.dumps(previous, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print("Fetched routes were older than the stored verified assignment; kept current data and recorded stale upstream cache.")
             return 0
         raise RuntimeError("No complete ARINC response was available")
 
     now = datetime.now(timezone.utc)
     data = {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "source": SOURCE,
         "route": selected["route"],
         "agreementCount": selected["agreementCount"],
@@ -278,6 +292,7 @@ def main() -> int:
         "validFromUtc": selected["valid_dt"].isoformat().replace("+00:00", "Z"),
         "fetchedAtUtc": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
         "checkedAtUtc": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "checkResult": "fresh-official-data",
         "northAmericaAsia": {"primary": selected["na"][0], "secondary": selected["na"][1]},
         "alaskaNorthPacific": {"primary": selected["ak"][0], "secondary": selected["ak"][1]},
         "diagnostics": [
