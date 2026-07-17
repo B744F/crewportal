@@ -1,3 +1,13 @@
+# Changelog
+
+## v6.1.3 — 2026-07-17
+- Restore the missing `.github/workflows/update-parking.yml` workflow.
+- Add connection timeout, retries, HTTP failure detection, and strict JSON validation.
+- Preserve the last valid parking file whenever the upstream server is unavailable or returns malformed data.
+- Use one shared GitHub Actions concurrency group for parking and ARINC data commits to prevent merge conflicts.
+- Rebase before pushing updated parking data.
+- Version updated to v6.1.3, Build 20260717-021.
+
 ## v6.1.2
 - Prevent website update packages from overwriting live `data/parking.json`.
 - Refresh bundled emergency fallback with the latest verified parking snapshot.

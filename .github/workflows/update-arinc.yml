@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: update-arinc-pacific
-  cancel-in-progress: true
+  group: crewportal-data-writes
+  cancel-in-progress: false
 
 jobs:
   update:
