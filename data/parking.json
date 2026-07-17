@@ -3,48 +3,28 @@
     "id": 1,
     "name": "BOT",
     "total_space": null,
-<<<<<<< HEAD
-    "remaining_space": 25,
-    "updateTime": "2026-07-16 10:40:32"
-=======
-    "remaining_space": 91,
-    "updateTime": "2026-07-17 08:15:19"
->>>>>>> 17bf3712d21cbd7a4f55738e660f804d4bc3786e
+    "remaining_space": 85,
+    "updateTime": "2026-07-17 08:20:17"
   },
   {
     "id": 5,
     "name": "TSA",
     "total_space": null,
-<<<<<<< HEAD
-    "remaining_space": 127,
-    "updateTime": "2026-07-16 10:40:24"
-=======
-    "remaining_space": 153,
-    "updateTime": "2026-07-17 08:15:15"
->>>>>>> 17bf3712d21cbd7a4f55738e660f804d4bc3786e
+    "remaining_space": 151,
+    "updateTime": "2026-07-17 08:20:17"
   },
   {
     "id": 6,
     "name": "RD1 A",
     "total_space": null,
-<<<<<<< HEAD
-    "remaining_space": 1,
-    "updateTime": "2026-07-16 10:40:31"
-=======
-    "remaining_space": 9,
-    "updateTime": "2026-07-17 08:15:17"
->>>>>>> 17bf3712d21cbd7a4f55738e660f804d4bc3786e
+    "remaining_space": 8,
+    "updateTime": "2026-07-17 08:20:18"
   },
   {
     "id": 7,
     "name": "RD1 B",
     "total_space": null,
-<<<<<<< HEAD
-    "remaining_space": 4,
-    "updateTime": "2026-07-16 10:40:27"
-=======
     "remaining_space": 8,
-    "updateTime": "2026-07-17 08:15:20"
->>>>>>> 17bf3712d21cbd7a4f55738e660f804d4bc3786e
+    "updateTime": "2026-07-17 08:20:20"
   }
 ]
