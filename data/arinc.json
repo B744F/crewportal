@@ -1,6 +1,9 @@
 {
   "source": "https://radio.arinc.net/pacific/",
-  "validFrom": "July 16, 2026, 1300Z",
+  "route": "manual-seed",
+  "validFrom": "July 16, 2026, 2215Z",
+  "validFromUtc": "2026-07-16T22:15:00Z",
+  "fetchedAtUtc": "2026-07-17T00:45:00Z",
   "northAmericaAsia": {
     "primary": 11282,
     "secondary": 5547
@@ -8,7 +11,5 @@
   "alaskaNorthPacific": {
     "primary": 17946,
     "secondary": 10048
-  },
-  "validFromUtc": "2026-07-16T13:00:00Z",
-  "fetchedAtUtc": "2026-07-16T14:15:00Z"
+  }
 }

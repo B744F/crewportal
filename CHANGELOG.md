@@ -110,3 +110,10 @@
 - Adds route diagnostics to `/api/arinc`; hover the sync status to inspect each route result.
 - Keeps the UTC `:05` hourly refresh slot and local JSON fallback.
 - Footer/version metadata updated to v5.7.7 / Build 20260717-014.
+
+## v5.7.8
+- 修正 GitHub Pages 部署：移除對 Cloudflare `_worker.js` API 的依賴。
+- ARINC 前端改為直接讀取 GitHub Actions 更新的 `data/arinc.json`。
+- 確認排程工作流程位於 `.github/workflows/update-arinc.yml`，UTC 每個整點後 5 分鐘執行。
+- ARINC 抓取程式加入多來源比較並採用最新 `Valid from`。
+- 頁尾版本更新為 v5.7.8 / Build 20260717-015。

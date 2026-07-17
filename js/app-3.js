@@ -1,11 +1,12 @@
 (function(){
-  const ARINC_API = "/api/arinc";
+  // GitHub Pages is static hosting. ARINC data is refreshed by GitHub Actions,
+  // which commits data/arinc.json at UTC minute 05 every hour.
   const ARINC_JSON = "data/arinc.json";
   const REFRESH_MS = 5 * 60 * 1000;
   const STORAGE_KEY = "crewportal-arinc-last-good";
   const FALLBACK = {
-    validFrom: "July 16, 2026, 1300Z",
-    validFromUtc: "2026-07-16T13:00:00Z",
+    validFrom: "July 16, 2026, 2215Z",
+    validFromUtc: "2026-07-16T22:15:00Z",
     northAmericaAsia: { primary: 11282, secondary: 5547 },
     alaskaNorthPacific: { primary: 17946, secondary: 10048 }
   };
@@ -82,21 +83,19 @@
   async function update(){
     try{
       setStatus("● 正在同步", "syncing");
-      let response = await fetch(ARINC_API + "?t=" + Date.now(), { cache:"no-store" });
-      let source = "live";
-      if(!response.ok){
-        response = await fetch(ARINC_JSON + "?t=" + Date.now(), { cache:"no-store" });
-        source = "file";
-      }
+      const response = await fetch(ARINC_JSON + "?t=" + Date.now(), { cache:"no-store" });
       if(!response.ok) throw new Error("HTTP " + response.status);
       const data = await response.json();
       apply(data);
       save(data);
-      if(els.status && Array.isArray(data.diagnostics)){
-        els.status.title = data.diagnostics.map(item => `${item.route}: ${item.ok ? item.validFromUtc : item.error}`).join("\n");
+      const fetched = data.fetchedAtUtc ? new Date(data.fetchedAtUtc) : null;
+      const ageHours = fetched && !Number.isNaN(fetched.getTime()) ? (Date.now() - fetched.getTime()) / 3600000 : null;
+      if(ageHours !== null && ageHours > 3){
+        setStatus("● 排程資料逾期", "stale");
+      }else{
+        setStatus("● GitHub 排程同步", "live");
       }
-      const liveLabel = data.route ? `● 官方同步（${data.route}）` : "● 官方即時同步";
-      setStatus(source === "live" ? liveLabel : "● 檔案備援", source === "live" ? "live" : "stale");
+      if(els.status && data.fetchedAtUtc) els.status.title = `最後抓取：${data.fetchedAtUtc}`;
     }catch(error){
       console.warn("ARINC data load failed", error);
       const cached = load();
