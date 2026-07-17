@@ -23,32 +23,23 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Fetch latest assignment
+      - name: Fetch and validate complete assignment
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in 1 2; do
-            echo "ARINC fetch attempt ${attempt}/2"
-            if timeout 35s python3 scripts/update_arinc.py; then
-              break
-            fi
-            if [ "$attempt" -eq 2 ]; then
-              echo "ARINC fetch failed after two bounded attempts."
-              exit 1
-            fi
-            sleep 5
-          done
+          timeout 45s python3 scripts/update_arinc.py
 
-      - name: Commit data heartbeat
+      - name: Commit verified assignment
         shell: bash
         run: |
           if git diff --quiet -- data/arinc.json; then
-            echo "No file change detected."
+            echo "No verified assignment change."
             exit 0
           fi
+          python3 -m json.tool data/arinc.json >/dev/null
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/arinc.json
-          git commit -m "Update ARINC Pacific HF data"
+          git commit -m "Update verified ARINC Pacific HF data"
           git pull --rebase origin main
           git push origin HEAD:main
