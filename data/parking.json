@@ -1,37 +1,6 @@
 [
-<<<<<<< HEAD
   {"name":"BOT","remaining_space":65,"updateTime":"2026-07-17 09:20:17"},
   {"name":"TSA","remaining_space":130,"updateTime":"2026-07-17 09:20:19"},
   {"name":"RD1 A","remaining_space":9,"updateTime":"2026-07-17 09:20:16"},
   {"name":"RD1 B","remaining_space":7,"updateTime":"2026-07-17 09:20:17"}
-=======
-  {
-    "id": 1,
-    "name": "BOT",
-    "total_space": null,
-    "remaining_space": 39,
-    "updateTime": "2026-07-17 11:55:10"
-  },
-  {
-    "id": 5,
-    "name": "TSA",
-    "total_space": null,
-    "remaining_space": 127,
-    "updateTime": "2026-07-17 11:55:08"
-  },
-  {
-    "id": 6,
-    "name": "RD1 A",
-    "total_space": null,
-    "remaining_space": 5,
-    "updateTime": "2026-07-17 11:55:09"
-  },
-  {
-    "id": 7,
-    "name": "RD1 B",
-    "total_space": null,
-    "remaining_space": 7,
-    "updateTime": "2026-07-17 11:55:11"
-  }
->>>>>>> 69dbbac78233fa914b853678233195c2d082139b
 ]
