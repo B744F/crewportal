@@ -1,20 +1,19 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 3,
   "source": "https://radio.arinc.net/pacific/",
   "route": "verified-official-page",
   "agreementCount": 1,
-  "validFrom": "July 17, 2026, 0215Z",
-  "validFromUtc": "2026-07-17T02:15:00Z",
-  "fetchedAtUtc": "2026-07-17T03:55:00Z",
-  "checkedAtUtc": "2026-07-17T03:55:00Z",
-  "fetchStatus": "verified-official-data",
+  "validFrom": "July 16, 2026, 2215Z",
+  "validFromUtc": "2026-07-16T22:15:00Z",
+  "fetchedAtUtc": "2026-07-17T01:55:46Z",
   "northAmericaAsia": {
     "primary": 11282,
-    "secondary": 5547
+    "secondary": 13288
   },
   "alaskaNorthPacific": {
     "primary": 17946,
     "secondary": 13339
   },
-  "verification": "Official ARINC Pacific page screenshot supplied by site owner"
+  "verification": "Official ARINC Pacific page supplied by site owner",
+  "checkedAtUtc": "2026-07-17T01:55:46Z"
 }
