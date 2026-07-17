@@ -92,7 +92,11 @@
       const data = await response.json();
       apply(data);
       save(data);
-      setStatus(source === "live" ? "● 官方即時同步" : "● 檔案備援", source === "live" ? "live" : "stale");
+      if(els.status && Array.isArray(data.diagnostics)){
+        els.status.title = data.diagnostics.map(item => `${item.route}: ${item.ok ? item.validFromUtc : item.error}`).join("\n");
+      }
+      const liveLabel = data.route ? `● 官方同步（${data.route}）` : "● 官方即時同步";
+      setStatus(source === "live" ? liveLabel : "● 檔案備援", source === "live" ? "live" : "stale");
     }catch(error){
       console.warn("ARINC data load failed", error);
       const cached = load();

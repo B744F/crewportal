@@ -1,10 +1,10 @@
 # Changelog
 
-## v5.7.6
+## v5.7.7
 - Pacific HF 改為 Cloudflare Worker 即時 API，自官方頁面取得最新資料。
 - 每個 UTC 整點後 5 分鐘建立新的快取時段。
 - GitHub Actions 與 data/arinc.json 保留為備援。
-- 頁尾版本更新為 v5.7.6。
+- 頁尾版本更新為 v5.7.7。
 
 
 ## v5.7.5
@@ -103,3 +103,10 @@
 - 修正手機與直向裝置 Hero 圖被裁切的問題。
 - Hero 圖在窄螢幕改為依原始比例完整顯示，剩餘區域延續深藍背景。
 - 加入 CSS 版本參數，避免瀏覽器沿用舊快取。
+
+## v5.7.7
+- ARINC API now requests the official Pacific page through multiple independent network routes.
+- Compares each route's header-level `Valid from` time and selects the newest complete table.
+- Adds route diagnostics to `/api/arinc`; hover the sync status to inspect each route result.
+- Keeps the UTC `:05` hourly refresh slot and local JSON fallback.
+- Footer/version metadata updated to v5.7.7 / Build 20260717-014.

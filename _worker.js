@@ -30,20 +30,23 @@ function parsePair(text, labelRegex) {
   return { primary: Number(m[1]), secondary: Number(m[2]) };
 }
 
-async function fetchCandidate(url) {
-  const response = await fetch(url, {
+async function fetchCandidate(candidate) {
+  const response = await fetch(candidate.url, {
+    redirect: 'follow',
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; CrewPortal/5.7.6)',
-      'Accept': 'text/html,application/xhtml+xml',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
       'Cache-Control': 'no-cache, no-store, max-age=0',
       'Pragma': 'no-cache'
     },
     cf: { cacheTtl: 0, cacheEverything: false }
   });
-  if (!response.ok) throw new Error(`Upstream HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const text = htmlToText(await response.text());
   const valid = parseValid(text);
   return {
+    route: candidate.name,
     source: SOURCE,
     validFrom: valid.raw,
     validFromUtc: valid.iso,
@@ -54,9 +57,24 @@ async function fetchCandidate(url) {
   };
 }
 
+function candidateRoutes(stamp) {
+  const encoded = encodeURIComponent(SOURCE + `?crewportal=${stamp}`);
+  return [
+    { name: 'direct-query', url: SOURCE + `?crewportal=${stamp}` },
+    { name: 'direct-index', url: SOURCE + `index.html?crewportal=${stamp}` },
+    // Google Translate fetches the page through a separate network path and often
+    // bypasses an upstream regional edge that is serving an older ARINC document.
+    { name: 'google-translate', url: `https://radio-arinc-net.translate.goog/pacific/?_x_tr_sl=en&_x_tr_tl=en&_x_tr_hl=en&crewportal=${stamp}` },
+    // Jina Reader is an independent fallback network path. The parser handles its
+    // text/markdown response because the relevant table content remains intact.
+    { name: 'jina-reader', url: `https://r.jina.ai/http://radio.arinc.net/pacific/?crewportal=${stamp}` },
+    // AllOrigins is only a last-resort route; if unavailable it is simply ignored.
+    { name: 'allorigins', url: `https://api.allorigins.win/raw?url=${encoded}` }
+  ];
+}
+
 async function getArinc(request, env, ctx) {
   const now = new Date();
-  // New assignments are expected on each UTC hour; after minute 05 use that hour's slot.
   const slot = new Date(now.getTime() - 5 * 60 * 1000);
   slot.setUTCMinutes(0, 0, 0);
   const cacheUrl = new URL(request.url);
@@ -68,28 +86,43 @@ async function getArinc(request, env, ctx) {
   if (cached) return cached;
 
   const stamp = Date.now();
-  const urls = [
-    SOURCE + `?crewportal=${stamp}`,
-    SOURCE + `index.html?crewportal=${stamp}`,
-    SOURCE
-  ];
-  const settled = await Promise.allSettled(urls.map(fetchCandidate));
-  const valid = settled.filter(x => x.status === 'fulfilled').map(x => x.value);
-  if (!valid.length) {
+  const routes = candidateRoutes(stamp);
+  const settled = await Promise.allSettled(routes.map(fetchCandidate));
+  const successful = settled.filter(x => x.status === 'fulfilled').map(x => x.value);
+  const diagnostics = settled.map((result, index) => ({
+    route: routes[index].name,
+    ok: result.status === 'fulfilled',
+    validFromUtc: result.status === 'fulfilled' ? result.value.validFromUtc : null,
+    error: result.status === 'rejected' ? String(result.reason?.message || result.reason) : null
+  }));
+
+  if (!successful.length) {
     const fallback = await env.ASSETS.fetch(new Request(new URL('/data/arinc.json', request.url)));
-    return new Response(await fallback.text(), {
+    const fallbackData = fallback.ok ? await fallback.json() : {};
+    return Response.json({ ...fallbackData, syncMode: 'fallback', diagnostics }, {
       status: fallback.ok ? 200 : 502,
-      headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-arinc-source': 'fallback' }
+      headers: { 'cache-control': 'no-store', 'x-arinc-source': 'fallback' }
     });
   }
-  valid.sort((a, b) => b.validMs - a.validMs);
-  const best = { ...valid[0] };
-  delete best.validMs;
-  const response = new Response(JSON.stringify(best), {
+
+  successful.sort((a, b) => b.validMs - a.validMs);
+  const selected = successful[0];
+  const best = {
+    source: selected.source,
+    route: selected.route,
+    syncMode: 'multi-route-live',
+    validFrom: selected.validFrom,
+    validFromUtc: selected.validFromUtc,
+    fetchedAtUtc: selected.fetchedAtUtc,
+    northAmericaAsia: selected.northAmericaAsia,
+    alaskaNorthPacific: selected.alaskaNorthPacific,
+    diagnostics
+  };
+
+  const response = Response.json(best, {
     headers: {
-      'content-type': 'application/json; charset=utf-8',
       'cache-control': 'public, max-age=0, s-maxage=3300',
-      'x-arinc-source': 'live'
+      'x-arinc-source': selected.route
     }
   });
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
