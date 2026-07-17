@@ -1,4 +1,5 @@
 (function(){
+  const ARINC_API = "/api/arinc";
   const ARINC_JSON = "data/arinc.json";
   const REFRESH_MS = 5 * 60 * 1000;
   const STORAGE_KEY = "crewportal-arinc-last-good";
@@ -81,12 +82,17 @@
   async function update(){
     try{
       setStatus("● 正在同步", "syncing");
-      const response = await fetch(ARINC_JSON + "?t=" + Date.now(), { cache:"no-store" });
+      let response = await fetch(ARINC_API + "?t=" + Date.now(), { cache:"no-store" });
+      let source = "live";
+      if(!response.ok){
+        response = await fetch(ARINC_JSON + "?t=" + Date.now(), { cache:"no-store" });
+        source = "file";
+      }
       if(!response.ok) throw new Error("HTTP " + response.status);
       const data = await response.json();
       apply(data);
       save(data);
-      setStatus("● 官方資料同步", "live");
+      setStatus(source === "live" ? "● 官方即時同步" : "● 檔案備援", source === "live" ? "live" : "stale");
     }catch(error){
       console.warn("ARINC data load failed", error);
       const cached = load();

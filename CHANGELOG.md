@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.7.6
+- Pacific HF 改為 Cloudflare Worker 即時 API，自官方頁面取得最新資料。
+- 每個 UTC 整點後 5 分鐘建立新的快取時段。
+- GitHub Actions 與 data/arinc.json 保留為備援。
+- 頁尾版本更新為 v5.7.6。
+
+
 ## v5.7.5
 - ARINC Pacific HF 自動同步改為每小時 UTC 05 分執行。
 - 所有快速連結與應用程式按鈕保留原圖示及字體大小，縮小外框、內距與卡片間距。

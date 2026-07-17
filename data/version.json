@@ -1,6 +1,4 @@
 {
-  "version": "5.7.5",
-  "build": "20260716-012",
-  "name": "FlightDeck Crew Portal",
-  "notes": "ARINC sync runs hourly at UTC minute 05; compacted all link/button card frames without changing icon or text sizes; footer now loads version metadata automatically."
+  "version": "5.7.6",
+  "build": "20260717-013"
 }
