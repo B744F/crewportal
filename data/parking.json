@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "name": "BOT",
+    "total_space": null,
+    "remaining_space": 39,
+    "updateTime": "2026-07-17 12:45:10"
+  },
+  {
+    "id": 5,
+    "name": "TSA",
+    "total_space": null,
+    "remaining_space": 132,
+    "updateTime": "2026-07-17 12:45:13"
+  },
+  {
+    "id": 6,
+    "name": "RD1 A",
+    "total_space": null,
+    "remaining_space": 4,
+    "updateTime": "2026-07-17 12:45:10"
+  },
+  {
+    "id": 7,
+    "name": "RD1 B",
+    "total_space": null,
+    "remaining_space": 5,
+    "updateTime": "2026-07-17 12:45:11"
+  }
+]
