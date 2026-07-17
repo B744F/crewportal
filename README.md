@@ -1,4 +1,4 @@
-# CrewPortal v6.1
+# CrewPortal v6.1.1
 
 GitHub Pages 版本。
 
@@ -15,3 +15,8 @@ GitHub Pages 版本。
 解壓縮後，把所有檔案連同隱藏資料夾 `.github` 一起上傳到儲存庫根目錄。macOS Finder 可用 `⌘ + Shift + .` 顯示隱藏檔。
 
 上傳後到 GitHub 的 Actions 頁面，確認能看到 **Update ARINC Pacific HF**，並手動執行一次。
+
+
+## ARINC 更新排程
+- GitHub Actions 於 UTC 每小時 00、15、30、45 分檢查一次。
+- 網頁會在每個 UTC 15 分鐘節點後約 5 秒重新讀取最新資料，並在回到分頁或視窗取得焦點時再次檢查。

@@ -1,8 +1,8 @@
 (function(){
-  const VERSION = "6.0";
+  const VERSION = "6.1.1";
   const RAW_ARINC = "https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
   const LOCAL_ARINC = "data/arinc.json";
-  const REFRESH_MS = 5 * 60 * 1000;
+  const REFRESH_MS = 15 * 60 * 1000;
   const STORAGE_KEY = "crewportal-arinc-last-good-v2";
 
   const els = {
@@ -78,8 +78,25 @@
       if(buildEl&&meta.build) buildEl.textContent=`Build ${meta.build}`;
     }catch(error){console.warn("Version metadata load failed",error);}
   }
+  function scheduleQuarterHourUpdate(){
+    const now=new Date();
+    const next=new Date(now);
+    next.setUTCSeconds(5,0);
+    const minute=now.getUTCMinutes();
+    const nextQuarter=(Math.floor(minute/15)+1)*15;
+    if(nextQuarter>=60){
+      next.setUTCHours(now.getUTCHours()+1,0,5,0);
+    }else{
+      next.setUTCMinutes(nextQuarter,5,0);
+    }
+    const delay=Math.max(1000,next.getTime()-now.getTime());
+    setTimeout(()=>{
+      update();
+      setInterval(update,REFRESH_MS);
+    },delay);
+  }
   updateFooterVersion(); update();
-  setInterval(update,REFRESH_MS);
+  scheduleQuarterHourUpdate();
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)update();});
   addEventListener("focus",update);
 })();
