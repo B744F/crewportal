@@ -1,11 +1,13 @@
 {
-  "online": false,
-  "source": "pending first successful sync",
-  "updatedAt": "--",
-  "fetchedAt": "--",
-  "P1": null,
-  "P2": null,
-  "P4": null,
+  "online": true,
+  "source": "https://www.opendata.vip/tdx/parkingAirport",
+  "sourceType": "public-tdx-fallback",
+  "contentType": "text/html; charset=UTF-8",
+  "updatedAt": "2026-07-18 11:45:38",
+  "fetchedAt": "2026-07-18 11:45:38",
+  "P1": 12,
+  "P2": 201,
+  "P4": 343,
   "P3": null,
   "P3Available": false
 }
