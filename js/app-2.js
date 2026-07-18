@@ -22,6 +22,7 @@
   const ageEl = document.getElementById("parkingAge");
 
   let latestDataTime = null;
+  let statusMode = "offline";
   let countdownTimer = null;
 
   function setValue(key, value, unavailableText){
@@ -46,9 +47,10 @@
 
   function setStatus(text, state){
     if(!statusEl) return;
+    statusMode = state || "offline";
     statusEl.textContent = text;
     statusEl.classList.remove("offline", "syncing", "stale", "live");
-    if(state) statusEl.classList.add(state);
+    statusEl.classList.add(statusMode);
   }
 
   function parseTaipeiTime(value){
@@ -95,7 +97,7 @@
     const next = new Date(now.getTime());
     next.setSeconds(0,0);
     const remainder = next.getMinutes() % 5;
-    next.setMinutes(next.getMinutes() + (remainder === 0 && now.getSeconds() === 0 ? 0 : (remainder === 0 ? 5 : 5 - remainder)));
+    next.setMinutes(next.getMinutes() + (remainder === 0 ? 5 : 5 - remainder));
     return next;
   }
 
@@ -105,7 +107,7 @@
     if(!latestDataTime){ if(ageEl) ageEl.textContent = "資料年齡：--"; return; }
     const ageMs = now - latestDataTime;
     if(ageEl) ageEl.textContent = `最新資料約 ${secondsText(ageMs)} 前更新`;
-    if(ageMs > STALE_AFTER_MS) setStatus("● 部分資料可能過期", "stale");
+    if(ageMs > STALE_AFTER_MS && statusMode === "live") setStatus("● 資料可能過期", "stale");
   }
 
   function startCountdown(){
@@ -114,29 +116,30 @@
     countdownTimer = setInterval(updateCountdown,1000);
   }
 
-  function applyData(crewRaw, airportRaw){
+  function applyData(crewRaw, airportRaw, sourceState){
     const crew = normalizeCrew(crewRaw), airport = normalizeAirport(airportRaw);
     setValue("BOT",crew.BOT); setValue("TSA",crew.TSA); setValue("RD1A",crew.RD1A); setValue("RD1B",crew.RD1B);
-    setValue("P1",airport.P1);
-    setValue("P2",airport.P2);
-    setValue("P4",airport.P4);
+    setValue("P1",airport.P1); setValue("P2",airport.P2); setValue("P4",airport.P4);
     setValue("P3",airport.P3Available ? airport.P3 : null, "未提供");
     if(crewUpdateEl) crewUpdateEl.textContent = crew.updatedAt || "--";
     if(airportUpdateEl) airportUpdateEl.textContent = airport.updatedAt || "--";
 
     const times = [parseTaipeiTime(crew.updatedAt), parseTaipeiTime(airport.updatedAt)].filter(Boolean).sort((a,b)=>b-a);
     latestDataTime = times[0] || null;
-    if(crew.online && airport.online) setStatus("● Live 最新同步", "live");
+
+    if(sourceState.crewLive && sourceState.airportLive) setStatus("● 即時同步", "live");
+    else if(!sourceState.crewLive && sourceState.crewCached && sourceState.airportLive) setStatus("● 華航園區使用暫存", "stale");
+    else if(sourceState.crewLive && !sourceState.airportLive && sourceState.airportCached) setStatus("● 桃園機場使用暫存", "stale");
+    else if(sourceState.crewCached || sourceState.airportCached) setStatus("● 部分資料使用暫存", "stale");
     else if(crew.online || airport.online) setStatus("● 部分資料在線", "stale");
     else setStatus("● 資料離線", "offline");
     startCountdown();
   }
 
-  function parseJson(text){ return JSON.parse(text); }
   async function fetchJson(url){
     const res = await fetch(url + "?t=" + Date.now(), {cache:"no-store"});
     if(!res.ok) throw new Error(`${url} HTTP ${res.status}`);
-    return parseJson(await res.text());
+    return JSON.parse(await res.text());
   }
   function saveLastGood(data){ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(data)); }catch(_err){} }
   function loadLastGood(){ try{ const value=localStorage.getItem(STORAGE_KEY); return value?JSON.parse(value):null; }catch(_err){ return null; } }
@@ -145,13 +148,18 @@
     if(!latestDataTime) setStatus("● 正在讀取最新資料", "syncing");
     const [crewResult, airportResult] = await Promise.allSettled([fetchJson(CREW_JSON), fetchJson(AIRPORT_JSON)]);
     const cached = loadLastGood() || {};
-    const crew = crewResult.status === "fulfilled" ? crewResult.value : cached.crew;
-    const airport = airportResult.status === "fulfilled" ? airportResult.value : cached.airport;
-    if(crewResult.status === "fulfilled" || airportResult.status === "fulfilled") saveLastGood({crew,airport});
-    applyData(crew,airport);
-    if(crewResult.status === "rejected" || airportResult.status === "rejected"){
+    const sourceState = {
+      crewLive: crewResult.status === "fulfilled",
+      airportLive: airportResult.status === "fulfilled",
+      crewCached: crewResult.status !== "fulfilled" && !!cached.crew,
+      airportCached: airportResult.status !== "fulfilled" && !!cached.airport
+    };
+    const crew = sourceState.crewLive ? crewResult.value : cached.crew;
+    const airport = sourceState.airportLive ? airportResult.value : cached.airport;
+    if(sourceState.crewLive || sourceState.airportLive) saveLastGood({crew,airport});
+    applyData(crew,airport,sourceState);
+    if(!sourceState.crewLive || !sourceState.airportLive){
       console.warn("Combined parking data partial failure", crewResult, airportResult);
-      setStatus("● 部分資料使用暫存", "stale");
     }
   }
 

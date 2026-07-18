@@ -1,17 +1,20 @@
-CrewPortal v6.3.3 Pacific HF-only patch
+# CrewPortal v6.4.3 狀態判斷修正版
 
-This patch intentionally contains NO parking files and NO parking workflow.
-Upload the included files while preserving their folders.
+請將資料夾內三個檔案上傳到 GitHub Repository 相同路徑並覆蓋：
 
-Current verified assignment seeded from the official page:
-- Valid from: 2026-07-17 0215Z
-- North America → Asia: 11282 / 5547
-- Alaska/North Pacific: 17946 / 13339
+- js/app-2.js
+- js/app-4.js
+- data/version.json
 
-Automatic runs continue every 15 minutes. If the official CDN serves an old
-cached page, the updater preserves the newer verified assignment and updates
-checkedAtUtc with fetchStatus=upstream-stale-cache.
+完成後請在瀏覽器執行強制重新整理：
+- Mac：Command + Shift + R
+- Windows：Ctrl + F5
 
-Emergency manual recovery:
-Run update-arinc.yml manually and fill all five optional inputs. Leave all
-inputs blank for a normal automatic fetch.
+本版修正：
+1. 停車卡片明確顯示哪一組資料使用暫存。
+2. System Status 會使用停車卡片已保存的瀏覽器暫存，不再因 parking.json 404 直接判定整體離線。
+3. 桃園機場 P1/P2/P4 有有效資料時會列入 Parking 狀態。
+4. Diagnostics 顯示 Crew 與 Airport 各自資料來源。
+5. 修正 ARINC UTC 時間解析。
+6. Overall Status 改為 Operational / Partial Sync / Offline。
+7. 診斷區版本會讀取 data/version.json。
