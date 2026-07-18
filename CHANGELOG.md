@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.4.2 — 2026-07-18
+- 修正桃園機場停車更新流程的「假成功」問題。
+- 僅在 P1、P2、P4 都取得有效數字時寫入資料。
+- 加入第三備援來源，官方 JSON／CSV 暫時無法連線時仍可更新。
+- 第一次同步若完全無法取得資料，GitHub Actions 會正確顯示失敗。
+- 更新 actions/checkout 至 v5。
+- 版本更新為 v6.4.2，Build 20260718-026。
+
 ## v6.2 — Build 20260717-022
 
 - Rebuilt Parking and Pacific HF as independent validated updaters.
@@ -27,9 +35,9 @@
 - 更新 GitHub Actions，每 5 分鐘同步兩份停車資料。
 - 更新版本號至 v6.4 / Build 20260718-024。
 
-## v6.4.1 — 2026-07-18
+## v6.4.2 — 2026-07-18
 - 桃園機場停車資訊新增 P1、P2，並保留 P4 與 P3「官方未提供」。
 - 改用官方 CurrentParking JSON API 為主要來源，CSV 為備援。
 - 資料來源暫時無回應時保留上次成功資料，workflow 不再因單次逾時顯示失敗。
 - 縮短連線等待時間並強化多種 JSON／CSV 格式解析。
-- 更新版本號至 v6.4.1 / Build 20260718-025。
+- 更新版本號至 v6.4.2 / Build 20260718-026。

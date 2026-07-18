@@ -18,15 +18,15 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
 
-      - name: Fetch airport parking data
+      - name: Fetch and validate airport parking data
         shell: bash
-        run: timeout 45s python3 scripts/update_airport_parking.py
+        run: timeout 55s python3 scripts/update_airport_parking.py
 
-      - name: Publish verified airport parking data
+      - name: Publish airport parking data safely
         shell: bash
         run: bash scripts/commit_data_file.sh data/airport-parking.json "Update airport parking data"
