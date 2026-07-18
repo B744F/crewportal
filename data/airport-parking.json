@@ -1,8 +1,10 @@
 {
   "online": false,
-  "source": "https://odp.taoyuan-airport.com/dataset/2023081813?format=csv",
+  "source": "pending first successful sync",
   "updatedAt": "--",
   "fetchedAt": "--",
+  "P1": null,
+  "P2": null,
   "P4": null,
   "P3": null,
   "P3Available": false

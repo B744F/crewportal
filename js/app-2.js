@@ -10,6 +10,8 @@
     TSA: document.getElementById("parkingTSA"),
     RD1A: document.getElementById("parkingRD1A"),
     RD1B: document.getElementById("parkingRD1B"),
+    P1: document.getElementById("parkingP1"),
+    P2: document.getElementById("parkingP2"),
     P4: document.getElementById("parkingP4"),
     P3: document.getElementById("parkingP3")
   };
@@ -74,9 +76,9 @@
 
   function normalizeAirport(data){
     if(data && typeof data === "object"){
-      return {online:data.online !== false, updatedAt:data.updatedAt || data.fetchedAt || "--", P4:data.P4 ?? "--", P3:data.P3 ?? null, P3Available:data.P3Available === true || Number.isFinite(Number(data.P3))};
+      return {online:data.online !== false, updatedAt:data.updatedAt || data.fetchedAt || "--", P1:data.P1 ?? "--", P2:data.P2 ?? "--", P4:data.P4 ?? "--", P3:data.P3 ?? null, P3Available:data.P3Available === true || Number.isFinite(Number(data.P3))};
     }
-    return {online:false, updatedAt:"--", P4:"--", P3:null, P3Available:false};
+    return {online:false, updatedAt:"--", P1:"--", P2:"--", P4:"--", P3:null, P3Available:false};
   }
 
   function secondsText(ms){
@@ -115,6 +117,8 @@
   function applyData(crewRaw, airportRaw){
     const crew = normalizeCrew(crewRaw), airport = normalizeAirport(airportRaw);
     setValue("BOT",crew.BOT); setValue("TSA",crew.TSA); setValue("RD1A",crew.RD1A); setValue("RD1B",crew.RD1B);
+    setValue("P1",airport.P1);
+    setValue("P2",airport.P2);
     setValue("P4",airport.P4);
     setValue("P3",airport.P3Available ? airport.P3 : null, "未提供");
     if(crewUpdateEl) crewUpdateEl.textContent = crew.updatedAt || "--";

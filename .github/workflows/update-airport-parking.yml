@@ -15,7 +15,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -23,10 +23,10 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Fetch and validate airport parking data
+      - name: Fetch airport parking data
         shell: bash
-        run: timeout 80s python3 scripts/update_airport_parking.py
+        run: timeout 45s python3 scripts/update_airport_parking.py
 
-      - name: Publish airport parking data safely
+      - name: Publish verified airport parking data
         shell: bash
         run: bash scripts/commit_data_file.sh data/airport-parking.json "Update airport parking data"
