@@ -21,5 +21,5 @@ Make hidden files visible and confirm these files exist in the repository:
 - `scripts/update_arinc.py`
 - `scripts/commit_data_file.sh`
 
-## System Status (v6.3)
+## System Status (v6.4)
 The footer monitoring dashboard reads the public GitHub raw JSON files with cache-busting requests. It reports data-pipeline health based on file availability and timestamp freshness; it does not claim to read private GitHub Actions failure logs.

@@ -1,5 +1,5 @@
 (function(){
-  const VERSION = "6.3";
+  const VERSION = "6.4";
   const RAW_ARINC = "https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
   const LOCAL_ARINC = "data/arinc.json";
   const REFRESH_MS = 15 * 60 * 1000;

@@ -17,3 +17,12 @@
 - Pacific HF shows bulletin time, last repository check, and next 15-minute check.
 - GitHub raw JSON availability is checked independently for Parking and ARINC.
 - Added expandable diagnostics for source, HTTP result, ARINC route, cache policy, version, and build.
+
+## v6.4 — 2026-07-18
+- 將「華航園區停車位」整合為單一「停車資訊」面板。
+- 保留 BOT、TSA、RD1A、RD1B 即時剩餘車位。
+- 新增桃園國際機場 P4 即時剩餘車位資料。
+- P3 在官方未提供即時資料時明確顯示「未提供」。
+- 新增獨立機場停車 CSV 抓取與驗證程式，避免影響華航園區資料。
+- 更新 GitHub Actions，每 5 分鐘同步兩份停車資料。
+- 更新版本號至 v6.4 / Build 20260718-024。

@@ -259,3 +259,18 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .system-advanced{border-top:1px solid rgba(255,255,255,.08)}.system-advanced>summary{cursor:pointer;padding:10px 18px;color:#b9c8da;font-size:11px;font-weight:800;letter-spacing:.04em}.system-diagnostics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 12px 12px}.system-diagnostics>div{display:flex;justify-content:space-between;gap:12px;border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:8px 10px;background:rgba(0,0,0,.12);font-size:10px}.system-diagnostics b{color:#93a4bb}.system-diagnostics span{color:#d7e2ee;text-align:right;word-break:break-all}
 @media(max-width:900px){.system-status-grid{grid-template-columns:1fr}.system-diagnostics{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.system-status-panel>summary{align-items:flex-start;flex-direction:column}.system-status-title{flex-wrap:wrap}.system-status-grid{padding:0 8px 8px}.system-diagnostics{grid-template-columns:1fr;padding:0 8px 8px}}
+
+/* v6.4 combined crew campus + Taoyuan Airport parking */
+.parking-source-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 16px 4px;border-top:1px solid rgba(255,255,255,.08)}
+.parking-source-row:first-of-type{border-top:0}
+.parking-source-label{display:flex;align-items:baseline;gap:8px;min-width:0}
+.parking-source-label>span{font-size:12px;font-weight:900;color:#eef7ff;white-space:nowrap}
+.parking-source-label small{font-size:9px;color:#93a4bb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crew-parking-grid{margin-top:0}
+.airport-source-row{padding-top:4px}
+.airport-parking-grid{grid-template-columns:1fr 1fr;margin-top:0}
+.airport-parking-grid .parking-cell{padding:4px 8px}
+.parking-note-cell strong{font-size:12px;letter-spacing:0}
+.parking-cell strong.parking-unavailable{color:#9eacbd;font-weight:750}
+.parking-panel>.parking-sync-meta{padding:4px 12px 6px;margin-top:0;border-top:1px solid rgba(255,255,255,.08);justify-content:center}
+@media(max-width:720px){.parking-source-label small{display:none}.parking-panel>.parking-sync-meta{justify-content:flex-start}}

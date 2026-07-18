@@ -1,4 +1,4 @@
-name: Update Crew Parking Data
+name: Update Airport Parking Data
 
 on:
   schedule:
@@ -23,10 +23,10 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Fetch and validate crew parking data
+      - name: Fetch and validate airport parking data
         shell: bash
-        run: timeout 65s python3 scripts/update_parking.py
+        run: timeout 80s python3 scripts/update_airport_parking.py
 
-      - name: Publish crew parking data safely
+      - name: Publish airport parking data safely
         shell: bash
-        run: bash scripts/commit_data_file.sh data/parking.json "Update crew parking data"
+        run: bash scripts/commit_data_file.sh data/airport-parking.json "Update airport parking data"
