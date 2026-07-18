@@ -1,20 +1,14 @@
-# CrewPortal v6.4.3 狀態判斷修正版
+CrewPortal v6.4.4 桃園機場停車更新修正版
 
-請將資料夾內三個檔案上傳到 GitHub Repository 相同路徑並覆蓋：
+只覆蓋以下三個檔案：
+1. .github/workflows/update-airport-parking.yml
+2. scripts/update_airport_parking.py
+3. data/version.json
 
-- js/app-2.js
-- js/app-4.js
-- data/version.json
-
-完成後請在瀏覽器執行強制重新整理：
-- Mac：Command + Shift + R
-- Windows：Ctrl + F5
-
-本版修正：
-1. 停車卡片明確顯示哪一組資料使用暫存。
-2. System Status 會使用停車卡片已保存的瀏覽器暫存，不再因 parking.json 404 直接判定整體離線。
-3. 桃園機場 P1/P2/P4 有有效資料時會列入 Parking 狀態。
-4. Diagnostics 顯示 Crew 與 Airport 各自資料來源。
-5. 修正 ARINC UTC 時間解析。
-6. Overall Status 改為 Operational / Partial Sync / Offline。
-7. 診斷區版本會讀取 data/version.json。
+本版只修正桃園機場 P1/P2/P4 更新：
+- 與華航園區使用不同 concurrency group
+- 排程錯開為每 5 分鐘的第 2 分鐘
+- TDX 可用來源優先
+- 官方 JSON/CSV 保留後備
+- 無法取得新資料時 Workflow 正確失敗
+- 不修改華航園區停車流程

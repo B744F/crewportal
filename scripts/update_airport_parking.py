@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Update Taoyuan Airport P1/P2/P4 parking availability.
 
-Source order:
-1. Taoyuan Airport official JSON API.
-2. Taoyuan Airport official open-data CSV.
-3. Public TDX presentation page as a read-only fallback.
+Fast and resilient source order:
+1. Public TDX presentation page (currently the most reliable from GitHub Actions).
+2. Taoyuan Airport official JSON API.
+3. Taoyuan Airport official CSV.
 
-A run is successful only when P1, P2 and P4 are all valid non-negative integers,
-or when a previously valid file is preserved during a temporary upstream outage.
+A run succeeds only after fresh data is fetched and written.
 """
 from __future__ import annotations
 
@@ -24,6 +23,10 @@ from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+PUBLIC_TDX = os.environ.get(
+    "AIRPORT_PARKING_FALLBACK_URL",
+    "https://www.opendata.vip/tdx/parkingAirport",
+)
 OFFICIAL_JSON = os.environ.get(
     "AIRPORT_PARKING_JSON_URL",
     "https://www.taoyuan-airport.com/api/chinese/Info/CurrentParking",
@@ -32,15 +35,12 @@ OFFICIAL_CSV = os.environ.get(
     "AIRPORT_PARKING_CSV_URL",
     "https://odp.taoyuan-airport.com/dataset/2023081813?format=csv",
 )
-PUBLIC_FALLBACK = os.environ.get(
-    "AIRPORT_PARKING_FALLBACK_URL",
-    "https://www.opendata.vip/tdx/parkingAirport",
-)
+
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "airport-parking.json"
-TIMEOUT = 10
 TAIPEI = timezone(timedelta(hours=8))
 REQUIRED = ("P1", "P2", "P4")
 ALL_CODES = ("P1", "P2", "P3", "P4")
+TIMEOUT = 8
 
 
 def now_text() -> str:
@@ -48,16 +48,17 @@ def now_text() -> str:
 
 
 def fetch(url: str, accept: str) -> tuple[bytes, str]:
-    req = Request(
+    request = Request(
         url,
         headers={
-            "User-Agent": "Mozilla/5.0 (compatible; CrewPortal/6.4.2; +https://github.com/B744F/crewportal)",
+            "User-Agent": "Mozilla/5.0 (compatible; CrewPortal/6.4.4; +https://github.com/B744F/crewportal)",
             "Accept": accept,
             "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.7",
             "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
         },
     )
-    with urlopen(req, timeout=TIMEOUT) as response:
+    with urlopen(request, timeout=TIMEOUT) as response:
         status = getattr(response, "status", 200)
         if not 200 <= status < 300:
             raise RuntimeError(f"HTTP {status}")
@@ -77,10 +78,18 @@ def parse_number(value: object) -> int | None:
     return int(match.group(0).replace(",", "")) if match else None
 
 
+def code_from_name(value: object) -> str | None:
+    text = clean(value)
+    for code in ALL_CODES:
+        if code.lower() in text:
+            return code
+    return None
+
+
 def pick(mapping: dict[str, Any], keywords: tuple[str, ...]) -> Any:
     for key, value in mapping.items():
-        key_clean = clean(key)
-        if any(clean(word) in key_clean for word in keywords):
+        ck = clean(key)
+        if any(clean(word) in ck for word in keywords):
             return value
     return None
 
@@ -95,27 +104,14 @@ def walk_records(value: Any):
             yield from walk_records(child)
 
 
-def code_from_name(name: object) -> str | None:
-    text = clean(name)
-    if not text:
-        return None
-    # Match a standalone parking code and avoid accidental matches in unrelated text.
-    for code in ALL_CODES:
-        if re.search(rf"(?<![a-z0-9]){code.lower()}(?![a-z0-9])", str(name).lower()) or code.lower() in text:
-            return code
-    return None
-
-
 def extract_records(records: list[dict[str, Any]]) -> tuple[dict[str, int | None], str | None]:
-    spaces: dict[str, int | None] = {code: None for code in ALL_CODES}
+    spaces = {code: None for code in ALL_CODES}
     source_updated: str | None = None
     for row in records:
         name = pick(row, ("停車場名稱", "名稱", "parkingname", "parkname", "name", "title"))
         code = code_from_name(name)
         if not code:
             continue
-        # Prefer explicit availability fields. Do not use the generic word "space",
-        # because official payloads may also contain total-space fields.
         remaining = pick(row, ("剩餘車位", "剩餘", "可用車位", "availablespaces", "available", "remain", "vacancy"))
         update_time = pick(row, ("更新時間", "資料時間", "updatetime", "updated", "timestamp", "datatime"))
         number = parse_number(remaining)
@@ -128,7 +124,7 @@ def extract_records(records: list[dict[str, Any]]) -> tuple[dict[str, int | None
     return spaces, source_updated
 
 
-def parse_json(raw: bytes) -> tuple[dict[str, int | None], str | None]:
+def parse_json(raw: bytes):
     data = json.loads(raw.decode("utf-8-sig").strip())
     return extract_records(list(walk_records(data)))
 
@@ -138,11 +134,11 @@ def decode_text(raw: bytes) -> str:
         try:
             return raw.decode(encoding)
         except UnicodeDecodeError:
-            continue
+            pass
     raise RuntimeError("Unable to decode response")
 
 
-def parse_csv(raw: bytes) -> tuple[dict[str, int | None], str | None]:
+def parse_csv(raw: bytes):
     text = decode_text(raw).strip()
     if not text:
         raise RuntimeError("CSV is empty")
@@ -157,41 +153,40 @@ def parse_csv(raw: bytes) -> tuple[dict[str, int | None], str | None]:
 
 
 class TableParser(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
         self.rows: list[list[str]] = []
-        self._row: list[str] | None = None
-        self._cell: list[str] | None = None
+        self.row: list[str] | None = None
+        self.cell: list[str] | None = None
 
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+    def handle_starttag(self, tag, attrs):
         if tag.lower() == "tr":
-            self._row = []
-        elif tag.lower() in ("td", "th") and self._row is not None:
-            self._cell = []
+            self.row = []
+        elif tag.lower() in ("td", "th") and self.row is not None:
+            self.cell = []
 
-    def handle_data(self, data: str) -> None:
-        if self._cell is not None:
-            self._cell.append(data)
+    def handle_data(self, data):
+        if self.cell is not None:
+            self.cell.append(data)
 
-    def handle_endtag(self, tag: str) -> None:
+    def handle_endtag(self, tag):
         lower = tag.lower()
-        if lower in ("td", "th") and self._cell is not None and self._row is not None:
-            self._row.append(" ".join("".join(self._cell).split()))
-            self._cell = None
-        elif lower == "tr" and self._row is not None:
-            if self._row:
-                self.rows.append(self._row)
-            self._row = None
-            self._cell = None
+        if lower in ("td", "th") and self.cell is not None and self.row is not None:
+            self.row.append(" ".join("".join(self.cell).split()))
+            self.cell = None
+        elif lower == "tr" and self.row is not None:
+            if self.row:
+                self.rows.append(self.row)
+            self.row = None
+            self.cell = None
 
 
-def parse_public_html(raw: bytes) -> tuple[dict[str, int | None], str | None]:
+def parse_public_html(raw: bytes):
     text = decode_text(raw)
     parser = TableParser()
     parser.feed(text)
-    spaces: dict[str, int | None] = {code: None for code in ALL_CODES}
+    spaces = {code: None for code in ALL_CODES}
 
-    # Normal table layout: parking name in one cell, "available/total" in another.
     for cells in parser.rows:
         row_text = " | ".join(cells)
         code = code_from_name(row_text)
@@ -201,36 +196,24 @@ def parse_public_html(raw: bytes) -> tuple[dict[str, int | None], str | None]:
         if ratio:
             spaces[code] = int(ratio.group(1).replace(",", ""))
 
-    # Fallback for minified or non-semantic HTML.
     if any(spaces[code] is None for code in REQUIRED):
         plain = re.sub(r"<[^>]+>", " ", text)
         plain = re.sub(r"\s+", " ", plain)
         patterns = {
-            "P1": r"(?:第一航廈出境停車場\s*P1|P1[^0-9]{0,80})(\d[\d,]*)\s*/\s*\d[\d,]*",
-            "P2": r"(?:第一航廈入境停車場\s*P2|P2[^0-9]{0,80})(\d[\d,]*)\s*/\s*\d[\d,]*",
-            "P4": r"(?:P4西側停車場|P4[^0-9]{0,80})(\d[\d,]*)\s*/\s*\d[\d,]*",
+            "P1": r"(?:第一航廈出境停車場\s*P1|P1[^0-9]{0,100})(\d[\d,]*)\s*/\s*\d[\d,]*",
+            "P2": r"(?:第一航廈入境停車場\s*P2|P2[^0-9]{0,100})(\d[\d,]*)\s*/\s*\d[\d,]*",
+            "P4": r"(?:P4西側停車場|P4[^0-9]{0,100})(\d[\d,]*)\s*/\s*\d[\d,]*",
         }
         for code, pattern in patterns.items():
-            if spaces[code] is None:
-                match = re.search(pattern, plain, flags=re.IGNORECASE)
-                if match:
-                    spaces[code] = int(match.group(1).replace(",", ""))
+            match = re.search(pattern, plain, flags=re.IGNORECASE)
+            if match:
+                spaces[code] = int(match.group(1).replace(",", ""))
 
     return spaces, None
 
 
-def valid_required(spaces: dict[str, int | None]) -> bool:
+def valid(spaces: dict[str, int | None]) -> bool:
     return all(isinstance(spaces.get(code), int) and spaces[code] >= 0 for code in REQUIRED)
-
-
-def load_last_good() -> dict[str, Any] | None:
-    try:
-        data = json.loads(OUTPUT.read_text(encoding="utf-8"))
-        if all(parse_number(data.get(code)) is not None for code in REQUIRED):
-            return data
-    except (OSError, json.JSONDecodeError, TypeError):
-        pass
-    return None
 
 
 def write_payload(payload: dict[str, Any]) -> None:
@@ -242,10 +225,10 @@ def write_payload(payload: dict[str, Any]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    sources: list[tuple[str, str, Callable[[bytes], tuple[dict[str, int | None], str | None]], str]] = [
+    sources: list[tuple[str, str, Callable, str]] = [
+        (PUBLIC_TDX, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5", parse_public_html, "public-tdx"),
         (OFFICIAL_JSON, "application/json,text/plain;q=0.9,*/*;q=0.5", parse_json, "official-json"),
         (OFFICIAL_CSV, "text/csv,text/plain;q=0.9,*/*;q=0.5", parse_csv, "official-csv"),
-        (PUBLIC_FALLBACK, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5", parse_public_html, "public-tdx-fallback"),
     ]
 
     for url, accept, parser, source_type in sources:
@@ -253,9 +236,10 @@ def main() -> int:
             print(f"Fetching {source_type}: {url}")
             raw, content_type = fetch(url, accept)
             spaces, source_updated = parser(raw)
-            print(f"Parsed {source_type}: P1={spaces['P1']} P2={spaces['P2']} P4={spaces['P4']} P3={spaces['P3']}")
-            if not valid_required(spaces):
+            print(f"Parsed {source_type}: P1={spaces['P1']} P2={spaces['P2']} P4={spaces['P4']}")
+            if not valid(spaces):
                 raise RuntimeError("P1/P2/P4 complete records not found")
+
             fetched_at = now_text()
             payload = {
                 "online": True,
@@ -278,13 +262,7 @@ def main() -> int:
             errors.append(message)
             print(message, file=sys.stderr)
 
-    previous = load_last_good()
-    if previous:
-        print("All live sources failed; preserving previously valid airport parking data.", file=sys.stderr)
-        print(" | ".join(errors), file=sys.stderr)
-        return 0
-
-    print("All airport parking sources failed and no valid previous data exists.", file=sys.stderr)
+    print("All airport parking sources failed.", file=sys.stderr)
     print(" | ".join(errors), file=sys.stderr)
     return 1
 
