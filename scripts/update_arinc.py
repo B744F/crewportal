@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.request import Request, urlopen
+from urllib.error import URLError
 
 SOURCE = "https://radio.arinc.net/pacific/"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "arinc.json"
@@ -56,8 +57,7 @@ class TableParser(HTMLParser):
 def normalize(value):
     value = html.unescape(value).replace("\xa0", " ")
     value = value.replace("→", "to").replace("->", "to")
-    value = re.sub(r"\s+", " ", value).strip().lower()
-    return value
+    return re.sub(r"\s+", " ", value).strip().lower()
 
 
 def number(cell):
@@ -75,7 +75,7 @@ def find_row(rows, label):
     raise RuntimeError(f"Region not found: {label}")
 
 
-def main():
+def fetch_arinc():
     request = Request(
         SOURCE,
         headers={
@@ -88,13 +88,21 @@ def main():
     try:
         context = ssl.create_default_context()
         with urlopen(request, timeout=30, context=context) as response:
-            markup = response.read().decode("utf-8", errors="replace")
+            return response.read().decode("utf-8", errors="replace")
 
-    except ssl.SSLCertVerificationError:
+    except URLError as e:
+        if "CERTIFICATE_VERIFY_FAILED" not in str(e):
+            raise
+
         print("SSL verification failed, retrying without certificate check...")
+
         context = ssl._create_unverified_context()
         with urlopen(request, timeout=30, context=context) as response:
-            markup = response.read().decode("utf-8", errors="replace")
+            return response.read().decode("utf-8", errors="replace")
+
+
+def main():
+    markup = fetch_arinc()
 
     text = re.sub(r"<[^>]+>", " ", markup)
 
