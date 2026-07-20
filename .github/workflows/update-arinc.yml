@@ -2,7 +2,7 @@ name: Update ARINC Pacific HF
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -23,9 +23,9 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Fetch and validate complete assignment
+      - name: Fetch and validate Pacific HF
         shell: bash
-        run: timeout 45s python3 scripts/update_arinc.py
+        run: timeout 60s python3 scripts/update_arinc.py
 
       - name: Publish verified ARINC data safely
         shell: bash
