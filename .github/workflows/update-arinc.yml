@@ -1,12 +1,7 @@
 name: Update ARINC Pacific HF
 
 on:
-  schedule:
-    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   update:
@@ -21,13 +16,11 @@ jobs:
           pip install playwright
           playwright install chromium
 
-      - name: Fetch and validate Pacific HF
+      - name: Fetch ARINC debug page
         run: python3 scripts/update_arinc.py
 
-      - name: Commit data
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add data/arinc.json
-          git commit -m "Update ARINC Pacific HF data" || exit 0
-          git push
+      - name: Upload ARINC debug HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: arinc-debug-html
+          path: debug_arinc.html
