@@ -15,43 +15,56 @@ OUTPUT = Path(__file__).resolve().parents[1] / "data" / "arinc.json"
 
 def clean(text):
     text = html.unescape(text).replace("\xa0", " ")
-    text = text.replace("→", "to").replace("->", "to")
+    text = text.replace("→", " ").replace("->", " ")
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
 def get_frequency(value):
-    m = re.search(r"(\d{4,5})", value)
-    if not m:
+    match = re.search(r"\d{4,5}", value)
+    if not match:
         raise RuntimeError(f"Frequency missing: {value}")
-    return int(m.group(1))
+    return int(match.group())
+
+
+def identify_region(name):
+    n = clean(name)
+
+    if "north" in n and "america" in n and "asia" in n:
+        return "northAmericaAsia"
+
+    if "alaska" in n and "150" in n:
+        return "alaskaNorthPacific"
+
+    if "guam" in n:
+        return "guamArea"
+
+    return None
 
 
 def parse_rows(rows):
     result = {}
 
     for row in rows:
-        cells = [clean(x) for x in row]
-        if len(cells) < 3:
+        if len(row) < 3:
             continue
 
-        name = cells[0]
+        region = identify_region(row[0])
 
-        if name in [
-            "north america to asia",
-            "alaska/north pacific (west of 150w)",
-            "guam area",
-        ]:
-            result[name] = {
-                "primary": get_frequency(cells[1]),
-                "secondary": get_frequency(cells[2]),
+        if region:
+            result[region] = {
+                "primary": get_frequency(row[1]),
+                "secondary": get_frequency(row[2]),
             }
 
     return result
 
 
 def main():
+
     with sync_playwright() as p:
+
         browser = p.chromium.launch(headless=True)
+
         page = browser.new_page(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -59,44 +72,65 @@ def main():
             )
         )
 
-        page.goto(SOURCE, wait_until="networkidle", timeout=60000)
+        page.goto(
+            SOURCE,
+            wait_until="networkidle",
+            timeout=60000
+        )
 
         rows = page.locator("tr").evaluate_all(
             """
             rows => rows.map(
-              r => Array.from(r.querySelectorAll('td,th'))
-              .map(c => c.innerText)
+              row => Array.from(
+                row.querySelectorAll("td,th")
+              ).map(
+                cell => cell.innerText
+              )
             )
             """
         )
 
         browser.close()
 
+
     data = parse_rows(rows)
 
+
     required = [
-        "north america to asia",
-        "alaska/north pacific (west of 150w)",
-        "guam area",
+        "northAmericaAsia",
+        "alaskaNorthPacific",
+        "guamArea",
     ]
+
 
     for item in required:
         if item not in data:
-            raise RuntimeError(f"Missing region: {item}")
+            raise RuntimeError(
+                f"Missing region: {item}"
+            )
+
 
     output = {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "source": SOURCE,
-        "fetchedAtUtc": datetime.now(timezone.utc).isoformat(),
-        "northAmericaAsia": data["north america to asia"],
-        "alaskaNorthPacific": data["alaska/north pacific (west of 150w)"],
-        "guamArea": data["guam area"],
+        "fetchedAtUtc": datetime.now(
+            timezone.utc
+        ).isoformat(),
+        "northAmericaAsia": data["northAmericaAsia"],
+        "alaskaNorthPacific": data["alaskaNorthPacific"],
+        "guamArea": data["guamArea"],
     }
 
+
     OUTPUT.write_text(
-        json.dumps(output, ensure_ascii=False, indent=2) + "\n",
+        json.dumps(
+            output,
+            ensure_ascii=False,
+            indent=2
+        ) + "\n",
         encoding="utf-8",
     )
+
 
     print("Updated data/arinc.json")
 
