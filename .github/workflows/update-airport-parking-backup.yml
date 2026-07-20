@@ -1,4 +1,4 @@
-name: Update Airport Parking Data (Manual Recovery)
+name: Update Airport Parking Data Backup (Disabled)
 
 on:
   workflow_dispatch:
@@ -28,4 +28,4 @@ jobs:
 
       - name: Publish airport parking data safely
         shell: bash
-        run: bash scripts/commit_data_file.sh data/airport-parking.json "Manual airport parking recovery"
+        run: bash scripts/commit_data_file.sh data/airport-parking.json "Manual airport parking backup recovery"

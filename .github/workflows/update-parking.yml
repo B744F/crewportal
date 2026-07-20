@@ -1,4 +1,4 @@
-name: Update Crew Parking Data
+name: Update Crew and Airport Parking Data
 
 on:
   schedule:
@@ -9,16 +9,17 @@ permissions:
   contents: write
 
 concurrency:
-  group: crewportal-data-writes
+  group: crewportal-parking-writes
   cancel-in-progress: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
     timeout-minutes: 3
+
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -27,6 +28,18 @@ jobs:
         shell: bash
         run: timeout 65s python3 scripts/update_parking.py
 
-      - name: Publish crew parking data safely
+      - name: Fetch and validate airport parking data
+        id: airport
+        continue-on-error: true
         shell: bash
-        run: bash scripts/commit_data_file.sh data/parking.json "Update crew parking data"
+        run: timeout 50s python3 scripts/update_airport_parking.py
+
+      - name: Report airport fallback
+        if: steps.airport.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::warning::Airport parking live fetch failed. Preserving the last valid airport-parking.json while publishing fresh crew parking data."
+
+      - name: Publish both parking data files safely
+        shell: bash
+        run: bash scripts/commit_parking_files.sh
