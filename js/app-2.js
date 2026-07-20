@@ -21,6 +21,17 @@
   const nextEl = document.getElementById("parkingNextUpdate");
   const ageEl = document.getElementById("parkingAge");
 
+  function reorderAirportParking(){
+    const p3 = els.P3?.closest(".parking-cell");
+    const p4 = els.P4?.closest(".parking-cell");
+    if(p3 && p4 && p3.parentElement === p4.parentElement){
+      p3.parentElement.insertBefore(p3, p4);
+    }
+    if(els.P3 && (els.P3.textContent === "未提供" || els.P3.textContent === "--")){
+      els.P3.textContent = "尚未提供";
+    }
+  }
+
   let latestDataTime = null;
   let statusMode = "offline";
   let countdownTimer = null;
@@ -120,7 +131,7 @@
     const crew = normalizeCrew(crewRaw), airport = normalizeAirport(airportRaw);
     setValue("BOT",crew.BOT); setValue("TSA",crew.TSA); setValue("RD1A",crew.RD1A); setValue("RD1B",crew.RD1B);
     setValue("P1",airport.P1); setValue("P2",airport.P2); setValue("P4",airport.P4);
-    setValue("P3",airport.P3Available ? airport.P3 : null, "未提供");
+    setValue("P3",airport.P3Available ? airport.P3 : null, "尚未提供");
     if(crewUpdateEl) crewUpdateEl.textContent = crew.updatedAt || "--";
     if(airportUpdateEl) airportUpdateEl.textContent = airport.updatedAt || "--";
 
@@ -163,6 +174,7 @@
     }
   }
 
+  reorderAirportParking();
   updateParking();
   setInterval(updateParking,REFRESH_MS);
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) updateParking(); });
