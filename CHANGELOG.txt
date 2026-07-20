@@ -1,0 +1,11 @@
+CrewPortal v6.4.3
+Build 20260720-027
+
+- Changed company system link from CAL Web-Mail to CAL Outlook
+- Updated Outlook URL to https://outlook.com/china-airlines.com
+- Reduced Quick Access card width by approximately 40%
+- Desktop Quick Access layout: 10 columns
+- Tablet layout: 5 columns
+- Mobile layout: 3 columns
+- Narrow mobile layout: 2 columns
+- Updated footer, diagnostics and asset cache version

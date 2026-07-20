@@ -1,25 +1,42 @@
-# FlightDeck Crew Portal v6.2
+# CrewPortal v6.4.3 正式版更新包
 
-Long-term stable GitHub Pages package.
+本更新包會在現有 CrewPortal 正式版原始碼上，自動完成以下修改：
 
-## Data schedules
+1. 公司系統區塊
+   - `CAL Web-Mail` 改為 `CAL Outlook`
+   - 連結改為 `https://outlook.com/china-airlines.com`
+   - 副標改為 `Outlook Mail`
 
-- Parking: every 5 minutes (`*/5 * * * *`)
-- Pacific HF: every 15 minutes (`*/15 * * * *`)
+2. Quick Access 區塊
+   - 桌面版由每排 6 個改為每排 10 個
+   - 單一按鈕寬度約縮小 40%
+   - 圖案、文字大小及按鈕高度保持不變
+   - 平板每排 5 個、一般手機每排 3 個、窄手機每排 2 個
 
-Both workflows share the `crewportal-data-writes` concurrency group, so only one data writer can commit at a time. Each updater validates its complete JSON payload before atomically replacing a data file. Failed network requests preserve the last-good file.
+3. 版本資訊
+   - Version：v6.4.3
+   - Build：20260720-027
+   - CSS、JavaScript 快取版本同步更新
 
-## Important upload rule
+## 使用方式
 
-This package intentionally does **not** contain `data/parking.json`. Uploading the package therefore cannot overwrite the live parking data maintained by GitHub Actions.
+把本 ZIP 解壓縮後，將 `apply_update.py` 放進 CrewPortal 專案根目錄，也就是與 `index.html` 同一層。
 
-Make hidden files visible and confirm these files exist in the repository:
+在終端機執行：
 
-- `.github/workflows/update-parking.yml`
-- `.github/workflows/update-arinc.yml`
-- `scripts/update_parking.py`
-- `scripts/update_arinc.py`
-- `scripts/commit_data_file.sh`
+```bash
+python3 apply_update.py
+```
 
-## System Status (v6.4.2)
-The footer monitoring dashboard reads the public GitHub raw JSON files with cache-busting requests. It reports data-pipeline health based on file availability and timestamp freshness; it does not claim to read private GitHub Actions failure logs.
+也可以指定網站資料夾：
+
+```bash
+python3 apply_update.py /你的路徑/crewportal
+```
+
+完成後，將更新後的整個網站資料夾上傳至 GitHub Repo 即可。
+
+## 注意
+
+執行前建議先備份 `index.html` 與 `css/style.css`。
+此更新腳本可重複執行，不會重複加入 Quick Access 樣式。
