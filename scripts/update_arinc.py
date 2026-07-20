@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.request import Request, urlopen
-from urllib.error import URLError
+from urllib.error import URLError, HTTPError
 
 SOURCE = "https://radio.arinc.net/pacific/"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "arinc.json"
@@ -61,9 +61,9 @@ def normalize(value):
 
 
 def number(cell):
-    match = re.fullmatch(r"\s*(\d{4,5})(?:\s*khz)?\s*", cell, re.I)
+    match = re.search(r"(\d{4,5})", cell)
     if not match:
-        raise RuntimeError(f"Invalid frequency cell: {cell!r}")
+        raise RuntimeError(f"Invalid frequency: {cell}")
     return int(match.group(1))
 
 
@@ -75,30 +75,57 @@ def find_row(rows, label):
     raise RuntimeError(f"Region not found: {label}")
 
 
-def fetch_arinc():
-    request = Request(
+def build_request():
+    return Request(
         SOURCE,
         headers={
-            "User-Agent": "Mozilla/5.0 (compatible; CrewPortal-PacificHF/1.0)",
-            "Accept": "text/html",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 "
+                "(KHTML, like Gecko) "
+                "Chrome/128.0 Safari/537.36"
+            ),
+            "Accept": (
+                "text/html,application/xhtml+xml,"
+                "application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+            ),
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://radio.arinc.net/",
             "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
         },
     )
+
+
+def fetch_arinc():
+    request = build_request()
 
     try:
         context = ssl.create_default_context()
         with urlopen(request, timeout=30, context=context) as response:
             return response.read().decode("utf-8", errors="replace")
 
+    except ssl.SSLCertVerificationError:
+        pass
+
     except URLError as e:
         if "CERTIFICATE_VERIFY_FAILED" not in str(e):
             raise
 
-        print("SSL verification failed, retrying without certificate check...")
+    except HTTPError as e:
+        if e.code != 403:
+            raise
 
-        context = ssl._create_unverified_context()
-        with urlopen(request, timeout=30, context=context) as response:
-            return response.read().decode("utf-8", errors="replace")
+    print("Retrying ARINC request with browser headers and relaxed SSL...")
+
+    context = ssl._create_unverified_context()
+
+    with urlopen(
+        build_request(),
+        timeout=30,
+        context=context
+    ) as response:
+        return response.read().decode("utf-8", errors="replace")
 
 
 def main():
