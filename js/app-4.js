@@ -1,5 +1,5 @@
 (function(){
-  const VERSION = "6.4.3";
+  const VERSION = "6.5.0";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const PARKING_INTERVAL=5*60*1000;
   const ARINC_INTERVAL=15*60*1000;
@@ -31,120 +31,92 @@
   async function fetchJson(url){const r=await fetch(url+(url.includes("?")?"&":"?")+"status="+Date.now(),{cache:"no-store"});if(!r.ok)throw new Error(`HTTP ${r.status}`);return {data:await r.json(),status:r.status}}
 
   async function loadParking(){
-    try{
-      const r=await fetchJson(RAW_BASE+"parking.json");
-      state.parking=r.data;state.parkingHttp=`${r.status} OK`;state.parkingSource="GitHub raw";
-    }catch(e){
-      state.parkingHttp=e.message;
-      try{
-        const r=await fetchJson("data/parking.json");
-        state.parking=r.data;state.parkingHttp=`${r.status} OK`;state.parkingSource="GitHub Pages";
-      }catch(e2){
-        const cached=cachedParking()?.crew;
-        state.parking=cached||null;
-        state.parkingSource=cached?"Browser cache":"Unavailable";
-      }
-    }
+    try{const r=await fetchJson(RAW_BASE+"parking.json");state.parking=r.data;state.parkingHttp=`${r.status} OK`;state.parkingSource="GitHub raw"}
+    catch(e){state.parkingHttp=e.message;try{const r=await fetchJson("data/parking.json");state.parking=r.data;state.parkingHttp=`${r.status} OK`;state.parkingSource="GitHub Pages"}catch(e2){const cached=cachedParking()?.crew;state.parking=cached||null;state.parkingSource=cached?"Browser cache":"Unavailable"}}
   }
-
   async function loadAirportParking(){
-    try{
-      const r=await fetchJson(RAW_BASE+"airport-parking.json");
-      state.airportParking=r.data;state.airportParkingHttp=`${r.status} OK`;
-      state.airportParkingSource=r.data.sourceType||"GitHub raw";
-    }catch(e){
-      state.airportParkingHttp=e.message;
-      try{
-        const r=await fetchJson("data/airport-parking.json");
-        state.airportParking=r.data;state.airportParkingHttp=`${r.status} OK`;
-        state.airportParkingSource=r.data.sourceType||"GitHub Pages";
-      }catch(e2){
-        const cached=cachedParking()?.airport;
-        state.airportParking=cached||null;
-        state.airportParkingSource=cached?"Browser cache":"Unavailable";
-      }
-    }
+    try{const r=await fetchJson(RAW_BASE+"airport-parking.json");state.airportParking=r.data;state.airportParkingHttp=`${r.status} OK`;state.airportParkingSource=r.data.sourceType||"GitHub raw"}
+    catch(e){state.airportParkingHttp=e.message;try{const r=await fetchJson("data/airport-parking.json");state.airportParking=r.data;state.airportParkingHttp=`${r.status} OK`;state.airportParkingSource=r.data.sourceType||"GitHub Pages"}catch(e2){const cached=cachedParking()?.airport;state.airportParking=cached||null;state.airportParkingSource=cached?"Browser cache":"Unavailable"}}
   }
-
   async function loadArinc(){
-    try{
-      const r=await fetchJson(RAW_BASE+"arinc.json");
-      state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=r.data.route||"Unknown";
-    }catch(e){
-      state.arincHttp=e.message;
-      try{
-        const r=await fetchJson("data/arinc.json");
-        state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=(r.data.route||"Unknown")+" (fallback)";
-      }catch(e2){state.arinc=null;state.arincRoute="Unavailable"}
-    }
+    try{const r=await fetchJson(RAW_BASE+"arinc.json");state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=r.data.route||"Unknown"}
+    catch(e){state.arincHttp=e.message;try{const r=await fetchJson("data/arinc.json");state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=(r.data.route||"Unknown")+" (fallback)"}catch(e2){state.arinc=null;state.arincRoute="Unavailable"}}
   }
-
   async function loadVersion(){
-    try{
-      const r=await fetchJson("data/version.json");
-      if($("diagVersion"))$("diagVersion").textContent=`v${r.data.version||VERSION} · ${r.data.build||"--"}`;
-    }catch(_e){
-      if($("diagVersion"))$("diagVersion").textContent=`v${VERSION}`;
-    }
+    try{const r=await fetchJson("data/version.json");if($("diagVersion"))$("diagVersion").textContent=`v${r.data.version||VERSION} · ${r.data.build||"--"}`}
+    catch(_e){if($("diagVersion"))$("diagVersion").textContent=`v${VERSION}`}
   }
-
-  function levelFromAge(data,time,maxFresh,maxDelayed){
-    if(!data||!time)return"offline";
-    const age=Date.now()-time.getTime();
-    return age<=maxFresh?"normal":age<=maxDelayed?"delayed":"offline";
-  }
-
+  function levelFromAge(data,time,maxFresh,maxDelayed){if(!data||!time)return"offline";const age=Date.now()-time.getTime();return age<=maxFresh?"normal":age<=maxDelayed?"delayed":"offline"}
   function render(){
-    const now=Date.now();
-    const crewTime=newestParkingTime(state.parking);
-    const airportTime=newestParkingTime(state.airportParking);
+    const now=Date.now(),crewTime=newestParkingTime(state.parking),airportTime=newestParkingTime(state.airportParking);
     const crewLevel=levelFromAge(state.parking,crewTime,10*60000,45*60000);
     const airportLevel=validAirport(state.airportParking)?levelFromAge(state.airportParking,airportTime,10*60000,45*60000):"offline";
-
     let parkingLevel="offline",parkingText="Offline";
     if(crewLevel==="normal"&&airportLevel==="normal"){parkingLevel="normal";parkingText="Operational"}
     else if(crewLevel!=="offline"||airportLevel!=="offline"){parkingLevel="delayed";parkingText="Partial Sync"}
     setState("systemParkingState",parkingText,parkingLevel);
-
-    const parkingTimes=[crewTime,airportTime].filter(Boolean);
-    const newest=parkingTimes.length?new Date(Math.max(...parkingTimes.map(d=>d.getTime()))):null;
-    $("systemParkingLast").textContent=newest?clock(newest):"--";
-    $("systemParkingAge").textContent=newest?ageText(now-newest.getTime()):"--";
-    $("systemParkingNext").textContent=clock(nextSlot(PARKING_INTERVAL));
-
-    $("systemGithubParking").textContent=state.parkingHttp;
+    const parkingTimes=[crewTime,airportTime].filter(Boolean),newest=parkingTimes.length?new Date(Math.max(...parkingTimes.map(d=>d.getTime()))):null;
+    if($("systemParkingLast"))$("systemParkingLast").textContent=newest?clock(newest):"--";
+    if($("systemParkingAge"))$("systemParkingAge").textContent=newest?ageText(now-newest.getTime()):"--";
+    if($("systemParkingNext"))$("systemParkingNext").textContent=clock(nextSlot(PARKING_INTERVAL));
+    if($("systemGithubParking"))$("systemGithubParking").textContent=state.parkingHttp;
     if($("systemGithubAirportParking"))$("systemGithubAirportParking").textContent=state.airportParkingHttp;
-
     const af=parseUtc(state.arinc?.fetchedAtUtc),aa=af?now-af.getTime():Infinity;
     const arincLevel=state.arinc?(aa<=45*60000?"normal":aa<=3*3600000?"delayed":"offline"):"offline";
     setState("systemArincState",arincLevel==="normal"?"Operational":arincLevel==="delayed"?"Delayed":"Offline",arincLevel);
     const vf=parseUtc(state.arinc?.validFromUtc);
-    $("systemArincValid").textContent=vf?clock(vf,true):"--";
-    $("systemArincLast").textContent=af?clock(af,true):"--";
-    $("systemArincNext").textContent=clock(nextSlot(ARINC_INTERVAL),true);
-    $("systemGithubArinc").textContent=state.arincHttp;
-    $("systemCheckedAt").textContent=clock(new Date());
-
-    $("diagParkingSource").textContent=`Crew: ${state.parkingSource}｜Airport: ${state.airportParkingSource}`;
-    $("diagParkingHttp").textContent=state.parkingHttp;
+    if($("systemArincValid"))$("systemArincValid").textContent=vf?clock(vf,true):"--";
+    if($("systemArincLast"))$("systemArincLast").textContent=af?clock(af,true):"--";
+    if($("systemArincNext"))$("systemArincNext").textContent=clock(nextSlot(ARINC_INTERVAL),true);
+    if($("systemGithubArinc"))$("systemGithubArinc").textContent=state.arincHttp;
+    if($("systemCheckedAt"))$("systemCheckedAt").textContent=clock(new Date());
+    if($("diagParkingSource"))$("diagParkingSource").textContent=`Crew: ${state.parkingSource}｜Airport: ${state.airportParkingSource}`;
+    if($("diagParkingHttp"))$("diagParkingHttp").textContent=state.parkingHttp;
     if($("diagAirportParkingHttp"))$("diagAirportParkingHttp").textContent=state.airportParkingHttp;
-    $("diagArincRoute").textContent=state.arincRoute;
-    $("diagArincHttp").textContent=state.arincHttp;
-
-    const available=[parkingLevel,arincLevel];
-    let overall="normal",overallText="Operational";
+    if($("diagArincRoute"))$("diagArincRoute").textContent=state.arincRoute;
+    if($("diagArincHttp"))$("diagArincHttp").textContent=state.arincHttp;
+    const available=[parkingLevel,arincLevel];let overall="normal",overallText="Operational";
     if(available.every(x=>x==="offline")){overall="offline";overallText="Offline"}
     else if(available.some(x=>x!=="normal")){overall="delayed";overallText="Partial Sync"}
-    const dot=$("systemOverallDot");dot.className="system-dot "+overall;
-    $("systemOverallText").textContent=overallText;
+    const dot=$("systemOverallDot");if(dot)dot.className="system-dot "+overall;
+    if($("systemOverallText"))$("systemOverallText").textContent=overallText;
   }
 
-  async function refresh(){
-    await Promise.allSettled([loadParking(),loadAirportParking(),loadArinc(),loadVersion()]);
-    render();
+  function installAircraftTracking(){
+    const atisPanel=document.querySelector(".atis-panel");
+    if(!atisPanel||$("aircraftTrackForm"))return;
+    const style=document.createElement("style");
+    style.textContent=`
+      .glass-panel{background:linear-gradient(180deg,rgba(8,25,44,.78),rgba(4,13,24,.72))!important;backdrop-filter:blur(16px)!important;-webkit-backdrop-filter:blur(16px)!important;box-shadow:0 18px 42px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.10)!important}
+      .atis-panel{display:flex;flex-direction:column}.aircraft-track-divider{height:1px;background:rgba(255,255,255,.12);margin:10px 0 8px}
+      .aircraft-track-title{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:14px;font-weight:900;letter-spacing:.04em;color:#eef7ff}
+      .aircraft-track-title span:first-child{color:var(--gold2);font-size:17px}
+      .aircraft-track-form{display:grid;grid-template-columns:1fr 108px;align-items:center;border:1px solid rgba(255,255,255,.22);background:rgba(0,5,12,.30);border-radius:10px;overflow:hidden;height:39px}
+      #aircraftTrackInput{height:100%;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:15px;font-weight:750;padding:0 16px;text-transform:uppercase;letter-spacing:.06em}
+      #aircraftTrackInput::placeholder{color:rgba(238,247,255,.48);font-weight:700;letter-spacing:.03em;text-transform:none}
+      .aircraft-track-button{height:100%;border:1px solid rgba(216,178,93,.76);border-right:0;border-top:0;border-bottom:0;background:linear-gradient(180deg,rgba(216,178,93,.88),rgba(147,108,43,.82));color:#07111d;font-size:13px;font-weight:1000;letter-spacing:.06em;cursor:pointer}
+      .aircraft-track-button:hover{filter:brightness(1.12)}#aircraftTrackStatus{display:none;margin-top:7px;font-size:12px;color:#ffc8c8}
+      @media(max-width:760px){.aircraft-track-form{grid-template-columns:1fr 96px}.aircraft-track-button{font-size:12px}}
+    `;
+    document.head.appendChild(style);
+    const wrap=document.createElement("div");
+    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div>`;
+    atisPanel.appendChild(wrap);
+    const trackForm=$("aircraftTrackForm"),trackInput=$("aircraftTrackInput"),trackStatus=$("aircraftTrackStatus");
+    trackInput.addEventListener("input",()=>{trackInput.value=trackInput.value.toUpperCase().replace(/[^A-Z0-9-]/g,"").slice(0,12);trackStatus.style.display="none"});
+    trackForm.addEventListener("submit",e=>{
+      e.preventDefault();const value=trackInput.value.trim().toUpperCase();
+      if(!/^[A-Z0-9][A-Z0-9-]{1,11}$/.test(value)){trackStatus.textContent="請輸入 Call Sign 或 REG No.";trackStatus.style.display="block";trackInput.focus();return}
+      const path=value.includes("-")?"aircraft":"flights";
+      window.open(`https://www.flightradar24.com/data/${path}/${encodeURIComponent(value.toLowerCase())}`,"_blank","noopener,noreferrer");
+    });
   }
-  refresh();
-  setInterval(refresh,60000);
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
-  window.addEventListener("focus",refresh);
+  function updateVisibleVersion(){
+    if($("footerVersion"))$("footerVersion").textContent=`Version v${VERSION}`;
+    if($("footerBuild"))$("footerBuild").textContent="Build 20260720-029";
+    if($("diagVersion"))$("diagVersion").textContent=`v${VERSION} · 20260720-029`;
+  }
+  async function refresh(){await Promise.allSettled([loadParking(),loadAirportParking(),loadArinc(),loadVersion()]);render();updateVisibleVersion()}
+  installAircraftTracking();updateVisibleVersion();refresh();setInterval(refresh,60000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});window.addEventListener("focus",refresh);
 })();
