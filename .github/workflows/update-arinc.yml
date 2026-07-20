@@ -1,26 +1,25 @@
-name: Update ARINC Pacific HF
+name: ARINC Network Debug
 
 on:
   workflow_dispatch:
 
 jobs:
-  update:
+  debug:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install browser
         run: |
           pip install playwright
           playwright install chromium
 
-      - name: Fetch ARINC debug page
+      - name: Capture network
         run: python3 scripts/update_arinc.py
 
-      - name: Upload ARINC debug HTML
+      - name: Upload log
         uses: actions/upload-artifact@v4
         with:
-          name: arinc-debug-html
-          path: debug_arinc.html
+          name: arinc-network-log
+          path: arinc_network_log.txt
