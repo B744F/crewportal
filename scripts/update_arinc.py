@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Fetch and update CrewPortal Pacific HF data through Cloudflare Worker."""
+
 from __future__ import annotations
 
 import json
@@ -21,24 +23,30 @@ def normalize(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().lower()
 
 
-def frequency(value: str) -> int:
+def frequency_or_none(value: str) -> int | None:
     match = re.search(r"\b(\d{4,5})\b", value)
     if not match:
-        raise RuntimeError(f"Frequency not found in cell: {value!r}")
+        return None
+
     result = int(match.group(1))
     if not 2000 <= result <= 22000:
-        raise RuntimeError(f"Frequency out of expected range: {result}")
+        return None
+
     return result
 
 
 def identify_region(label: str) -> str | None:
     text = normalize(label)
+
     if "north" in text and "america" in text and "asia" in text:
         return "northAmericaAsia"
+
     if "alaska" in text and "pacific" in text:
         return "alaskaNorthPacific"
+
     if "guam" in text:
         return "guamArea"
+
     return None
 
 
@@ -46,58 +54,83 @@ def fetch_html() -> str:
     request = Request(
         WORKER_URL,
         headers={
-            "User-Agent": "CrewPortal-PacificHF/2.0",
+            "User-Agent": "CrewPortal-PacificHF/2.1",
             "Accept": "text/html,application/xhtml+xml",
             "Cache-Control": "no-cache",
         },
     )
+
     with urlopen(request, timeout=45) as response:
-        html = response.read().decode("utf-8", errors="replace")
-    if "403 Forbidden" in html:
+        markup = response.read().decode("utf-8", errors="replace")
+
+    if "403 Forbidden" in markup:
         raise RuntimeError("Cloudflare Worker returned the ARINC 403 page")
-    if "ARINC request failed" in html:
-        raise RuntimeError(f"Cloudflare Worker error: {html[:300]}")
-    return html
+
+    if "ARINC request failed" in markup:
+        raise RuntimeError(f"Cloudflare Worker error: {markup[:300]}")
+
+    return markup
 
 
-def parse_assignments(html: str) -> dict[str, dict[str, int]]:
-    soup = BeautifulSoup(html, "html.parser")
+def parse_assignments(markup: str) -> dict[str, dict[str, int]]:
+    soup = BeautifulSoup(markup, "html.parser")
     assignments: dict[str, dict[str, int]] = {}
+    debug_rows: list[list[str]] = []
+
     for row in soup.select("tr"):
         cells = [
             re.sub(r"\s+", " ", cell.get_text(" ", strip=True)).strip()
             for cell in row.select("th, td")
         ]
-        if len(cells) < 3:
+
+        if not cells:
             continue
-        region = identify_region(cells[0])
+
+        joined = " | ".join(cells)
+        region = identify_region(joined)
+
         if not region:
             continue
+
+        debug_rows.append(cells)
+
+        # Ignore navigation/category rows such as:
+        # North America → Asia | Air Traffic Control | ...
+        frequencies = [
+            value
+            for cell in cells
+            if (value := frequency_or_none(cell)) is not None
+        ]
+
+        if len(frequencies) < 2:
+            continue
+
+        # The ARINC table orders the desired values as Primary, then Secondary.
         assignments[region] = {
-            "primary": frequency(cells[1]),
-            "secondary": frequency(cells[2]),
+            "primary": frequencies[0],
+            "secondary": frequencies[1],
         }
 
     required = {"northAmericaAsia", "alaskaNorthPacific", "guamArea"}
     missing = sorted(required - assignments.keys())
+
     if missing:
-        labels = [normalize(row.get_text(" ", strip=True)) for row in soup.select("tr")]
-        useful = [
-            label for label in labels
-            if any(word in label for word in ("america", "asia", "alaska", "guam"))
-        ]
         raise RuntimeError(
-            "Missing region(s): " + ", ".join(missing)
-            + "; matching rows seen: " + repr(useful[:20])
+            "Missing region(s): "
+            + ", ".join(missing)
+            + "; candidate rows: "
+            + repr(debug_rows[:30])
         )
+
     return assignments
 
 
 def main() -> int:
-    html = fetch_html()
-    assignments = parse_assignments(html)
+    markup = fetch_html()
+    assignments = parse_assignments(markup)
+
     data = {
-        "schemaVersion": 8,
+        "schemaVersion": 9,
         "source": SOURCE_URL,
         "proxy": WORKER_URL,
         "fetchedAtUtc": datetime.now(timezone.utc)
@@ -107,11 +140,13 @@ def main() -> int:
         "alaskaNorthPacific": assignments["alaskaNorthPacific"],
         "guamArea": assignments["guamArea"],
     }
+
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
     print("Updated data/arinc.json")
     print(json.dumps(data, ensure_ascii=False, indent=2))
     return 0
