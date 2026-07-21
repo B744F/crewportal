@@ -1,4 +1,4 @@
-# v7.1.0 — 2026-07-21
+# v7.1.1 — 2026-07-21
 
 - Airport MRT primary source changed to Taoyuan Metro official station timetable pages.
 - TDX LiveBoard retained only as optional secondary live status.

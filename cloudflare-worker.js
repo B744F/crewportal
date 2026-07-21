@@ -1,16 +1,19 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.0.0
+ * Version 2.1.0 (Crew Portal v7.1.1)
  *
- * Required secrets:
+ * Primary MRT source: Taoyuan Metro official station timetable pages.
+ * Secondary source: TDX TYMC LiveBoard (optional live status).
+ *
+ * Required secrets for live status:
  *   TDX_CLIENT_ID
  *   TDX_CLIENT_SECRET
  */
 
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
+const TYM_TIMETABLE_ROOT = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-';
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
 const TDX_LIVEBOARD_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC';
-const TDX_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/DailyTimetable/Station/TYMC';
 const ALLOWED_ORIGINS = new Set([
   'https://b744f.github.io',
   'http://localhost:8000',
@@ -44,6 +47,10 @@ function stationIsValid(station) {
   return /^A(?:[1-9]|1[0-3]|1[5-9]|2[0-2]|14A)$/.test(station);
 }
 
+function officialStationCode(station) {
+  return station === 'A14A' ? 'A14a' : station;
+}
+
 function multilingualText(value) {
   if (!value) return '';
   if (typeof value === 'string') return value;
@@ -59,7 +66,6 @@ function trainType(row) {
     multilingualText(row.TrainTypeName),
     multilingualText(row.ServiceTypeName)
   ].filter(Boolean).join(' ').toLowerCase();
-
   return /express|直達/.test(source) ? 'express' : 'commuter';
 }
 
@@ -69,192 +75,150 @@ function trainDirection(row) {
     multilingualText(row.DestinationStationName),
     multilingualText(row.TripHeadSign)
   ].filter(Boolean).join(' ').toLowerCase();
-
   if (/\ba1\b|taipei|台北/.test(destination)) return 'taipei';
   if (/\ba21\b|\ba22\b|zhongli|laojie|中壢|老街溪/.test(destination)) return 'zhongli';
-
-  // TDX metro convention: 0 = outbound/southbound, 1 = inbound/northbound.
   if (Number(row.Direction) === 1) return 'taipei';
   if (Number(row.Direction) === 0) return 'zhongli';
   return null;
 }
 
-function formatTaipeiTime(date) {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Taipei',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).format(date);
-}
-
-function estimatedClockTime(seconds) {
-  // Round upward to the next displayed minute so a train arriving in a few
-  // seconds is shown as the useful departure clock time, not “Arriving”.
-  const estimated = Date.now() + Math.max(0, seconds) * 1000;
-  return formatTaipeiTime(new Date(Math.ceil(estimated / 60_000) * 60_000));
-}
-
-function arrivalValue(row) {
-  const secondsValue = row.EstimateTime ?? row.EstimateTimeSec ?? row.CountDown ?? row.Countdown;
-  const seconds = Number(secondsValue);
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return { time: estimatedClockTime(seconds), seconds };
-  }
-
-  const clock = row.EstimatedArrivalTime || row.NextTrainTime || row.ArrivalTime || row.ScheduleArrivalTime;
-  const match = String(clock || '').match(/(?:T|\s)?(\d{2}:\d{2})(?::\d{2})?/);
-  return match ? { time: match[1], seconds: null } : null;
-}
-
-function normalizeLiveBoard(payload, station) {
-  const rows = Array.isArray(payload)
-    ? payload
-    : payload.LiveBoards || payload.value || payload.data || [];
-
-  const trains = {
-    taipei: { commuter: null, express: null },
-    zhongli: { commuter: null, express: null }
-  };
-
-  let updateTime = null;
-  for (const row of rows) {
-    const rowStation = String(row.StationID || row.StationUID || '').toUpperCase();
-    if (rowStation && !rowStation.endsWith(station)) continue;
-
-    const direction = trainDirection(row);
-    const type = trainType(row);
-    const arrival = arrivalValue(row);
-    if (!direction || !arrival) continue;
-
-    const current = trains[direction][type];
-    if (!current || (arrival.seconds !== null && (current.seconds === null || arrival.seconds < current.seconds))) {
-      trains[direction][type] = {
-        time: arrival.time,
-        seconds: arrival.seconds,
-        destination: multilingualText(row.DestinationStationName) || multilingualText(row.TripHeadSign) || null
-      };
-    }
-
-    updateTime = updateTime || row.UpdateTime || row.SrcUpdateTime || row.DataCollectTime || null;
-  }
-
-  const usable = Object.values(trains).flatMap(direction => Object.values(direction)).filter(Boolean);
-  if (!usable.length) throw new Error(`No usable LiveBoard data for ${station}`);
-  return { trains, updateTime };
-}
-
-
-function taipeiNowMinutes() {
+function taipeiNow() {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Taipei', hour12: false,
     year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', weekday: 'short'
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
   }).formatToParts(new Date());
   const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return {
     minutes: Number(value.hour) * 60 + Number(value.minute) + Number(value.second) / 60,
-    weekday: value.weekday,
     date: `${value.year}-${value.month}-${value.day}`
   };
 }
 
-function clockMinutes(value) {
-  const match = String(value || '').match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (!match) return null;
-  return Number(match[1]) * 60 + Number(match[2]);
+function decodeHtml(value) {
+  return String(value || '')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, num) => String.fromCodePoint(Number(num)));
 }
 
-function clockText(value) {
-  const minutes = clockMinutes(value);
-  if (minutes === null) return null;
-  return `${String(Math.floor(minutes / 60) % 24).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+function htmlToText(html) {
+  return decodeHtml(String(html || '')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--([\s\S]*?)-->/g, ' ')
+    .replace(/<[^>]+>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function timetableRows(payload) {
-  const roots = Array.isArray(payload) ? payload : payload?.value || payload?.data || payload?.StationTimetables || [payload];
-  const rows = [];
-  for (const root of roots || []) {
-    const list = root?.Timetables || root?.StationTimetables || root?.DailyTimetables || root?.StopTimes || [];
-    if (Array.isArray(list) && list.length) {
-      for (const item of list) rows.push({ ...root, ...item });
-    } else if (root && (root.DepartureTime || root.ArrivalTime || root.Time)) {
-      rows.push(root);
-    }
+function sectionBetween(text, startMarker, endMarker) {
+  const start = text.indexOf(startMarker);
+  if (start < 0) return '';
+  const from = start + startMarker.length;
+  const end = text.indexOf(endMarker, from);
+  return text.slice(from, end > from ? end : text.length);
+}
+
+function parseDirectionSection(section, direction) {
+  const results = [];
+  const seen = new Set();
+  const pattern = /(\d{2})點\s*(\d{2})\s*([\s\S]*?)(?=\d{2}點\s*\d{2}|目前無班次|$)/g;
+  let match;
+  while ((match = pattern.exec(section))) {
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (hour > 23 || minute > 59) continue;
+    const description = match[3].slice(0, 180);
+    const type = /直達車/.test(description) ? 'express' : 'commuter';
+    const key = `${hour}:${minute}:${type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push({
+      direction,
+      type,
+      hour,
+      minute,
+      time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+      note: /尖峰/.test(description) ? 'peak' : null
+    });
   }
-  return rows;
+  return results;
 }
 
-function normalizeTimetable(payload, station) {
-  const now = taipeiNowMinutes();
-  const trains = {
-    taipei: { commuter: null, express: null },
-    zhongli: { commuter: null, express: null }
-  };
-
-  for (const row of timetableRows(payload)) {
-    const rowStation = String(row.StationID || row.StationUID || row.StopID || '').toUpperCase();
-    if (rowStation && !rowStation.endsWith(station)) continue;
-
-    const rawTime = row.DepartureTime || row.ArrivalTime || row.Time || row.ScheduleDepartureTime || row.ScheduleArrivalTime;
-    const minutes = clockMinutes(rawTime);
-    if (minutes === null || minutes + 0.01 < now.minutes) continue;
-
-    const direction = trainDirection(row);
-    if (!direction) continue;
-    const type = trainType(row);
-    const current = trains[direction][type];
-    if (!current || minutes < current.minutes) {
-      trains[direction][type] = {
-        time: clockText(rawTime),
-        minutes,
-        destination: multilingualText(row.DestinationStationName) || multilingualText(row.TripHeadSign) || null,
-        trainNo: row.TrainNo || row.TrainID || null
-      };
-    }
+function selectNext(rows, nowMinutes) {
+  let best = null;
+  for (const row of rows) {
+    let serviceMinutes = row.hour * 60 + row.minute;
+    if (nowMinutes >= 18 * 60 && row.hour < 3) serviceMinutes += 1440;
+    if (serviceMinutes + 0.01 < nowMinutes) continue;
+    if (!best || serviceMinutes < best.serviceMinutes) best = { ...row, serviceMinutes };
   }
-
-  for (const direction of Object.values(trains)) {
-    for (const type of Object.keys(direction)) {
-      if (direction[type]) delete direction[type].minutes;
-    }
-  }
-
-  const usable = Object.values(trains).flatMap(direction => Object.values(direction)).filter(Boolean);
-  if (!usable.length) throw new Error(`No upcoming timetable data for ${station}`);
-  return { trains, serviceDate: now.date, updateTime: new Date().toISOString() };
+  if (!best) return null;
+  const { serviceMinutes, ...train } = best;
+  return train;
 }
 
-async function requestDailyTimetable(station, token) {
-  const filter = encodeURIComponent(`StationID eq '${station}'`);
-  const urls = [
-    `${TDX_TIMETABLE_ROOT}/${encodeURIComponent(station)}?$format=JSON`,
-    `${TDX_TIMETABLE_ROOT}?$filter=${filter}&$format=JSON`
+function normalizeOfficialTimetable(html, station) {
+  const text = htmlToText(html);
+  const taipeiMarker = '時間 往台北車站';
+  const zhongliMarker = '時間 往中壢';
+  const firstTaipei = text.indexOf(taipeiMarker);
+  const firstZhongli = text.indexOf(zhongliMarker);
+  if (firstTaipei < 0 && firstZhongli < 0) throw new Error('Official timetable format not recognized');
+
+  let taipeiSection = '';
+  let zhongliSection = '';
+  if (firstTaipei >= 0 && firstZhongli >= 0) {
+    taipeiSection = sectionBetween(text, taipeiMarker, zhongliMarker);
+    zhongliSection = sectionBetween(text, zhongliMarker, taipeiMarker);
+  } else if (firstTaipei >= 0) {
+    taipeiSection = text.slice(firstTaipei + taipeiMarker.length);
+  } else {
+    zhongliSection = text.slice(firstZhongli + zhongliMarker.length);
+  }
+
+  // Each official page includes desktop/mobile duplicates. Parsing and de-duplication
+  // deliberately handles both without relying on unstable CSS class names.
+  const rows = [
+    ...parseDirectionSection(taipeiSection, 'taipei'),
+    ...parseDirectionSection(zhongliSection, 'zhongli')
   ];
+  if (!rows.length) throw new Error(`No timetable rows found for ${station}`);
 
-  let lastError = null;
-  for (const url of urls) {
-    try {
-      const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-        cf: { cacheTtl: 300, cacheEverything: true }
-      });
-      if (!response.ok) throw new Error(`TDX timetable request failed (${response.status})`);
-      return normalizeTimetable(await response.json(), station);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error('TDX timetable request failed');
+  const now = taipeiNow();
+  const by = (direction, type) => selectNext(rows.filter(r => r.direction === direction && r.type === type), now.minutes);
+  const trains = {
+    taipei: { commuter: by('taipei', 'commuter'), express: by('taipei', 'express') },
+    zhongli: { commuter: by('zhongli', 'commuter'), express: by('zhongli', 'express') }
+  };
+  const usable = Object.values(trains).flatMap(group => Object.values(group)).filter(Boolean);
+  if (!usable.length) throw new Error(`No upcoming official timetable trains for ${station}`);
+  return { trains, serviceDate: now.date };
+}
+
+async function requestOfficialTimetable(station) {
+  const url = `${TYM_TIMETABLE_ROOT}${officialStationCode(station)}`;
+  const response = await fetch(url, {
+    headers: {
+      'Accept': 'text/html,application/xhtml+xml',
+      'User-Agent': 'Mozilla/5.0 (compatible; CrewPortal/7.1; +https://b744f.github.io)'
+    },
+    cf: { cacheTtl: 300, cacheEverything: true }
+  });
+  if (!response.ok) throw new Error(`Taoyuan Metro timetable request failed (${response.status})`);
+  const html = await response.text();
+  return { ...normalizeOfficialTimetable(html, station), officialUrl: url };
 }
 
 async function getTdxToken(env) {
-  if (!env.TDX_CLIENT_ID || !env.TDX_CLIENT_SECRET) {
-    throw new Error('TDX credentials are not configured');
-  }
-
+  if (!env.TDX_CLIENT_ID || !env.TDX_CLIENT_SECRET) return null;
   if (tokenCache.token && Date.now() < tokenCache.expiresAt - 60_000) return tokenCache.token;
-
   const response = await fetch(TDX_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -264,11 +228,9 @@ async function getTdxToken(env) {
       client_secret: env.TDX_CLIENT_SECRET
     })
   });
-
   if (!response.ok) throw new Error(`TDX token request failed (${response.status})`);
   const data = await response.json();
-  if (!data.access_token) throw new Error('TDX token response did not contain access_token');
-
+  if (!data.access_token) throw new Error('TDX token response missing access_token');
   tokenCache = {
     token: data.access_token,
     expiresAt: Date.now() + Math.max(300, Number(data.expires_in) || 900) * 1000
@@ -276,30 +238,37 @@ async function getTdxToken(env) {
   return tokenCache.token;
 }
 
-async function requestLiveBoard(station, token) {
-  const filter = encodeURIComponent(`StationID eq '${station}'`);
-  const urls = [
-    `${TDX_LIVEBOARD_ROOT}/Station/${encodeURIComponent(station)}?$format=JSON`,
-    `${TDX_LIVEBOARD_ROOT}?$filter=${filter}&$format=JSON`
-  ];
-
-  let lastError = null;
-  for (const url of urls) {
-    try {
+async function requestLiveStatus(station, env) {
+  try {
+    const token = await getTdxToken(env);
+    if (!token) return null;
+    const filter = encodeURIComponent(`StationID eq '${station}'`);
+    const urls = [
+      `${TDX_LIVEBOARD_ROOT}/Station/${encodeURIComponent(station)}?$format=JSON`,
+      `${TDX_LIVEBOARD_ROOT}?$filter=${filter}&$format=JSON`
+    ];
+    for (const url of urls) {
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
         cf: { cacheTtl: 20, cacheEverything: true }
       });
-      if (!response.ok) throw new Error(`TDX LiveBoard request failed (${response.status})`);
-      return normalizeLiveBoard(await response.json(), station);
-    } catch (error) {
-      lastError = error;
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const rows = Array.isArray(payload) ? payload : payload.LiveBoards || payload.value || payload.data || [];
+      const live = [];
+      for (const row of rows) {
+        const direction = trainDirection(row);
+        if (!direction) continue;
+        const seconds = Number(row.EstimateTime ?? row.EstimateTimeSec ?? row.CountDown ?? row.Countdown);
+        if (!Number.isFinite(seconds) || seconds < 0) continue;
+        live.push({ direction, type: trainType(row), seconds });
+      }
+      if (live.length) return live;
     }
+  } catch (_) {
+    // Timetable remains available even when TDX live status is unavailable.
   }
-  throw lastError || new Error('TDX LiveBoard request failed');
+  return null;
 }
 
 async function handleMrt(request, env, ctx) {
@@ -315,14 +284,18 @@ async function handleMrt(request, env, ctx) {
   if (cached) return cached;
 
   try {
-    const token = await getTdxToken(env);
-    const timetable = await requestDailyTimetable(station, token);
+    const [timetable, live] = await Promise.all([
+      requestOfficialTimetable(station),
+      requestLiveStatus(station, env)
+    ]);
     const response = json(request, {
       ok: true,
       mode: 'timetable',
       station,
-      source: 'TDX / Taoyuan Metro',
+      source: 'Taoyuan Metro Official Timetable',
+      liveSource: live ? 'TDX LiveBoard' : null,
       fetchedAt: new Date().toISOString(),
+      live,
       ...timetable
     }, {
       headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' }
@@ -364,27 +337,20 @@ async function handleParking(request) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(request) });
-    }
-
-    if (request.method !== 'GET') {
-      return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
-    }
-
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+    if (request.method !== 'GET') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
     if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
     if (url.pathname === '/api/health') {
       return json(request, {
         ok: true,
         service: 'Crew Portal API',
-        version: '2.0.0',
-        tdxConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
+        version: '2.1.0',
+        timetableSource: 'Taoyuan Metro Official Timetable',
+        tdxLiveConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
         timestamp: new Date().toISOString()
       });
     }
-
     return json(request, { ok: false, error: 'Not found' }, { status: 404 });
   }
 };

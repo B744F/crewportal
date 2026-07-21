@@ -1,4 +1,4 @@
-# Crew Portal v7.1.0 部署說明
+# Crew Portal v7.1.1 部署說明
 
 ## 本次升級
 

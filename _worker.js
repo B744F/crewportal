@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.1.0 (Crew Portal v7.1.0)
+ * Version 2.1.0 (Crew Portal v7.1.1)
  *
  * Primary MRT source: Taoyuan Metro official station timetable pages.
  * Secondary source: TDX TYMC LiveBoard (optional live status).

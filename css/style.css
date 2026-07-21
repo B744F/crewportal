@@ -320,3 +320,8 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .mrt-status-live::before{background:#54d383;box-shadow:0 0 0 3px rgba(84,211,131,.13)}
 .mrt-status-scheduled{color:#f0c874!important}
 .mrt-status-scheduled::before{background:#f0c874;box-shadow:0 0 0 3px rgba(240,200,116,.12)}
+
+/* v7.1.1 - Cleaner MRT timetable cells */
+.mrt-time{font-size:20px;gap:0;font-weight:900}
+.mrt-time .mrt-secondary{display:none}
+.mrt-time.mrt-muted{font-size:12px;font-weight:750}
