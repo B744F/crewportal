@@ -1,5 +1,6 @@
 (function(){
-  const VERSION = "6.5.0";
+  const VERSION = "6.5.2";
+  const BUILD = "20260721-002";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const PARKING_INTERVAL=5*60*1000;
   const ARINC_INTERVAL=15*60*1000;
@@ -43,8 +44,8 @@
     catch(e){state.arincHttp=e.message;try{const r=await fetchJson("data/arinc.json");state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=(r.data.route||"Unknown")+" (fallback)"}catch(e2){state.arinc=null;state.arincRoute="Unavailable"}}
   }
   async function loadVersion(){
-    try{const r=await fetchJson("data/version.json");if($("diagVersion"))$("diagVersion").textContent=`v${r.data.version||VERSION} · ${r.data.build||"--"}`}
-    catch(_e){if($("diagVersion"))$("diagVersion").textContent=`v${VERSION}`}
+    try{const r=await fetchJson("data/version.json");if($("diagVersion"))$("diagVersion").textContent=`v${r.data.version||VERSION} · ${r.data.build||BUILD}`}
+    catch(_e){if($("diagVersion"))$("diagVersion").textContent=`v${VERSION} · ${BUILD}`}
   }
   function levelFromAge(data,time,maxFresh,maxDelayed){if(!data||!time)return"offline";const age=Date.now()-time.getTime();return age<=maxFresh?"normal":age<=maxDelayed?"delayed":"offline"}
   function render(){
@@ -82,6 +83,17 @@
     if($("systemOverallText"))$("systemOverallText").textContent=overallText;
   }
 
+  function applyPortalLabels(){
+    const kicker=document.querySelector(".hero-copy .kicker");
+    if(kicker)kicker.remove();
+
+    const parkingPanel=document.querySelector(".parking-panel");
+    if(parkingPanel)parkingPanel.setAttribute("aria-label","Parking Information");
+
+    const parkingTitle=document.querySelector(".parking-title span:last-child");
+    if(parkingTitle)parkingTitle.textContent="PARKING INFORMATION";
+  }
+
   function installAircraftTracking(){
     const atisPanel=document.querySelector(".atis-panel");
     if(!atisPanel||$("aircraftTrackForm"))return;
@@ -113,10 +125,10 @@
   }
   function updateVisibleVersion(){
     if($("footerVersion"))$("footerVersion").textContent=`Version v${VERSION}`;
-    if($("footerBuild"))$("footerBuild").textContent="Build 20260720-029";
-    if($("diagVersion"))$("diagVersion").textContent=`v${VERSION} · 20260720-029`;
+    if($("footerBuild"))$("footerBuild").textContent=`Build ${BUILD}`;
+    if($("diagVersion"))$("diagVersion").textContent=`v${VERSION} · ${BUILD}`;
   }
   async function refresh(){await Promise.allSettled([loadParking(),loadAirportParking(),loadArinc(),loadVersion()]);render();updateVisibleVersion()}
-  installAircraftTracking();updateVisibleVersion();refresh();setInterval(refresh,60000);
+  applyPortalLabels();installAircraftTracking();updateVisibleVersion();refresh();setInterval(refresh,60000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});window.addEventListener("focus",refresh);
 })();
