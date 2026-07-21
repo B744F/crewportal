@@ -86,7 +86,7 @@
       setCell(els.ze,values.ze.value,"express",values.ze.subtext);
     }
     setUpdated(data.updateTime||data.fetchedAt);
-    els.status.textContent="TDX Official Timetable · 官方時刻表";
+    els.status.textContent="Taoyuan Metro Timetable · 桃捷官方時刻表";
     els.status.className="mrt-status mrt-status-live";
   }
   function renderUnavailable(station){
@@ -102,7 +102,7 @@
   async function refresh(){
     const station=currentStation();
     if(!station)return;
-    els.link.href=`https://www.tymetro.com.tw/tymetro-new/en/_pages/travel-guide/timetable-${station.code}`;
+    els.link.href=`https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-${station.code === "A14A" ? "A14a" : station.code}`;
     if(station.comingSoon){renderScheduled(station);return}
     if(requestController)requestController.abort();
     requestController=new AbortController();
@@ -114,7 +114,7 @@
       renderTimetable(data);
     }catch(err){
       if(err.name==="AbortError")return;
-      console.warn("TDX MRT timetable unavailable",err);
+      console.warn("Airport MRT timetable unavailable",err);
       renderUnavailable(station);
     }
   }
@@ -130,5 +130,5 @@
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
     window.addEventListener("focus",refresh);
   }
-  fetch(`${DATA_URL}?v=7.0.1`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
+  fetch(`${DATA_URL}?v=7.1.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
 })();

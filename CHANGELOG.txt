@@ -1,3 +1,10 @@
+# v7.1.0 — 2026-07-21
+
+- Airport MRT primary source changed to Taoyuan Metro official station timetable pages.
+- TDX LiveBoard retained only as optional secondary live status.
+- Removed invalid TDX DailyTimetable endpoint that caused HTTP 404.
+- Displays official HH:mm departures and never fabricates fallback times.
+
 CrewPortal v6.4.3
 Build 20260720-027
 
