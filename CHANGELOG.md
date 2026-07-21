@@ -1,5 +1,14 @@
 # Changelog
 
+## v6.8.0 — 2026-07-21
+
+### Airport MRT production upgrade
+- Connected the GitHub Pages front end to the dedicated Cloudflare Worker endpoint.
+- Added a deploy-ready `cloudflare-worker.js` with TDX OAuth, LiveBoard lookup, edge caching, CORS, validation, health check, and error handling.
+- Preserved the existing parking proxy at `/` and `/api/parking`.
+- Kept the local scheduled estimate as an automatic front-end fallback when live data is unavailable.
+- Updated asset cache versions and site version metadata.
+
 ## v6.7.0 — 2026-07-21
 
 - Added secure TDX OAuth integration through the Cloudflare Pages Worker.

@@ -1,7 +1,7 @@
 (function(){
   "use strict";
   const DATA_URL="data/mrt-stations.json";
-  const API_URL="api/mrt";
+  const API_URL="https://flightdeck-api.201505-login.workers.dev/api/mrt";
   const STORAGE_KEY="crewportal-mrt-station";
   const TAIPEI_TZ="Asia/Taipei";
   const $=id=>document.getElementById(id);
@@ -98,5 +98,5 @@
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
     window.addEventListener("focus",refresh);
   }
-  fetch(`${DATA_URL}?v=6.7.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
+  fetch(`${DATA_URL}?v=6.8.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
 })();
