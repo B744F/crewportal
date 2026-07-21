@@ -7,7 +7,7 @@
 <title>FlightDeck｜China Airlines Crew Portal</title>
 <meta content="FlightDeck - China Airlines flight crew resource portal with quick links, ATIS access, weather, ATC, AI tools, and operational resources." name="description"/>
 <link href="images/flightdeck-logo.webp" rel="icon" type="image/png"/>
-<link href="css/style.css?v=6.5.2" rel="stylesheet"/>
+<link href="css/style.css?v=6.6.0" rel="stylesheet"/>
 </head>
 <body>
 <main id="top">
@@ -52,6 +52,34 @@
   <div class="parking-cell parking-note-cell"><b>P3</b><strong id="parkingP3">未提供</strong></div>
 </div>
 <div class="parking-sync-meta"><span id="parkingNextUpdate">下次同步：--</span><span id="parkingAge">資料年齡：--</span></div>
+</section>
+<section aria-label="Airport MRT" class="glass-panel mrt-panel">
+<div class="mrt-head">
+  <div class="mrt-title"><span class="mrt-mark">MRT</span><span>AIRPORT MRT<small>桃園機場捷運</small></span></div>
+  <div class="mrt-updated"><span>Updated 更新</span><strong id="mrtUpdatedTime">--:--</strong></div>
+</div>
+<div class="mrt-station-row">
+  <label for="mrtStationSelect">Station 車站</label>
+  <select id="mrtStationSelect" aria-label="Select Taoyuan Airport MRT station"></select>
+</div>
+<div class="mrt-table" role="table" aria-label="Next Airport MRT trains">
+  <div class="mrt-row mrt-table-head" role="row">
+    <span>Direction<br/><small>方向</small></span>
+    <span class="mrt-commuter-head">Commuter<br/><small>普通車</small></span>
+    <span class="mrt-express-head">Express<br/><small>直達車</small></span>
+  </div>
+  <div class="mrt-row" role="row">
+    <b>To Taipei<small>往台北</small></b>
+    <strong class="mrt-time commuter" id="mrtTaipeiCommuter">--:--</strong>
+    <strong class="mrt-time express" id="mrtTaipeiExpress">--:--</strong>
+  </div>
+  <div class="mrt-row" role="row">
+    <b>To Zhongli<small>往中壢</small></b>
+    <strong class="mrt-time commuter" id="mrtZhongliCommuter">--:--</strong>
+    <strong class="mrt-time express" id="mrtZhongliExpress">--:--</strong>
+  </div>
+</div>
+<div class="mrt-foot"><span id="mrtStatus">Times based on official timetable.</span><a id="mrtOfficialLink" href="https://www.tymetro.com.tw/tymetro-new/en/_pages/travel-guide/timetable-A13" target="_blank" rel="noopener noreferrer">Official timetable ↗</a></div>
 </section>
 <section aria-label="Pacific HF 頻率" class="glass-panel arinc-panel">
 <div class="arinc-head">
@@ -258,7 +286,7 @@
       <span>China Airlines Crew Portal</span>
     </div>
     <div class="footer-version" aria-label="Version information">
-      <span class="version-pill" id="footerVersion">Version v6.5.2</span>
+      <span class="version-pill" id="footerVersion">Version v6.6.0</span>
       <span id="footerBuild">Build 20260721-002</span>
       <span>Designed for Flight Crew</span>
     </div>
@@ -267,6 +295,7 @@
 <script src="js/app-1.js?v=6.4.2"></script>
 <script src="js/app-2.js?v=6.4.2"></script>
 <script src="js/app-3.js?v=6.5.1"></script>
-<script src="js/app-4.js?v=6.4.2"></script>
+<script src="js/app-4.js?v=6.6.0"></script>
+<script src="js/airport-mrt.js?v=6.6.0"></script>
 </body>
 </html>

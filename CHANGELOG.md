@@ -1,5 +1,13 @@
 # Changelog
 
+## v6.6.0 — 2026-07-21
+
+- Added bilingual Airport MRT timetable card.
+- Added station selector for A1–A22, defaulting to A13 Airport Terminal 2.
+- Added next scheduled Commuter and Express train display with minute-boundary refresh.
+- Added official timetable links and A14 coming-soon handling.
+- Updated responsive hero operations layout and site version.
+
 ## v6.4.2 — 2026-07-18
 - 修正桃園機場停車更新流程的「假成功」問題。
 - 僅在 P1、P2、P4 都取得有效數字時寫入資料。
