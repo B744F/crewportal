@@ -51,7 +51,7 @@ def fetch_html() -> str:
     request = Request(
         WORKER_URL,
         headers={
-            "User-Agent": "CrewPortal-PacificHF/2.5",
+            "User-Agent": "CrewPortal-PacificHF/2.6",
             "Accept": "text/html",
             "Cache-Control": "no-cache",
         },
@@ -120,34 +120,23 @@ def assignments(html: str) -> dict[str, dict[str, int]]:
         if not key:
             continue
 
-        # The page also contains explanatory text mentioning region names.
-        # Ignore those rows unless they look like the actual frequency row.
-        if len(cells) < 4:
-            continue
+        # Explanatory rows can mention a region name but contain no frequencies.
+        # Only accept rows with at least two distinct valid HF frequencies.
+        values: list[int] = []
+        for cell in cells:
+            for match in re.finditer(r"\b(\d{4,5})\b", cell):
+                number = int(match.group(1))
+                if 2000 <= number <= 22000 and number not in values:
+                    values.append(number)
 
-        if "air traffic control" not in norm(cells[1]):
+        if len(values) < 2:
             continue
 
         candidate_rows.append(cells)
 
-        # Current ARINC Pacific table layout:
-        # 0 = Region
-        # 1 = Service label ("Air Traffic Control")
-        # 2 = Primary
-        # 3 = Secondary
-        # 4 = Tertiary / blank (ignored)
-        primary = freq(cells[2])
-        secondary = freq(cells[3])
-
-        if primary is None or secondary is None:
-            raise RuntimeError(
-                f"Unable to parse PRIMARY/SECONDARY for {key}; row={cells!r}"
-            )
-
-        if primary == secondary:
-            raise RuntimeError(
-                f"Duplicate PRIMARY/SECONDARY for {key}: {primary}; row={cells!r}"
-            )
+        # ARINC lists frequencies in Primary, Secondary, then optional Tertiary
+        # order. Keep only the first two distinct frequencies.
+        primary, secondary = values[0], values[1]
 
         output[key] = {
             "primary": primary,
@@ -178,7 +167,7 @@ def main() -> None:
     raw_valid_time, utc_valid_time = valid_time(html)
 
     data = {
-        "schemaVersion": 13,
+        "schemaVersion": 14,
         "source": SOURCE_URL,
         "proxy": WORKER_URL,
         "validFrom": raw_valid_time,
