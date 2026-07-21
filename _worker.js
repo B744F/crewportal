@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 1.1.0
+ * Version 2.0.0
  *
  * Required secrets:
  *   TDX_CLIENT_ID
@@ -87,12 +87,18 @@ function formatTaipeiTime(date) {
   }).format(date);
 }
 
+function estimatedClockTime(seconds) {
+  // Round upward to the next displayed minute so a train arriving in a few
+  // seconds is shown as the useful departure clock time, not “Arriving”.
+  const estimated = Date.now() + Math.max(0, seconds) * 1000;
+  return formatTaipeiTime(new Date(Math.ceil(estimated / 60_000) * 60_000));
+}
+
 function arrivalValue(row) {
   const secondsValue = row.EstimateTime ?? row.EstimateTimeSec ?? row.CountDown ?? row.Countdown;
   const seconds = Number(secondsValue);
   if (Number.isFinite(seconds) && seconds >= 0) {
-    if (seconds <= 45) return { time: 'Arriving', seconds };
-    return { time: formatTaipeiTime(new Date(Date.now() + seconds * 1000)), seconds };
+    return { time: estimatedClockTime(seconds), seconds };
   }
 
   const clock = row.EstimatedArrivalTime || row.NextTrainTime || row.ArrivalTime || row.ScheduleArrivalTime;
@@ -268,7 +274,7 @@ export default {
       return json(request, {
         ok: true,
         service: 'Crew Portal API',
-        version: '1.1.0',
+        version: '2.0.0',
         tdxConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
         timestamp: new Date().toISOString()
       });

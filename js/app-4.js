@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "6.7.0";
-  const BUILD = "20260721-003";
+  const VERSION = "7.0.0";
+  const BUILD = "20260721-005";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const PARKING_INTERVAL=5*60*1000;
   const ARINC_INTERVAL=15*60*1000;
@@ -44,8 +44,17 @@
     catch(e){state.arincHttp=e.message;try{const r=await fetchJson("data/arinc.json");state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=(r.data.route||"Unknown")+" (fallback)"}catch(e2){state.arinc=null;state.arincRoute="Unavailable"}}
   }
   async function loadVersion(){
-    try{const r=await fetchJson("data/version.json");if($("diagVersion"))$("diagVersion").textContent=`v${r.data.version||VERSION} · ${r.data.build||BUILD}`}
-    catch(_e){if($("diagVersion"))$("diagVersion").textContent=`v${VERSION} · ${BUILD}`}
+    try{
+      const r=await fetchJson("data/version.json");
+      const version=r.data.version||VERSION, build=r.data.build||BUILD;
+      if($("diagVersion"))$("diagVersion").textContent=`v${version} · ${build}`;
+      if($("footerVersion"))$("footerVersion").textContent=`Version v${version}`;
+      if($("footerBuild"))$("footerBuild").textContent=`Build ${build}`;
+    } catch(_e){
+      if($("diagVersion"))$("diagVersion").textContent=`v${VERSION} · ${BUILD}`;
+      if($("footerVersion"))$("footerVersion").textContent=`Version v${VERSION}`;
+      if($("footerBuild"))$("footerBuild").textContent=`Build ${BUILD}`;
+    }
   }
   function levelFromAge(data,time,maxFresh,maxDelayed){if(!data||!time)return"offline";const age=Date.now()-time.getTime();return age<=maxFresh?"normal":age<=maxDelayed?"delayed":"offline"}
   function render(){

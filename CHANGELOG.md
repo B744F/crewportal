@@ -1,3 +1,18 @@
+# v7.0.0 — Airport MRT Next Train Timetable
+
+- Airport MRT now displays the next train as a clock time (`HH:mm`).
+- Replaced the large “Arriving” and minute-countdown presentation with timetable-first information.
+- TDX real-time estimates are converted into useful next-train times.
+- Kept a small arrival-status line for trains that are very close.
+- Updated Crew Portal version to v7.0.0 / Build 20260721-005.
+- Updated Cloudflare Worker API to v2.0.0.
+
+# v6.9.1 — Version Display Fix
+
+- Fixed the footer version being overwritten by the old `app-4.js` constant.
+- Footer and diagnostics now read the version and build from `data/version.json`.
+- Updated cache-busting values to force browsers and GitHub Pages to load the corrected files.
+
 # v6.9.0 — TDX Live MRT Frontend Integration
 
 - Airport MRT now uses the verified Cloudflare `/api/mrt` endpoint.

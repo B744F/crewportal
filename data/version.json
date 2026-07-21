@@ -1,5 +1,6 @@
 {
-  "version": "6.9.0",
+  "version": "7.0.0",
+  "build": "20260721-005",
   "date": "2026-07-21",
-  "label": "TDX Live MRT Frontend Integration"
+  "label": "Airport MRT Next Train Timetable"
 }

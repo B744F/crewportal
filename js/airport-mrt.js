@@ -36,14 +36,15 @@
     el.innerHTML=`<span class="mrt-primary">${primary}</span>${subtext?`<small class="mrt-secondary">${subtext}</small>`:""}`;
     if(!/^\d\d:\d\d$/.test(primary)&&primary!=="Arriving")el.classList.add("mrt-muted");
   }
-  function formatLiveTrain(train,kind){
-    if(!train)return {value:"--",subtext:"No upcoming train"};
+  function formatLiveTrain(train){
+    if(!train)return {value:"--",subtext:"暫無下一班"};
     const seconds=Number(train.seconds);
+    const value=/^\d{2}:\d{2}$/.test(String(train.time||""))?train.time:"--";
     if(Number.isFinite(seconds)){
-      if(seconds<=45)return {value:"Arriving",subtext:"即將進站"};
-      if(seconds<600)return {value:`${Math.max(1,Math.ceil(seconds/60))} min`,subtext:train.time||""};
+      if(seconds<=45)return {value,subtext:"即將到站"};
+      if(seconds<3600)return {value,subtext:`約 ${Math.max(1,Math.ceil(seconds/60))} 分鐘`};
     }
-    return {value:train.time||"--",subtext:train.destination||""};
+    return {value,subtext:train.destination||"下一班時刻"};
   }
   function currentStation(){return stations.find(s=>s.code===els.select.value)||stations.find(s=>s.code==="A13")}
   function setUpdated(iso){
@@ -76,10 +77,10 @@
     const rows=data.trains||{};
     const station=currentStation();
     const values={
-      tc:formatLiveTrain(rows.taipei?.commuter,"commuter"),
-      te:formatLiveTrain(rows.taipei?.express,"express"),
-      zc:formatLiveTrain(rows.zhongli?.commuter,"commuter"),
-      ze:formatLiveTrain(rows.zhongli?.express,"express")
+      tc:formatLiveTrain(rows.taipei?.commuter),
+      te:formatLiveTrain(rows.taipei?.express),
+      zc:formatLiveTrain(rows.zhongli?.commuter),
+      ze:formatLiveTrain(rows.zhongli?.express)
     };
     setCell(els.tc,values.tc.value,"commuter",values.tc.subtext);
     setCell(els.zc,values.zc.value,"commuter",values.zc.subtext);
@@ -91,7 +92,7 @@
       setCell(els.ze,values.ze.value,"express",values.ze.subtext);
     }
     setUpdated(data.updateTime||data.fetchedAt);
-    els.status.textContent="TDX Live · 官方即時資料";
+    els.status.textContent="TDX Next Train · 官方下一班時刻";
     els.status.className="mrt-status mrt-status-live";
   }
   async function refresh(){
@@ -125,5 +126,5 @@
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
     window.addEventListener("focus",refresh);
   }
-  fetch(`${DATA_URL}?v=6.9.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
+  fetch(`${DATA_URL}?v=7.0.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
 })();
