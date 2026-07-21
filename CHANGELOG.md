@@ -1,5 +1,14 @@
 # Changelog
 
+## v6.7.0 — 2026-07-21
+
+- Added secure TDX OAuth integration through the Cloudflare Pages Worker.
+- Airport MRT now prefers official TDX LiveBoard data.
+- Added 30-second edge caching to reduce API usage.
+- Preserved automatic scheduled-time fallback when TDX is unavailable.
+- Added visible Live / Scheduled data-source status.
+- Added TDX deployment and secret configuration instructions.
+
 ## v6.6.0 — 2026-07-21
 
 - Added bilingual Airport MRT timetable card.

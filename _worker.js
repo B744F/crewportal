@@ -129,10 +129,141 @@ async function getArinc(request, env, ctx) {
   return response;
 }
 
+
+const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
+const TDX_API_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC';
+
+async function getTdxToken(env) {
+  if (!env.TDX_CLIENT_ID || !env.TDX_CLIENT_SECRET) throw new Error('TDX credentials are not configured');
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: env.TDX_CLIENT_ID,
+    client_secret: env.TDX_CLIENT_SECRET
+  });
+  const response = await fetch(TDX_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body
+  });
+  if (!response.ok) throw new Error(`TDX token HTTP ${response.status}`);
+  const data = await response.json();
+  if (!data.access_token) throw new Error('TDX token missing');
+  return data.access_token;
+}
+
+function textValue(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return value.Zh_tw || value.En || value.zh_tw || value.en || '';
+}
+
+function serviceType(row) {
+  const raw = String(row.TrainType || row.ServiceType || row.TrainTypeCode || row.TrainTypeID || '').toLowerCase();
+  const name = `${textValue(row.TrainTypeName)} ${textValue(row.ServiceTypeName)}`.toLowerCase();
+  return /express|直達|purple|2/.test(`${raw} ${name}`) ? 'express' : 'commuter';
+}
+
+function directionType(row) {
+  const destination = `${row.DestinationStationID || ''} ${textValue(row.DestinationStationName)} ${textValue(row.TripHeadSign)}`.toLowerCase();
+  if (/a1\b|taipei|台北/.test(destination)) return 'taipei';
+  if (/a21\b|a22\b|zhongli|laojie|中壢|老街溪/.test(destination)) return 'zhongli';
+  const direction = Number(row.Direction);
+  if (direction === 1) return 'taipei';
+  if (direction === 0) return 'zhongli';
+  return null;
+}
+
+function liveTime(row) {
+  const direct = row.EstimateTime ?? row.EstimateTimeSec ?? row.CountDown ?? row.Countdown;
+  if (Number.isFinite(Number(direct))) {
+    const seconds = Number(direct);
+    if (seconds <= 45) return 'Arriving';
+    const target = new Date(Date.now() + seconds * 1000);
+    return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false }).format(target);
+  }
+  const value = row.EstimatedArrivalTime || row.NextTrainTime || row.ArrivalTime || row.ScheduleArrivalTime;
+  if (!value) return null;
+  const match = String(value).match(/(\d{2}:\d{2})/);
+  return match ? match[1] : null;
+}
+
+function normalizeLiveBoard(payload, station) {
+  const rows = Array.isArray(payload) ? payload : (payload.LiveBoards || payload.value || payload.data || []);
+  const result = {
+    taipei: { commuter: null, express: null },
+    zhongli: { commuter: null, express: null }
+  };
+  let updateTime = null;
+  for (const row of rows) {
+    const direction = directionType(row);
+    const type = serviceType(row);
+    const time = liveTime(row);
+    if (!direction || !time) continue;
+    if (!result[direction][type]) result[direction][type] = { time };
+    updateTime = updateTime || row.UpdateTime || row.SrcUpdateTime || row.DataCollectTime || null;
+  }
+  const count = Object.values(result).flatMap(x => Object.values(x)).filter(Boolean).length;
+  if (!count) throw new Error(`No usable LiveBoard rows for ${station}`);
+  return { trains: result, updateTime };
+}
+
+async function fetchTdxLiveBoard(station, token) {
+  const encoded = encodeURIComponent(station);
+  const candidates = [
+    `${TDX_API_ROOT}/Station/${encoded}?$format=JSON`,
+    `${TDX_API_ROOT}?$filter=StationID%20eq%20'${encoded}'&$format=JSON`
+  ];
+  let lastError;
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, { headers: { authorization: `Bearer ${token}`, accept: 'application/json' } });
+      if (!response.ok) throw new Error(`TDX LiveBoard HTTP ${response.status}`);
+      return normalizeLiveBoard(await response.json(), station);
+    } catch (error) { lastError = error; }
+  }
+  throw lastError || new Error('TDX LiveBoard request failed');
+}
+
+async function getMrt(request, env, ctx) {
+  const url = new URL(request.url);
+  const station = String(url.searchParams.get('station') || 'A13').toUpperCase();
+  if (!/^A(?:[1-9]|1\d|2[0-2]|14A)$/.test(station)) return Response.json({ error: 'Invalid station' }, { status: 400 });
+
+  const cacheUrl = new URL(request.url);
+  cacheUrl.pathname = '/api/mrt-cache';
+  cacheUrl.search = `station=${station}&slot=${Math.floor(Date.now() / 30000)}`;
+  const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const token = await getTdxToken(env);
+    const live = await fetchTdxLiveBoard(station, token);
+    const response = Response.json({
+      mode: 'live',
+      station,
+      source: 'TDX / Taoyuan Metro',
+      fetchedAt: new Date().toISOString(),
+      ...live
+    }, { headers: { 'cache-control': 'public, max-age=15, s-maxage=30' } });
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+    return response;
+  } catch (error) {
+    return Response.json({
+      mode: 'fallback',
+      station,
+      error: String(error?.message || error),
+      fetchedAt: new Date().toISOString()
+    }, { status: 503, headers: { 'cache-control': 'no-store' } });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === '/api/arinc') return getArinc(request, env, ctx);
+    if (url.pathname === '/api/mrt') return getMrt(request, env, ctx);
     return env.ASSETS.fetch(request);
   }
 };
