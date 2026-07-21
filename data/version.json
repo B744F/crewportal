@@ -1,6 +1,6 @@
 {
-  "version": "7.1.2",
-  "build": "20260721-008",
+  "version": "7.2.0",
+  "build": "20260721-009",
   "date": "2026-07-21",
-  "label": "Airport MRT Timetable Display Cleanup"
+  "label": "Structured Taoyuan Metro Open Data Timetable"
 }

@@ -1,3 +1,10 @@
+## v7.2.0
+- Replaced fragile station-page HTML scraping with the official Taoyuan City Government structured XML timetable dataset.
+- Parses A1–A22 station records, direction, train type, service days and departure times from structured data.
+- Keeps TDX LiveBoard only as optional secondary live information.
+- Added `debug=1` API diagnostics and Worker health source reporting.
+- Updated cache keys and website version assets.
+
 ## v7.1.2
 - Fixed official timetable parsing for the southbound section labelled `往機場、中壢(老街溪站)`.
 - Fixed missing Zhongli-bound departures and A1 timetable failures.

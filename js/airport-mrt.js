@@ -86,7 +86,7 @@
       setCell(els.ze,values.ze.value,"express",values.ze.subtext);
     }
     setUpdated(data.updateTime||data.fetchedAt);
-    els.status.textContent="Taoyuan Metro Timetable · 桃捷官方時刻表";
+    els.status.textContent="Taoyuan Open Data · 桃捷官方時刻表";
     els.status.className="mrt-status mrt-status-live";
   }
   function renderUnavailable(station){
@@ -130,5 +130,5 @@
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
     window.addEventListener("focus",refresh);
   }
-  fetch(`${DATA_URL}?v=7.1.2`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
+  fetch(`${DATA_URL}?v=7.2.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
 })();

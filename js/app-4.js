@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "7.1.2";
-  const BUILD = "20260721-007";
+  const VERSION = "7.2.0";
+  const BUILD = "20260721-009";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const PARKING_INTERVAL=5*60*1000;
   const ARINC_INTERVAL=15*60*1000;
