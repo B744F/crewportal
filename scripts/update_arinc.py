@@ -51,7 +51,7 @@ def fetch_html() -> str:
     request = Request(
         WORKER_URL,
         headers={
-            "User-Agent": "CrewPortal-PacificHF/2.4",
+            "User-Agent": "CrewPortal-PacificHF/2.5",
             "Accept": "text/html",
             "Cache-Control": "no-cache",
         },
@@ -120,6 +120,14 @@ def assignments(html: str) -> dict[str, dict[str, int]]:
         if not key:
             continue
 
+        # The page also contains explanatory text mentioning region names.
+        # Ignore those rows unless they look like the actual frequency row.
+        if len(cells) < 4:
+            continue
+
+        if "air traffic control" not in norm(cells[1]):
+            continue
+
         candidate_rows.append(cells)
 
         # Current ARINC Pacific table layout:
@@ -128,11 +136,6 @@ def assignments(html: str) -> dict[str, dict[str, int]]:
         # 2 = Primary
         # 3 = Secondary
         # 4 = Tertiary / blank (ignored)
-        if len(cells) < 4:
-            raise RuntimeError(
-                f"Unexpected ARINC row layout for {key}: {cells!r}"
-            )
-
         primary = freq(cells[2])
         secondary = freq(cells[3])
 
@@ -175,7 +178,7 @@ def main() -> None:
     raw_valid_time, utc_valid_time = valid_time(html)
 
     data = {
-        "schemaVersion": 12,
+        "schemaVersion": 13,
         "source": SOURCE_URL,
         "proxy": WORKER_URL,
         "validFrom": raw_valid_time,
