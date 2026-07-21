@@ -1,160 +1,94 @@
 #!/usr/bin/env python3
-"""Fetch and update CrewPortal Pacific HF data through Cloudflare Worker."""
-
 from __future__ import annotations
-
-import json
-import re
-import sys
-from datetime import datetime, timezone
+import json,re,sys
+from datetime import datetime,timezone
 from pathlib import Path
-from urllib.request import Request, urlopen
-
+from urllib.request import Request,urlopen
 from bs4 import BeautifulSoup
 
-WORKER_URL = "https://arinc-proxy.201505-login.workers.dev/"
-SOURCE_URL = "https://radio.arinc.net/pacific/"
-OUTPUT = Path(__file__).resolve().parents[1] / "data" / "arinc.json"
+WORKER_URL="https://arinc-proxy.201505-login.workers.dev/"
+SOURCE_URL="https://radio.arinc.net/pacific/"
+OUTPUT=Path(__file__).resolve().parents[1]/"data"/"arinc.json"
 
+def norm(s):
+    return re.sub(r"\s+"," ",s.replace("\xa0"," ").replace("→"," to ").replace("->"," to ")).strip().lower()
 
-def normalize(value: str) -> str:
-    value = value.replace("\xa0", " ")
-    value = value.replace("→", " to ").replace("->", " to ")
-    return re.sub(r"\s+", " ", value).strip().lower()
+def freq(s):
+    m=re.search(r"\b(\d{4,5})\b",s)
+    if not m:return None
+    n=int(m.group(1))
+    return n if 2000<=n<=22000 else None
 
-
-def frequency_or_none(value: str) -> int | None:
-    match = re.search(r"\b(\d{4,5})\b", value)
-    if not match:
-        return None
-
-    result = int(match.group(1))
-    if not 2000 <= result <= 22000:
-        return None
-
-    return result
-
-
-def identify_region(label: str) -> str | None:
-    text = normalize(label)
-
-    if "north" in text and "america" in text and "asia" in text:
-        return "northAmericaAsia"
-
-    if "alaska" in text and "pacific" in text:
-        return "alaskaNorthPacific"
-
-    if "guam" in text:
-        return "guamArea"
-
+def region(s):
+    s=norm(s)
+    if "north" in s and "america" in s and "asia" in s:return "northAmericaAsia"
+    if "alaska" in s and "pacific" in s:return "alaskaNorthPacific"
+    if "guam" in s:return "guamArea"
     return None
 
+def fetch_html():
+    req=Request(WORKER_URL,headers={"User-Agent":"CrewPortal-PacificHF/2.2","Accept":"text/html","Cache-Control":"no-cache"})
+    with urlopen(req,timeout=45) as r:
+        html=r.read().decode("utf-8",errors="replace")
+    if "403 Forbidden" in html:raise RuntimeError("Worker returned ARINC 403 page")
+    if "ARINC request failed" in html:raise RuntimeError(f"Worker error: {html[:300]}")
+    return html
 
-def fetch_html() -> str:
-    request = Request(
-        WORKER_URL,
-        headers={
-            "User-Agent": "CrewPortal-PacificHF/2.1",
-            "Accept": "text/html,application/xhtml+xml",
-            "Cache-Control": "no-cache",
-        },
-    )
+def valid_time(html):
+    text=re.sub(r"\s+"," ",BeautifulSoup(html,"html.parser").get_text(" ",strip=True))
+    for pat in (
+        r"Valid\s+from\s+([A-Za-z]+\s+\d{1,2},\s+\d{4},\s+\d{4}Z)",
+        r"Effective\s+from\s+([A-Za-z]+\s+\d{1,2},\s+\d{4},\s+\d{4}Z)"
+    ):
+        m=re.search(pat,text,re.I)
+        if m:
+            raw=re.sub(r"\s+"," ",m.group(1)).strip()
+            try:
+                dt=datetime.strptime(raw,"%B %d, %Y, %H%MZ").replace(tzinfo=timezone.utc)
+                return raw,dt.isoformat(timespec="seconds").replace("+00:00","Z")
+            except ValueError:
+                return raw,None
+    return None,None
 
-    with urlopen(request, timeout=45) as response:
-        markup = response.read().decode("utf-8", errors="replace")
-
-    if "403 Forbidden" in markup:
-        raise RuntimeError("Cloudflare Worker returned the ARINC 403 page")
-
-    if "ARINC request failed" in markup:
-        raise RuntimeError(f"Cloudflare Worker error: {markup[:300]}")
-
-    return markup
-
-
-def parse_assignments(markup: str) -> dict[str, dict[str, int]]:
-    soup = BeautifulSoup(markup, "html.parser")
-    assignments: dict[str, dict[str, int]] = {}
-    debug_rows: list[list[str]] = []
-
+def assignments(html):
+    soup=BeautifulSoup(html,"html.parser")
+    out={}
+    candidates=[]
     for row in soup.select("tr"):
-        cells = [
-            re.sub(r"\s+", " ", cell.get_text(" ", strip=True)).strip()
-            for cell in row.select("th, td")
-        ]
+        cells=[re.sub(r"\s+"," ",c.get_text(" ",strip=True)).strip() for c in row.select("th,td")]
+        if not cells:continue
+        key=region(" | ".join(cells))
+        if not key:continue
+        candidates.append(cells)
+        nums=[n for c in cells if (n:=freq(c)) is not None]
+        if len(nums)<2:continue
+        out[key]={"primary":nums[0],"secondary":nums[1]}
+    missing=sorted({"northAmericaAsia","alaskaNorthPacific","guamArea"}-out.keys())
+    if missing:raise RuntimeError("Missing region(s): "+", ".join(missing)+"; rows: "+repr(candidates[:30]))
+    return out
 
-        if not cells:
-            continue
-
-        joined = " | ".join(cells)
-        region = identify_region(joined)
-
-        if not region:
-            continue
-
-        debug_rows.append(cells)
-
-        # Ignore navigation/category rows such as:
-        # North America → Asia | Air Traffic Control | ...
-        frequencies = [
-            value
-            for cell in cells
-            if (value := frequency_or_none(cell)) is not None
-        ]
-
-        if len(frequencies) < 2:
-            continue
-
-        # The ARINC table orders the desired values as Primary, then Secondary.
-        assignments[region] = {
-            "primary": frequencies[0],
-            "secondary": frequencies[1],
-        }
-
-    required = {"northAmericaAsia", "alaskaNorthPacific", "guamArea"}
-    missing = sorted(required - assignments.keys())
-
-    if missing:
-        raise RuntimeError(
-            "Missing region(s): "
-            + ", ".join(missing)
-            + "; candidate rows: "
-            + repr(debug_rows[:30])
-        )
-
-    return assignments
-
-
-def main() -> int:
-    markup = fetch_html()
-    assignments = parse_assignments(markup)
-
-    data = {
-        "schemaVersion": 9,
-        "source": SOURCE_URL,
-        "proxy": WORKER_URL,
-        "fetchedAtUtc": datetime.now(timezone.utc)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z"),
-        "northAmericaAsia": assignments["northAmericaAsia"],
-        "alaskaNorthPacific": assignments["alaskaNorthPacific"],
-        "guamArea": assignments["guamArea"],
+def main():
+    html=fetch_html()
+    data_rows=assignments(html)
+    raw,utc=valid_time(html)
+    data={
+        "schemaVersion":10,
+        "source":SOURCE_URL,
+        "proxy":WORKER_URL,
+        "validFrom":raw,
+        "validFromUtc":utc,
+        "fetchedAtUtc":datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00","Z"),
+        "northAmericaAsia":data_rows["northAmericaAsia"],
+        "alaskaNorthPacific":data_rows["alaskaNorthPacific"],
+        "guamArea":data_rows["guamArea"]
     }
-
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-
+    OUTPUT.parent.mkdir(parents=True,exist_ok=True)
+    OUTPUT.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     print("Updated data/arinc.json")
-    print(json.dumps(data, ensure_ascii=False, indent=2))
-    return 0
+    print(json.dumps(data,ensure_ascii=False,indent=2))
 
-
-if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except Exception as exc:
-        print(f"ARINC update failed: {exc}", file=sys.stderr)
+if __name__=="__main__":
+    try:main()
+    except Exception as e:
+        print(f"ARINC update failed: {e}",file=sys.stderr)
         raise

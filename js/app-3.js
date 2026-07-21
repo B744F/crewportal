@@ -1,57 +1,69 @@
 (function(){
-  const VERSION = "6.4.3";
-  const RAW_ARINC = "https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
-  const LOCAL_ARINC = "data/arinc.json";
-  const REFRESH_MS = 15 * 60 * 1000;
-  const STORAGE_KEY = "crewportal-arinc-last-good-v3";
+  const VERSION="6.5.1";
+  const RAW_ARINC="https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
+  const LOCAL_ARINC="data/arinc.json";
+  const REFRESH_MS=15*60*1000;
+  const STORAGE_KEY="crewportal-arinc-last-good-v4";
 
-  const els = {
-    validFrom: document.getElementById("arincValidFrom"),
-    naPrimary: document.getElementById("arincNorthAmericaPrimary"),
-    naSecondary: document.getElementById("arincNorthAmericaSecondary"),
-    alaskaPrimary: document.getElementById("arincAlaskaPrimary"),
-    alaskaSecondary: document.getElementById("arincAlaskaSecondary"),
-    guamPrimary: document.getElementById("arincGuamPrimary"),
-    guamSecondary: document.getElementById("arincGuamSecondary"),
-    status: document.getElementById("arincStatus")
+  const els={
+    validFrom:document.getElementById("arincValidFrom"),
+    naPrimary:document.getElementById("arincNorthAmericaPrimary"),
+    naSecondary:document.getElementById("arincNorthAmericaSecondary"),
+    alaskaPrimary:document.getElementById("arincAlaskaPrimary"),
+    alaskaSecondary:document.getElementById("arincAlaskaSecondary"),
+    guamPrimary:document.getElementById("arincGuamPrimary"),
+    guamSecondary:document.getElementById("arincGuamSecondary"),
+    status:document.getElementById("arincStatus")
   };
 
   function setStatus(text,state,title){
-    if(!els.status) return;
+    if(!els.status)return;
     els.status.textContent=text;
     els.status.classList.remove("syncing","stale","offline","live");
-    if(state) els.status.classList.add(state);
+    if(state)els.status.classList.add(state);
     els.status.title=title||"";
   }
 
   function setText(el,value,frequency){
-    if(!el) return;
+    if(!el)return;
     const text=value===null||value===undefined||value===""?"--":String(value);
     if(el.textContent!==text){
       el.classList.add("arinc-pulse");
       setTimeout(()=>el.classList.remove("arinc-pulse"),650);
     }
     el.textContent=text;
-    if(frequency) el.dataset.empty=text==="--"?"true":"false";
+    if(frequency)el.dataset.empty=text==="--"?"true":"false";
   }
 
-  function validDate(data){
-    const d=new Date(data?.validFromUtc||0);
-    return Number.isNaN(d.getTime())?new Date(0):d;
+  function dateOrNull(value){
+    const d=new Date(value||0);
+    return Number.isNaN(d.getTime())||!d.getTime()?null:d;
   }
 
-  function formatValidTime(data){
-    const date=validDate(data);
-    if(!date.getTime()) return data?.validFrom||"--";
-    const fmt=(timeZone)=>new Intl.DateTimeFormat("zh-TW",{
+  function fmt(date,timeZone){
+    return new Intl.DateTimeFormat("zh-TW",{
       timeZone,year:"numeric",month:"2-digit",day:"2-digit",
       hour:"2-digit",minute:"2-digit",hour12:false
     }).format(date);
-    return `${fmt("UTC")} UTC｜台灣 ${fmt("Asia/Taipei")}`;
+  }
+
+  function formatMeta(data){
+    const valid=dateOrNull(data?.validFromUtc);
+    const fetched=dateOrNull(data?.fetchedAtUtc);
+    const parts=[];
+    if(valid)parts.push(`生效 ${fmt(valid,"UTC")} UTC`);
+    else if(data?.validFrom)parts.push(`生效 ${data.validFrom}`);
+    else parts.push("生效時間 --");
+    if(fetched)parts.push(`檢查 ${fmt(fetched,"Asia/Taipei")} 台灣`);
+    return parts.join("｜");
+  }
+
+  function freshness(data){
+    return dateOrNull(data?.fetchedAtUtc)||dateOrNull(data?.validFromUtc)||new Date(0);
   }
 
   function apply(data){
-    setText(els.validFrom,formatValidTime(data),false);
+    setText(els.validFrom,formatMeta(data),false);
     setText(els.naPrimary,data?.northAmericaAsia?.primary,true);
     setText(els.naSecondary,data?.northAmericaAsia?.secondary,true);
     setText(els.alaskaPrimary,data?.alaskaNorthPacific?.primary,true);
@@ -65,11 +77,8 @@
 
   async function fetchJson(url){
     const join=url.includes("?")?"&":"?";
-    const response=await fetch(url+join+"v="+Date.now(),{
-      cache:"no-store",
-      headers:{"Accept":"application/json"}
-    });
-    if(!response.ok) throw new Error(`${response.status} ${url}`);
+    const response=await fetch(url+join+"v="+Date.now(),{cache:"no-store",headers:{"Accept":"application/json"}});
+    if(!response.ok)throw new Error(`${response.status} ${url}`);
     return response.json();
   }
 
@@ -79,17 +88,18 @@
     const available=settled.filter(x=>x.status==="fulfilled").map(x=>x.value);
 
     if(available.length){
-      const newest=available.sort((a,b)=>validDate(b)-validDate(a))[0];
+      const newest=available.sort((a,b)=>freshness(b)-freshness(a))[0];
       apply(newest);
       save(newest);
 
-      const fetched=new Date(newest.fetchedAtUtc||0);
-      const age=Number.isNaN(fetched.getTime())?Infinity:(Date.now()-fetched.getTime())/3600000;
-      const fromRaw=settled[0].status==="fulfilled" && newest===settled[0].value;
+      const fetched=dateOrNull(newest.fetchedAtUtc);
+      const age=fetched?(Date.now()-fetched.getTime())/3600000:Infinity;
+      const fromRaw=settled[0].status==="fulfilled"&&newest===settled[0].value;
+
       setStatus(
         age>2.5?"● 排程可能延遲":(fromRaw?"● GitHub 即時同步":"● 網站檔案同步"),
         age>2.5?"stale":"live",
-        newest.fetchedAtUtc?`最後檢查：${newest.fetchedAtUtc}`:""
+        `${formatMeta(newest)}｜前端 v${VERSION}`
       );
       return;
     }
