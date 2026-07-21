@@ -28,7 +28,7 @@
     el.className=`mrt-time ${kind}`.trim();
     el.removeAttribute("title");
     if(value===null||value===undefined){
-      el.innerHTML='<span class="mrt-primary">--</span><small class="mrt-secondary">暫無資料</small>';
+      el.innerHTML='<span class="mrt-primary">—</span><small class="mrt-secondary">No scheduled train</small>';
       el.classList.add("mrt-muted");
       return;
     }
@@ -36,15 +36,9 @@
     el.innerHTML=`<span class="mrt-primary">${primary}</span>${subtext?`<small class="mrt-secondary">${subtext}</small>`:""}`;
     if(!/^\d\d:\d\d$/.test(primary)&&primary!=="Arriving")el.classList.add("mrt-muted");
   }
-  function formatLiveTrain(train){
-    if(!train)return {value:"--",subtext:"暫無下一班"};
-    const seconds=Number(train.seconds);
-    const value=/^\d{2}:\d{2}$/.test(String(train.time||""))?train.time:"--";
-    if(Number.isFinite(seconds)){
-      if(seconds<=45)return {value,subtext:"即將到站"};
-      if(seconds<3600)return {value,subtext:`約 ${Math.max(1,Math.ceil(seconds/60))} 分鐘`};
-    }
-    return {value,subtext:train.destination||"下一班時刻"};
+  function formatTimetableTrain(train){
+    if(!train||!/^\d{2}:\d{2}$/.test(String(train.time||"")))return {value:null,subtext:"暫無下一班"};
+    return {value:train.time,subtext:train.destination||"Scheduled departure"};
   }
   function currentStation(){return stations.find(s=>s.code===els.select.value)||stations.find(s=>s.code==="A13")}
   function setUpdated(iso){
@@ -73,27 +67,37 @@
     els.status.textContent=reason?`Scheduled backup · ${reason}`:"Scheduled backup · 班表備援";
     els.status.className="mrt-status mrt-status-scheduled";
   }
-  function renderLive(data){
+  function renderTimetable(data){
     const rows=data.trains||{};
     const station=currentStation();
     const values={
-      tc:formatLiveTrain(rows.taipei?.commuter),
-      te:formatLiveTrain(rows.taipei?.express),
-      zc:formatLiveTrain(rows.zhongli?.commuter),
-      ze:formatLiveTrain(rows.zhongli?.express)
+      tc:formatTimetableTrain(rows.taipei?.commuter),
+      te:formatTimetableTrain(rows.taipei?.express),
+      zc:formatTimetableTrain(rows.zhongli?.commuter),
+      ze:formatTimetableTrain(rows.zhongli?.express)
     };
     setCell(els.tc,values.tc.value,"commuter",values.tc.subtext);
     setCell(els.zc,values.zc.value,"commuter",values.zc.subtext);
     if(station&&!station.express){
-      setCell(els.te,"--","express","No express service");
-      setCell(els.ze,"--","express","No express service");
+      setCell(els.te,"—","express","No express service");
+      setCell(els.ze,"—","express","No express service");
     }else{
       setCell(els.te,values.te.value,"express",values.te.subtext);
       setCell(els.ze,values.ze.value,"express",values.ze.subtext);
     }
     setUpdated(data.updateTime||data.fetchedAt);
-    els.status.textContent="TDX Next Train · 官方下一班時刻";
+    els.status.textContent="TDX Official Timetable · 官方時刻表";
     els.status.className="mrt-status mrt-status-live";
+  }
+  function renderUnavailable(station){
+    setUpdated();
+    setCell(els.tc,null,"commuter");setCell(els.zc,null,"commuter");
+    if(station&&!station.express){
+      setCell(els.te,"—","express","No express service");
+      setCell(els.ze,"—","express","No express service");
+    }else{setCell(els.te,null,"express");setCell(els.ze,null,"express");}
+    els.status.textContent="Timetable unavailable · 請查詢官方時刻表";
+    els.status.className="mrt-status mrt-status-scheduled";
   }
   async function refresh(){
     const station=currentStation();
@@ -106,12 +110,12 @@
       const response=await fetch(`${API_URL}?station=${encodeURIComponent(station.code)}&t=${Math.floor(Date.now()/30000)}`,{cache:"no-store",signal:requestController.signal});
       if(!response.ok)throw new Error(`HTTP ${response.status}`);
       const data=await response.json();
-      if(data.mode!=="live"||!data.trains)throw new Error(data.error||"Live data unavailable");
-      renderLive(data);
+      if(data.mode!=="timetable"||!data.trains)throw new Error(data.error||"Timetable unavailable");
+      renderTimetable(data);
     }catch(err){
       if(err.name==="AbortError")return;
-      console.warn("TDX MRT live data unavailable; using scheduled backup",err);
-      renderScheduled(station,"Live unavailable");
+      console.warn("TDX MRT timetable unavailable",err);
+      renderUnavailable(station);
     }
   }
   function populate(data){
@@ -126,5 +130,5 @@
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
     window.addEventListener("focus",refresh);
   }
-  fetch(`${DATA_URL}?v=7.0.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
+  fetch(`${DATA_URL}?v=7.0.1`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
 })();

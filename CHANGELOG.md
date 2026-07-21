@@ -1,3 +1,11 @@
+# v7.0.1 — Airport MRT Official Timetable Hotfix
+
+- Replaced platform countdown data with TDX official daily timetable data.
+- Displays actual next departure clock times (HH:mm).
+- Removed estimated/fabricated timetable fallback.
+- When timetable data is unavailable, shows a clear official-timetable prompt instead of misleading values.
+- Updated Crew Portal version to v7.0.1 / Build 20260721-006.
+
 # v7.0.0 — Airport MRT Next Train Timetable
 
 - Airport MRT now displays the next train as a clock time (`HH:mm`).
