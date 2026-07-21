@@ -4,12 +4,17 @@
     "name": "BOT",
     "total_space": null,
 <<<<<<< HEAD
+<<<<<<< HEAD
     "remaining_space": 31,
     "updateTime": "2026-07-21 15:25:13"
 =======
     "remaining_space": 42,
     "updateTime": "2026-07-21 15:50:14"
 >>>>>>> a14f2a7c0bc1be8c668a363dda535f42e1b7118b
+=======
+    "remaining_space": 43,
+    "updateTime": "2026-07-21 15:55:11"
+>>>>>>> 33b4eb198746b8616acbd0db3d184a70d796c3ba
   },
   {
     "id": 5,
@@ -20,13 +25,18 @@
     "updateTime": "2026-07-21 15:25:15"
 =======
     "remaining_space": 124,
+<<<<<<< HEAD
     "updateTime": "2026-07-21 15:50:17"
 >>>>>>> a14f2a7c0bc1be8c668a363dda535f42e1b7118b
+=======
+    "updateTime": "2026-07-21 15:55:10"
+>>>>>>> 33b4eb198746b8616acbd0db3d184a70d796c3ba
   },
   {
     "id": 6,
     "name": "RD1 A",
     "total_space": null,
+<<<<<<< HEAD
 <<<<<<< HEAD
     "remaining_space": 7,
     "updateTime": "2026-07-21 15:25:16"
@@ -34,6 +44,10 @@
     "remaining_space": 8,
     "updateTime": "2026-07-21 15:50:14"
 >>>>>>> a14f2a7c0bc1be8c668a363dda535f42e1b7118b
+=======
+    "remaining_space": 10,
+    "updateTime": "2026-07-21 15:55:12"
+>>>>>>> 33b4eb198746b8616acbd0db3d184a70d796c3ba
   },
   {
     "id": 7,
@@ -44,7 +58,11 @@
     "updateTime": "2026-07-21 15:25:18"
 =======
     "remaining_space": 3,
+<<<<<<< HEAD
     "updateTime": "2026-07-21 15:50:16"
 >>>>>>> a14f2a7c0bc1be8c668a363dda535f42e1b7118b
+=======
+    "updateTime": "2026-07-21 15:55:09"
+>>>>>>> 33b4eb198746b8616acbd0db3d184a70d796c3ba
   }
 ]
