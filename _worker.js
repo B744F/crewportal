@@ -1,269 +1,279 @@
-const SOURCE = 'https://radio.arinc.net/pacific/';
+/**
+ * Crew Portal API — Cloudflare Worker
+ * Version 1.1.0
+ *
+ * Required secrets:
+ *   TDX_CLIENT_ID
+ *   TDX_CLIENT_SECRET
+ */
 
-function htmlToText(markup) {
-  return markup
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;|&#160;/gi, ' ')
-    .replace(/&rarr;|&#8594;/gi, '→')
-    .replace(/&amp;/gi, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function parseValid(text) {
-  const m = text.match(/Pacific\s+HF\s+Frequency\s+Assignments\s+Valid\s+from\s+([A-Za-z]+\s+\d{1,2},\s+\d{4},\s+\d{4}Z)/i);
-  if (!m) throw new Error('Valid from not found');
-  const raw = m[1].replace(/\s+/g, ' ').trim();
-  const parts = raw.match(/^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4}),\s+(\d{2})(\d{2})Z$/);
-  if (!parts) throw new Error('Invalid validity format');
-  const months = {January:0,February:1,March:2,April:3,May:4,June:5,July:6,August:7,September:8,October:9,November:10,December:11};
-  const month = months[parts[1]];
-  if (month === undefined) throw new Error('Unknown month');
-  const dt = new Date(Date.UTC(Number(parts[3]), month, Number(parts[2]), Number(parts[4]), Number(parts[5])));
-  return { raw, iso: dt.toISOString(), ms: dt.getTime() };
-}
-
-function parsePair(text, labelRegex) {
-  const m = text.match(new RegExp(labelRegex + '\\s+Air\\s+Traffic\\s+Control\\s+(\\d{4,5})\\s*kHz\\s+(\\d{4,5})\\s*kHz', 'i'));
-  if (!m) throw new Error('Frequency pair not found');
-  return { primary: Number(m[1]), secondary: Number(m[2]) };
-}
-
-async function fetchCandidate(candidate) {
-  const response = await fetch(candidate.url, {
-    redirect: 'follow',
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Cache-Control': 'no-cache, no-store, max-age=0',
-      'Pragma': 'no-cache'
-    },
-    cf: { cacheTtl: 0, cacheEverything: false }
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const text = htmlToText(await response.text());
-  const valid = parseValid(text);
-  return {
-    route: candidate.name,
-    source: SOURCE,
-    validFrom: valid.raw,
-    validFromUtc: valid.iso,
-    validMs: valid.ms,
-    fetchedAtUtc: new Date().toISOString(),
-    northAmericaAsia: parsePair(text, 'North\\s+America\\s*(?:→|->|to)\\s*Asia'),
-    alaskaNorthPacific: parsePair(text, 'Alaska/North\\s+Pacific\\s*\\(West\\s+of\\s+150W\\)')
-  };
-}
-
-function candidateRoutes(stamp) {
-  const encoded = encodeURIComponent(SOURCE + `?crewportal=${stamp}`);
-  return [
-    { name: 'direct-query', url: SOURCE + `?crewportal=${stamp}` },
-    { name: 'direct-index', url: SOURCE + `index.html?crewportal=${stamp}` },
-    // Google Translate fetches the page through a separate network path and often
-    // bypasses an upstream regional edge that is serving an older ARINC document.
-    { name: 'google-translate', url: `https://radio-arinc-net.translate.goog/pacific/?_x_tr_sl=en&_x_tr_tl=en&_x_tr_hl=en&crewportal=${stamp}` },
-    // Jina Reader is an independent fallback network path. The parser handles its
-    // text/markdown response because the relevant table content remains intact.
-    { name: 'jina-reader', url: `https://r.jina.ai/http://radio.arinc.net/pacific/?crewportal=${stamp}` },
-    // AllOrigins is only a last-resort route; if unavailable it is simply ignored.
-    { name: 'allorigins', url: `https://api.allorigins.win/raw?url=${encoded}` }
-  ];
-}
-
-async function getArinc(request, env, ctx) {
-  const now = new Date();
-  const slot = new Date(now.getTime() - 5 * 60 * 1000);
-  slot.setUTCMinutes(0, 0, 0);
-  const cacheUrl = new URL(request.url);
-  cacheUrl.pathname = '/api/arinc-cache';
-  cacheUrl.search = `slot=${slot.toISOString()}`;
-  const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
-  const cache = caches.default;
-  const cached = await cache.match(cacheKey);
-  if (cached) return cached;
-
-  const stamp = Date.now();
-  const routes = candidateRoutes(stamp);
-  const settled = await Promise.allSettled(routes.map(fetchCandidate));
-  const successful = settled.filter(x => x.status === 'fulfilled').map(x => x.value);
-  const diagnostics = settled.map((result, index) => ({
-    route: routes[index].name,
-    ok: result.status === 'fulfilled',
-    validFromUtc: result.status === 'fulfilled' ? result.value.validFromUtc : null,
-    error: result.status === 'rejected' ? String(result.reason?.message || result.reason) : null
-  }));
-
-  if (!successful.length) {
-    const fallback = await env.ASSETS.fetch(new Request(new URL('/data/arinc.json', request.url)));
-    const fallbackData = fallback.ok ? await fallback.json() : {};
-    return Response.json({ ...fallbackData, syncMode: 'fallback', diagnostics }, {
-      status: fallback.ok ? 200 : 502,
-      headers: { 'cache-control': 'no-store', 'x-arinc-source': 'fallback' }
-    });
-  }
-
-  successful.sort((a, b) => b.validMs - a.validMs);
-  const selected = successful[0];
-  const best = {
-    source: selected.source,
-    route: selected.route,
-    syncMode: 'multi-route-live',
-    validFrom: selected.validFrom,
-    validFromUtc: selected.validFromUtc,
-    fetchedAtUtc: selected.fetchedAtUtc,
-    northAmericaAsia: selected.northAmericaAsia,
-    alaskaNorthPacific: selected.alaskaNorthPacific,
-    diagnostics
-  };
-
-  const response = Response.json(best, {
-    headers: {
-      'cache-control': 'public, max-age=0, s-maxage=3300',
-      'x-arinc-source': selected.route
-    }
-  });
-  ctx.waitUntil(cache.put(cacheKey, response.clone()));
-  return response;
-}
-
-
+const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
-const TDX_API_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC';
+const TDX_LIVEBOARD_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC';
+const ALLOWED_ORIGINS = new Set([
+  'https://b744f.github.io',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000',
+  'http://localhost:5500',
+  'http://127.0.0.1:5500'
+]);
 
-async function getTdxToken(env) {
-  if (!env.TDX_CLIENT_ID || !env.TDX_CLIENT_SECRET) throw new Error('TDX credentials are not configured');
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: env.TDX_CLIENT_ID,
-    client_secret: env.TDX_CLIENT_SECRET
-  });
-  const response = await fetch(TDX_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body
-  });
-  if (!response.ok) throw new Error(`TDX token HTTP ${response.status}`);
-  const data = await response.json();
-  if (!data.access_token) throw new Error('TDX token missing');
-  return data.access_token;
+let tokenCache = { token: '', expiresAt: 0 };
+
+function corsHeaders(request) {
+  const origin = request.headers.get('Origin') || '';
+  const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : 'https://b744f.github.io';
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin'
+  };
 }
 
-function textValue(value) {
+function json(request, body, init = {}) {
+  const headers = new Headers(init.headers || {});
+  headers.set('Content-Type', 'application/json; charset=utf-8');
+  for (const [key, value] of Object.entries(corsHeaders(request))) headers.set(key, value);
+  return new Response(JSON.stringify(body), { ...init, headers });
+}
+
+function stationIsValid(station) {
+  return /^A(?:[1-9]|1[0-3]|1[5-9]|2[0-2]|14A)$/.test(station);
+}
+
+function multilingualText(value) {
   if (!value) return '';
   if (typeof value === 'string') return value;
-  return value.Zh_tw || value.En || value.zh_tw || value.en || '';
+  return value.Zh_tw || value.Zh_TW || value.En || value.zh_tw || value.en || '';
 }
 
-function serviceType(row) {
-  const raw = String(row.TrainType || row.ServiceType || row.TrainTypeCode || row.TrainTypeID || '').toLowerCase();
-  const name = `${textValue(row.TrainTypeName)} ${textValue(row.ServiceTypeName)}`.toLowerCase();
-  return /express|直達|purple|2/.test(`${raw} ${name}`) ? 'express' : 'commuter';
+function trainType(row) {
+  const source = [
+    row.TrainType,
+    row.ServiceType,
+    row.TrainTypeCode,
+    row.TrainTypeID,
+    multilingualText(row.TrainTypeName),
+    multilingualText(row.ServiceTypeName)
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return /express|直達/.test(source) ? 'express' : 'commuter';
 }
 
-function directionType(row) {
-  const destination = `${row.DestinationStationID || ''} ${textValue(row.DestinationStationName)} ${textValue(row.TripHeadSign)}`.toLowerCase();
-  if (/a1\b|taipei|台北/.test(destination)) return 'taipei';
-  if (/a21\b|a22\b|zhongli|laojie|中壢|老街溪/.test(destination)) return 'zhongli';
-  const direction = Number(row.Direction);
-  if (direction === 1) return 'taipei';
-  if (direction === 0) return 'zhongli';
+function trainDirection(row) {
+  const destination = [
+    row.DestinationStationID,
+    multilingualText(row.DestinationStationName),
+    multilingualText(row.TripHeadSign)
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if (/\ba1\b|taipei|台北/.test(destination)) return 'taipei';
+  if (/\ba21\b|\ba22\b|zhongli|laojie|中壢|老街溪/.test(destination)) return 'zhongli';
+
+  // TDX metro convention: 0 = outbound/southbound, 1 = inbound/northbound.
+  if (Number(row.Direction) === 1) return 'taipei';
+  if (Number(row.Direction) === 0) return 'zhongli';
   return null;
 }
 
-function liveTime(row) {
-  const direct = row.EstimateTime ?? row.EstimateTimeSec ?? row.CountDown ?? row.Countdown;
-  if (Number.isFinite(Number(direct))) {
-    const seconds = Number(direct);
-    if (seconds <= 45) return 'Arriving';
-    const target = new Date(Date.now() + seconds * 1000);
-    return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false }).format(target);
+function formatTaipeiTime(date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Taipei',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
+function arrivalValue(row) {
+  const secondsValue = row.EstimateTime ?? row.EstimateTimeSec ?? row.CountDown ?? row.Countdown;
+  const seconds = Number(secondsValue);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    if (seconds <= 45) return { time: 'Arriving', seconds };
+    return { time: formatTaipeiTime(new Date(Date.now() + seconds * 1000)), seconds };
   }
-  const value = row.EstimatedArrivalTime || row.NextTrainTime || row.ArrivalTime || row.ScheduleArrivalTime;
-  if (!value) return null;
-  const match = String(value).match(/(\d{2}:\d{2})/);
-  return match ? match[1] : null;
+
+  const clock = row.EstimatedArrivalTime || row.NextTrainTime || row.ArrivalTime || row.ScheduleArrivalTime;
+  const match = String(clock || '').match(/(?:T|\s)?(\d{2}:\d{2})(?::\d{2})?/);
+  return match ? { time: match[1], seconds: null } : null;
 }
 
 function normalizeLiveBoard(payload, station) {
-  const rows = Array.isArray(payload) ? payload : (payload.LiveBoards || payload.value || payload.data || []);
-  const result = {
+  const rows = Array.isArray(payload)
+    ? payload
+    : payload.LiveBoards || payload.value || payload.data || [];
+
+  const trains = {
     taipei: { commuter: null, express: null },
     zhongli: { commuter: null, express: null }
   };
+
   let updateTime = null;
   for (const row of rows) {
-    const direction = directionType(row);
-    const type = serviceType(row);
-    const time = liveTime(row);
-    if (!direction || !time) continue;
-    if (!result[direction][type]) result[direction][type] = { time };
+    const rowStation = String(row.StationID || row.StationUID || '').toUpperCase();
+    if (rowStation && !rowStation.endsWith(station)) continue;
+
+    const direction = trainDirection(row);
+    const type = trainType(row);
+    const arrival = arrivalValue(row);
+    if (!direction || !arrival) continue;
+
+    const current = trains[direction][type];
+    if (!current || (arrival.seconds !== null && (current.seconds === null || arrival.seconds < current.seconds))) {
+      trains[direction][type] = {
+        time: arrival.time,
+        seconds: arrival.seconds,
+        destination: multilingualText(row.DestinationStationName) || multilingualText(row.TripHeadSign) || null
+      };
+    }
+
     updateTime = updateTime || row.UpdateTime || row.SrcUpdateTime || row.DataCollectTime || null;
   }
-  const count = Object.values(result).flatMap(x => Object.values(x)).filter(Boolean).length;
-  if (!count) throw new Error(`No usable LiveBoard rows for ${station}`);
-  return { trains: result, updateTime };
+
+  const usable = Object.values(trains).flatMap(direction => Object.values(direction)).filter(Boolean);
+  if (!usable.length) throw new Error(`No usable LiveBoard data for ${station}`);
+  return { trains, updateTime };
 }
 
-async function fetchTdxLiveBoard(station, token) {
-  const encoded = encodeURIComponent(station);
-  const candidates = [
-    `${TDX_API_ROOT}/Station/${encoded}?$format=JSON`,
-    `${TDX_API_ROOT}?$filter=StationID%20eq%20'${encoded}'&$format=JSON`
+async function getTdxToken(env) {
+  if (!env.TDX_CLIENT_ID || !env.TDX_CLIENT_SECRET) {
+    throw new Error('TDX credentials are not configured');
+  }
+
+  if (tokenCache.token && Date.now() < tokenCache.expiresAt - 60_000) return tokenCache.token;
+
+  const response = await fetch(TDX_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: env.TDX_CLIENT_ID,
+      client_secret: env.TDX_CLIENT_SECRET
+    })
+  });
+
+  if (!response.ok) throw new Error(`TDX token request failed (${response.status})`);
+  const data = await response.json();
+  if (!data.access_token) throw new Error('TDX token response did not contain access_token');
+
+  tokenCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + Math.max(300, Number(data.expires_in) || 900) * 1000
+  };
+  return tokenCache.token;
+}
+
+async function requestLiveBoard(station, token) {
+  const filter = encodeURIComponent(`StationID eq '${station}'`);
+  const urls = [
+    `${TDX_LIVEBOARD_ROOT}/Station/${encodeURIComponent(station)}?$format=JSON`,
+    `${TDX_LIVEBOARD_ROOT}?$filter=${filter}&$format=JSON`
   ];
-  let lastError;
-  for (const url of candidates) {
+
+  let lastError = null;
+  for (const url of urls) {
     try {
-      const response = await fetch(url, { headers: { authorization: `Bearer ${token}`, accept: 'application/json' } });
-      if (!response.ok) throw new Error(`TDX LiveBoard HTTP ${response.status}`);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        },
+        cf: { cacheTtl: 20, cacheEverything: true }
+      });
+      if (!response.ok) throw new Error(`TDX LiveBoard request failed (${response.status})`);
       return normalizeLiveBoard(await response.json(), station);
-    } catch (error) { lastError = error; }
+    } catch (error) {
+      lastError = error;
+    }
   }
   throw lastError || new Error('TDX LiveBoard request failed');
 }
 
-async function getMrt(request, env, ctx) {
+async function handleMrt(request, env, ctx) {
   const url = new URL(request.url);
   const station = String(url.searchParams.get('station') || 'A13').toUpperCase();
-  if (!/^A(?:[1-9]|1\d|2[0-2]|14A)$/.test(station)) return Response.json({ error: 'Invalid station' }, { status: 400 });
+  if (!stationIsValid(station)) return json(request, { ok: false, error: 'Invalid station' }, { status: 400 });
 
-  const cacheUrl = new URL(request.url);
-  cacheUrl.pathname = '/api/mrt-cache';
-  cacheUrl.search = `station=${station}&slot=${Math.floor(Date.now() / 30000)}`;
-  const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
   const cache = caches.default;
+  const cacheUrl = new URL(request.url);
+  cacheUrl.search = `station=${station}&slot=${Math.floor(Date.now() / 30_000)}`;
+  const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
   try {
     const token = await getTdxToken(env);
-    const live = await fetchTdxLiveBoard(station, token);
-    const response = Response.json({
+    const live = await requestLiveBoard(station, token);
+    const response = json(request, {
+      ok: true,
       mode: 'live',
       station,
       source: 'TDX / Taoyuan Metro',
       fetchedAt: new Date().toISOString(),
       ...live
-    }, { headers: { 'cache-control': 'public, max-age=15, s-maxage=30' } });
+    }, {
+      headers: { 'Cache-Control': 'public, max-age=15, s-maxage=30' }
+    });
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
   } catch (error) {
-    return Response.json({
+    return json(request, {
+      ok: false,
       mode: 'fallback',
       station,
-      error: String(error?.message || error),
-      fetchedAt: new Date().toISOString()
-    }, { status: 503, headers: { 'cache-control': 'no-store' } });
+      fetchedAt: new Date().toISOString(),
+      error: String(error?.message || error)
+    }, {
+      status: 503,
+      headers: { 'Cache-Control': 'no-store' }
+    });
+  }
+}
+
+async function handleParking(request) {
+  try {
+    const response = await fetch(PARKING_API, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      cf: { cacheTtl: 30, cacheEverything: true }
+    });
+    const text = await response.text();
+    return json(request, {
+      online: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      preview: text.slice(0, 500)
+    }, { status: response.ok ? 200 : 502 });
+  } catch (error) {
+    return json(request, { online: false, error: String(error?.message || error) }, { status: 502 });
   }
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    if (url.pathname === '/api/arinc') return getArinc(request, env, ctx);
-    if (url.pathname === '/api/mrt') return getMrt(request, env, ctx);
-    return env.ASSETS.fetch(request);
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
+    }
+
+    if (request.method !== 'GET') {
+      return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
+    }
+
+    if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
+    if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
+    if (url.pathname === '/api/health') {
+      return json(request, {
+        ok: true,
+        service: 'Crew Portal API',
+        version: '1.1.0',
+        tdxConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return json(request, { ok: false, error: 'Not found' }, { status: 404 });
   }
 };

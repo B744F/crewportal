@@ -24,11 +24,26 @@
     for(let h=Math.floor(start/60);h<=Math.floor(end/60);h++)for(const m of minutes){const t=h*60+m+offset;if(t>=start+offset&&t<=end+offset&&t>=now)candidates.push(t)}
     return candidates.length?Math.min(...candidates):null;
   }
-  function setCell(el,value,kind=""){
+  function setCell(el,value,kind="",subtext=""){
     el.className=`mrt-time ${kind}`.trim();
-    if(value===null||value===undefined){el.textContent="Ended";el.classList.add("mrt-muted");return}
-    if(typeof value==="string"&&!/^\d\d:\d\d$/.test(value)){el.textContent=value;el.classList.add("mrt-muted");return}
-    el.textContent=value;
+    el.removeAttribute("title");
+    if(value===null||value===undefined){
+      el.innerHTML='<span class="mrt-primary">--</span><small class="mrt-secondary">暫無資料</small>';
+      el.classList.add("mrt-muted");
+      return;
+    }
+    const primary=String(value);
+    el.innerHTML=`<span class="mrt-primary">${primary}</span>${subtext?`<small class="mrt-secondary">${subtext}</small>`:""}`;
+    if(!/^\d\d:\d\d$/.test(primary)&&primary!=="Arriving")el.classList.add("mrt-muted");
+  }
+  function formatLiveTrain(train,kind){
+    if(!train)return {value:"--",subtext:"No upcoming train"};
+    const seconds=Number(train.seconds);
+    if(Number.isFinite(seconds)){
+      if(seconds<=45)return {value:"Arriving",subtext:"即將進站"};
+      if(seconds<600)return {value:`${Math.max(1,Math.ceil(seconds/60))} min`,subtext:train.time||""};
+    }
+    return {value:train.time||"--",subtext:train.destination||""};
   }
   function currentStation(){return stations.find(s=>s.code===els.select.value)||stations.find(s=>s.code==="A13")}
   function setUpdated(iso){
@@ -59,10 +74,22 @@
   }
   function renderLive(data){
     const rows=data.trains||{};
-    setCell(els.tc,rows.taipei?.commuter?.time||"No Data","commuter");
-    setCell(els.te,rows.taipei?.express?.time||"No Service","express");
-    setCell(els.zc,rows.zhongli?.commuter?.time||"No Data","commuter");
-    setCell(els.ze,rows.zhongli?.express?.time||"No Service","express");
+    const station=currentStation();
+    const values={
+      tc:formatLiveTrain(rows.taipei?.commuter,"commuter"),
+      te:formatLiveTrain(rows.taipei?.express,"express"),
+      zc:formatLiveTrain(rows.zhongli?.commuter,"commuter"),
+      ze:formatLiveTrain(rows.zhongli?.express,"express")
+    };
+    setCell(els.tc,values.tc.value,"commuter",values.tc.subtext);
+    setCell(els.zc,values.zc.value,"commuter",values.zc.subtext);
+    if(station&&!station.express){
+      setCell(els.te,"--","express","No express service");
+      setCell(els.ze,"--","express","No express service");
+    }else{
+      setCell(els.te,values.te.value,"express",values.te.subtext);
+      setCell(els.ze,values.ze.value,"express",values.ze.subtext);
+    }
     setUpdated(data.updateTime||data.fetchedAt);
     els.status.textContent="TDX Live · 官方即時資料";
     els.status.className="mrt-status mrt-status-live";
@@ -98,5 +125,5 @@
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
     window.addEventListener("focus",refresh);
   }
-  fetch(`${DATA_URL}?v=6.8.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
+  fetch(`${DATA_URL}?v=6.9.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
 })();

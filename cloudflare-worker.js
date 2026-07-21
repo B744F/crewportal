@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 1.0.0
+ * Version 1.1.0
  *
  * Required secrets:
  *   TDX_CLIENT_ID
@@ -268,7 +268,7 @@ export default {
       return json(request, {
         ok: true,
         service: 'Crew Portal API',
-        version: '1.0.0',
+        version: '1.1.0',
         tdxConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
         timestamp: new Date().toISOString()
       });

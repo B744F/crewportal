@@ -1,3 +1,11 @@
+# v6.9.0 — TDX Live MRT Frontend Integration
+
+- Airport MRT now uses the verified Cloudflare `/api/mrt` endpoint.
+- Live countdowns show `Arriving`, minutes remaining, scheduled time and destination.
+- Missing Express data is no longer incorrectly labelled as permanent no-service at Express stations.
+- Stations without Express service display a clear bilingual status.
+- Updated cache-busting, version metadata and Worker health version.
+
 # Changelog
 
 ## v6.8.0 — 2026-07-21
