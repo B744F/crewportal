@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.1.0 (Crew Portal v7.1.1)
+ * Version 2.1.1 (Crew Portal v7.1.2)
  *
  * Primary MRT source: Taoyuan Metro official station timetable pages.
  * Secondary source: TDX TYMC LiveBoard (optional live status).
@@ -166,8 +166,11 @@ function selectNext(rows, nowMinutes) {
 
 function normalizeOfficialTimetable(html, station) {
   const text = htmlToText(html);
+  // The official site labels the southbound section as '往機場、中壢(老街溪站)',
+  // not simply '往中壢'. Using the shortened marker caused southbound trains to
+  // be swallowed into the Taipei section and terminal A1 to fail completely.
   const taipeiMarker = '時間 往台北車站';
-  const zhongliMarker = '時間 往中壢';
+  const zhongliMarker = '時間 往機場、中壢(老街溪站)';
   const firstTaipei = text.indexOf(taipeiMarker);
   const firstZhongli = text.indexOf(zhongliMarker);
   if (firstTaipei < 0 && firstZhongli < 0) throw new Error('Official timetable format not recognized');

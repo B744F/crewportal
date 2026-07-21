@@ -1,3 +1,7 @@
+## v7.1.2
+- Fixed official timetable parsing for the southbound section labelled `往機場、中壢(老街溪站)`.
+- Fixed missing Zhongli-bound departures and A1 timetable failures.
+
 # v7.1.1 — Airport MRT Official Timetable Hotfix
 
 - Replaced platform countdown data with TDX official daily timetable data.
