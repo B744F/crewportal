@@ -323,3 +323,36 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 
 /* v8.0.0 - Official structured timetable cells */
 .mrt-time{font-weight:900}
+
+/* v8.1.0 - iPad landscape — keep the first operational row inside the shorter viewport.
+   The portrait layout remains unchanged; this only applies to tablet-sized
+   landscape viewports where the two-column dashboard otherwise gets clipped. */
+@media (min-width:761px) and (max-width:1220px) and (orientation:landscape){
+  .shell{width:calc(100% - 32px)}
+  .hero{min-height:auto;background-size:cover,cover,cover;background-position:center top}
+  .hero-grid{min-height:auto;padding:150px 0 24px}
+  .hero-copy{max-width:620px}
+  h1{font-size:clamp(42px,5.4vw,58px)}
+  .gold-line{margin-top:16px;font-size:clamp(20px,2.2vw,26px)}
+  .hero-sub{margin-top:12px;font-size:18px}
+  .ops-row{grid-template-columns:repeat(2,minmax(0,1fr));max-width:none;gap:14px;margin-top:34px}
+  .glass-panel{border-radius:14px}
+  .atis-panel{padding:10px 12px}
+  .panel-title,.parking-title,.arinc-title{font-size:14px}
+  .panel-title{margin-bottom:5px}
+  .parking-head,.arinc-head{padding:8px 12px 4px}
+  .parking-source-row{padding:2px 12px 3px}
+  .parking-cell{padding:4px}
+  .parking-cell strong{font-size:15px}
+  .parking-panel>.parking-sync-meta{padding:3px 8px 5px}
+  .arinc-valid{padding:0 12px 4px;font-size:10px}
+  .arinc-row{grid-template-columns:minmax(120px,1fr) 64px 68px;min-height:29px}
+  .arinc-row>span,.arinc-row>b,.arinc-row>strong{padding:4px 7px}
+  .mrt-head{padding:8px 10px 6px}
+  .mrt-station-row{padding:6px 10px}
+  #mrtStationSelect{height:30px}
+  .mrt-table{margin:0 10px}
+  .mrt-row>*{min-height:34px;padding:4px 4px}
+  .mrt-time{font-size:18px}
+  .mrt-foot{padding:6px 10px 8px}
+}
