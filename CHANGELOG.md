@@ -1,3 +1,13 @@
+## v8.0.0 — 2026-07-22
+
+- Rewrote Airport MRT parsing around the official structured fields `StationID`, `Direction`, `DestinationStationID`, and `TrainType`.
+- Removed direction detection from Chinese or display-name text.
+- Corrected `StationTimeTable` XML parsing and separated official commuter and express services.
+- Kept A1/A22 endpoint direction availability data-driven; no fake timetable rows are generated.
+- Kept TDX LiveBoard as secondary information only.
+- Frontend timetable cells now render only `HH:mm` or `—`; removed scheduled backup text and generated timetable fallback.
+- Updated Portal Version to v8.0.0 and Worker Version to 2.3.0.
+
 ## v7.2.0
 - Replaced fragile station-page HTML scraping with the official Taoyuan City Government structured XML timetable dataset.
 - Parses A1–A22 station records, direction, train type, service days and departure times from structured data.

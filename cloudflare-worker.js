@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.2.0 (Crew Portal v7.2.0)
+ * Version 2.3.0 (Crew Portal v8.0.0)
  *
  * Primary MRT source: Taoyuan City Government Open Data XML
  * Dataset: 桃園捷運站別時刻表資料
@@ -11,6 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
+const PORTAL_VERSION = 'v8.0.0';
+const WORKER_VERSION = '2.3.0';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TYM_OPEN_DATA_XML = 'https://opendata.tycg.gov.tw/api/dataset/8e6201c2-1968-4920-aba3-1a68093dab53/resource/83358afd-010a-4989-b63a-bbf20692e408/download';
 const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-';
@@ -87,7 +89,12 @@ function tagBlocks(xml, names) {
 }
 
 function normalizeStationId(value) {
-  return String(value || '').trim().toUpperCase().replace('A14A', 'A14A');
+  return String(value || '').trim().toUpperCase();
+}
+
+function stationNumber(value) {
+  const match = normalizeStationId(value).match(/^A(\d+)(?:A)?$/);
+  return match ? Number(match[1]) : null;
 }
 
 function taipeiNow() {
@@ -129,37 +136,34 @@ function parseClock(value) {
   return { hour, minute, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}` };
 }
 
-function classifyDirection(record) {
-  const destination = [
-    tagValue(record, ['DestinationStationID', 'DestinationStaionID', 'DestinationID']),
-    tagValue(record, ['DestinationStationName', 'DestinStationName', 'DestinationName']),
-    tagValue(record, ['TripHeadSign'])
-  ].join(' ').toLowerCase();
-  if (/\ba1\b|taipei|台北/.test(destination)) return 'taipei';
-  if (/\ba21\b|\ba22\b|zhongli|laojie|中壢|老街溪|機場/.test(destination)) return 'zhongli';
-  const direction = tagValue(record, ['Direction']);
-  // TYMC open-data convention: 0 southbound, 1 northbound.
-  if (direction === '1') return 'taipei';
-  if (direction === '0') return 'zhongli';
+function classifyDirection(record, station) {
+  const directionCode = tagValue(record, ['Direction']);
+  const destinationStationId = normalizeStationId(
+    tagValue(record, ['DestinationStationID', 'DestinationStaionID'])
+  );
+  const stationIndex = stationNumber(station);
+  const destinationIndex = stationNumber(destinationStationId);
+  if (!['0', '1'].includes(directionCode) || stationIndex === null || destinationIndex === null) return null;
+
+  // Official TYMC convention: 0 = southbound, 1 = northbound.
+  // DestinationStationID validates the direction without reading display text.
+  if (directionCode === '0' && destinationIndex > stationIndex) return 'zhongli';
+  if (directionCode === '1' && destinationIndex < stationIndex) return 'taipei';
   return null;
 }
 
 function classifyTrainType(entry, record) {
-  const raw = [
-    tagValue(entry, ['TrainType', 'TrainTypeCode', 'TrainTypeID', 'ServiceType']),
-    tagValue(entry, ['TrainTypeName', 'ServiceTypeName']),
-    tagValue(record, ['TrainType', 'TrainTypeName'])
-  ].join(' ').toLowerCase();
-  if (/express|直達|快速/.test(raw)) return 'express';
-  if (/commuter|local|普通/.test(raw)) return 'commuter';
-  // Common PTX/TDX coding: 1 = commuter, 2 = express.
-  if (/(^|\s)2(\s|$)/.test(raw)) return 'express';
-  return 'commuter';
+  const raw = tagValue(entry, ['TrainType']) || tagValue(record, ['TrainType']);
+  const code = String(raw).trim().toLowerCase();
+  // Official TYMC timetable values: 0 = commuter, 2 = express.
+  if (code === '0' || code === 'commuter') return 'commuter';
+  if (code === '2' || code === 'express') return 'express';
+  return null;
 }
 
 function parseOpenDataRows(xml, station) {
   const now = taipeiNow();
-  let records = tagBlocks(xml, ['StationTimetable', 'StationTimetables']);
+  let records = tagBlocks(xml, ['StationTimeTable', 'StationTimetable', 'StationTimetables']);
   if (!records.length) records = tagBlocks(xml, ['Data', 'Record']);
   const rows = [];
   const seen = new Set();
@@ -168,7 +172,7 @@ function parseOpenDataRows(xml, station) {
     const stationId = normalizeStationId(tagValue(record, ['StationID', 'StationId']));
     if (stationId !== station) continue;
     if (!serviceRunsToday(record, now.weekday)) continue;
-    const direction = classifyDirection(record);
+    const direction = classifyDirection(record, station);
     if (!direction) continue;
 
     let entries = tagBlocks(record, ['Timetable', 'Timetables']);
@@ -182,6 +186,7 @@ function parseOpenDataRows(xml, station) {
       const clock = parseClock(tagValue(entry, ['DepartureTime', 'ArrivalTime', 'Time', 'TrainTime']));
       if (!clock) continue;
       const type = classifyTrainType(entry, record);
+      if (!type) continue;
       const key = `${direction}:${type}:${clock.time}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -219,7 +224,7 @@ function buildNextTrains(rows) {
 
 async function requestOpenDataTimetable(station) {
   const response = await fetch(TYM_OPEN_DATA_XML, {
-    headers: { 'Accept': 'application/xml,text/xml,*/*', 'User-Agent': 'CrewPortal/7.2' },
+    headers: { 'Accept': 'application/xml,text/xml,*/*', 'User-Agent': 'CrewPortal/8.0' },
     cf: { cacheTtl: 1800, cacheEverything: true }
   });
   if (!response.ok) throw new Error(`Taoyuan Open Data request failed (${response.status})`);
@@ -232,25 +237,24 @@ async function requestOpenDataTimetable(station) {
     serviceDate: parsed.serviceDate,
     sourceRows: parsed.rows.length,
     sourceRecords: parsed.recordCount,
-    officialUrl: `${TYM_OFFICIAL_TIMETABLE}${officialStationCode(station)}`
+    officialUrl: `${TYM_OFFICIAL_TIMETABLE}${officialStationCode(station)}`,
+    timetableParser: 'structured-official'
   };
 }
 
-function multilingualText(value) {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  return value.Zh_tw || value.Zh_TW || value.En || value.zh_tw || value.en || '';
-}
 function trainType(row) {
-  const source = [row.TrainType,row.ServiceType,row.TrainTypeCode,row.TrainTypeID,multilingualText(row.TrainTypeName),multilingualText(row.ServiceTypeName)].filter(Boolean).join(' ').toLowerCase();
-  return /express|直達/.test(source) ? 'express' : 'commuter';
+  const code = String(row.TrainType ?? '').trim().toLowerCase();
+  if (code === '2' || code === 'express') return 'express';
+  if (code === '0' || code === 'commuter') return 'commuter';
+  return null;
 }
 function trainDirection(row) {
-  const destination = [row.DestinationStationID,multilingualText(row.DestinationStationName),multilingualText(row.TripHeadSign)].filter(Boolean).join(' ').toLowerCase();
-  if (/\ba1\b|taipei|台北/.test(destination)) return 'taipei';
-  if (/\ba21\b|\ba22\b|zhongli|laojie|中壢|老街溪/.test(destination)) return 'zhongli';
-  if (Number(row.Direction) === 1) return 'taipei';
-  if (Number(row.Direction) === 0) return 'zhongli';
+  const directionCode = String(row.Direction ?? '').trim();
+  const destinationStationId = normalizeStationId(row.DestinationStationID ?? row.DestinationStaionID);
+  if (!['0', '1'].includes(directionCode)) return null;
+  if (!stationNumber(row.StationID) || !stationNumber(destinationStationId)) return null;
+  if (directionCode === '0' && stationNumber(destinationStationId) > stationNumber(row.StationID)) return 'zhongli';
+  if (directionCode === '1' && stationNumber(destinationStationId) < stationNumber(row.StationID)) return 'taipei';
   return null;
 }
 
@@ -286,9 +290,11 @@ async function requestLiveStatus(station, env) {
       for (const row of rows) {
         const direction = trainDirection(row);
         if (!direction) continue;
+        const type = trainType(row);
+        if (!type) continue;
         const seconds = Number(row.EstimateTime ?? row.EstimateTimeSec ?? row.CountDown ?? row.Countdown);
         if (!Number.isFinite(seconds) || seconds < 0) continue;
-        live.push({ direction, type: trainType(row), seconds });
+        live.push({ direction, type, seconds });
       }
       if (live.length) return live;
     }
@@ -318,7 +324,8 @@ async function handleMrt(request, env, ctx) {
       mode: 'timetable',
       station,
       source: 'Taoyuan City Government Open Data',
-      sourceType: 'structured-xml',
+      sourceType: 'structured-official',
+      timetableParser: 'structured-official',
       liveSource: live ? 'TDX LiveBoard' : null,
       fetchedAt: new Date().toISOString(),
       live,
@@ -330,7 +337,7 @@ async function handleMrt(request, env, ctx) {
     return response;
   } catch (error) {
     return json(request, {
-      ok: false, mode: 'fallback', station, source: 'Taoyuan City Government Open Data',
+      ok: false, mode: 'unavailable', station, source: 'Taoyuan City Government Open Data',
       fetchedAt: new Date().toISOString(), error: String(error?.message || error)
     }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
@@ -354,9 +361,11 @@ export default {
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
     if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
     if (url.pathname === '/api/health') return json(request, {
-      ok: true, service: 'Crew Portal API', version: '2.2.0',
+      ok: true, service: 'Crew Portal API', version: WORKER_VERSION,
+      workerVersion: WORKER_VERSION,
+      portalVersion: PORTAL_VERSION,
       timetableSource: 'Taoyuan City Government Open Data XML',
-      timetableParser: 'structured-xml',
+      timetableParser: 'structured-official',
       tdxLiveConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
       timestamp: new Date().toISOString()
     });

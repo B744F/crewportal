@@ -17,55 +17,21 @@
     return {year:+v.year,month:+v.month,day:+v.day,hour:+v.hour,minute:+v.minute,second:+v.second};
   }
   const pad=n=>String(n).padStart(2,"0");
-  function nowMinutes(){const p=taipeiParts();return p.hour*60+p.minute+(p.second/60)}
-  function formatMinutes(total){total=((Math.round(total)%1440)+1440)%1440;return `${pad(Math.floor(total/60))}:${pad(total%60)}`}
-  function nextPattern(now,start,end,minutes,offset){
-    const candidates=[];
-    for(let h=Math.floor(start/60);h<=Math.floor(end/60);h++)for(const m of minutes){const t=h*60+m+offset;if(t>=start+offset&&t<=end+offset&&t>=now)candidates.push(t)}
-    return candidates.length?Math.min(...candidates):null;
-  }
-  function setCell(el,value,kind="",subtext=""){
+  function setCell(el,value,kind=""){
     el.className=`mrt-time ${kind}`.trim();
     el.removeAttribute("title");
-    if(value===null||value===undefined){
-      el.innerHTML='<span class="mrt-primary">—</span><small class="mrt-secondary">No scheduled train</small>';
-      el.classList.add("mrt-muted");
-      return;
-    }
-    const primary=String(value);
-    el.innerHTML=`<span class="mrt-primary">${primary}</span>${subtext?`<small class="mrt-secondary">${subtext}</small>`:""}`;
-    if(!/^\d\d:\d\d$/.test(primary)&&primary!=="Arriving")el.classList.add("mrt-muted");
+    const primary=/^\d{2}:\d{2}$/.test(String(value||""))?String(value):"—";
+    el.textContent=primary;
+    if(primary==="—")el.classList.add("mrt-muted");
   }
   function formatTimetableTrain(train){
-    if(!train||!/^\d{2}:\d{2}$/.test(String(train.time||"")))return {value:null,subtext:"暫無下一班"};
-    return {value:train.time,subtext:""};
+    return train&&/^\d{2}:\d{2}$/.test(String(train.time||""))?train.time:null;
   }
   function currentStation(){return stations.find(s=>s.code===els.select.value)||stations.find(s=>s.code==="A13")}
   function setUpdated(iso){
     const date=iso?new Date(iso):new Date();
     if(Number.isNaN(date.getTime()))return;
     const p=taipeiParts(date);els.updated.textContent=`${pad(p.hour)}:${pad(p.minute)}`;
-  }
-  function renderScheduled(station,reason=""){
-    const now=nowMinutes();
-    setUpdated();
-    if(station.comingSoon){
-      setCell(els.tc,"Coming Soon");setCell(els.te,"尚未啟用");setCell(els.zc,"Coming Soon");setCell(els.ze,"尚未啟用");
-      els.status.textContent="A14 Airport Terminal 3 is not yet in service.";
-      return;
-    }
-    const northOffset=station.minutesFromA13;
-    const southOffset=station.minutesFromA13;
-    const tc=nextPattern(now,364,1429,[4,19,34,49],northOffset);
-    const zc=nextPattern(now,369,1434,[9,24,39,54],southOffset);
-    const te=station.express?nextPattern(now,355,1375,[10,25,40,55],northOffset):"No Service";
-    const ze=station.express&&["A12","A13","A18","A21"].includes(station.code)?nextPattern(now,370,1210,[10,25,40,55],southOffset):"No Service";
-    setCell(els.tc,tc===null?null:formatMinutes(tc),"commuter");
-    setCell(els.zc,zc===null?null:formatMinutes(zc),"commuter");
-    setCell(els.te,typeof te==="number"?formatMinutes(te):te,"express");
-    setCell(els.ze,typeof ze==="number"?formatMinutes(ze):ze,"express");
-    els.status.textContent=reason?`Scheduled backup · ${reason}`:"Scheduled backup · 班表備援";
-    els.status.className="mrt-status mrt-status-scheduled";
   }
   function renderTimetable(data){
     const rows=data.trains||{};
@@ -76,34 +42,34 @@
       zc:formatTimetableTrain(rows.zhongli?.commuter),
       ze:formatTimetableTrain(rows.zhongli?.express)
     };
-    setCell(els.tc,values.tc.value,"commuter",values.tc.subtext);
-    setCell(els.zc,values.zc.value,"commuter",values.zc.subtext);
+    setCell(els.tc,values.tc,"commuter");
+    setCell(els.zc,values.zc,"commuter");
     if(station&&!station.express){
-      setCell(els.te,"—","express","No express service");
-      setCell(els.ze,"—","express","No express service");
+      setCell(els.te,"—","express");
+      setCell(els.ze,"—","express");
     }else{
-      setCell(els.te,values.te.value,"express",values.te.subtext);
-      setCell(els.ze,values.ze.value,"express",values.ze.subtext);
+      setCell(els.te,values.te,"express");
+      setCell(els.ze,values.ze,"express");
     }
     setUpdated(data.updateTime||data.fetchedAt);
-    els.status.textContent="Taoyuan Open Data · 桃捷官方時刻表";
+    els.status.textContent="Official timetable · 桃捷官方資料";
     els.status.className="mrt-status mrt-status-live";
   }
   function renderUnavailable(station){
     setUpdated();
     setCell(els.tc,null,"commuter");setCell(els.zc,null,"commuter");
     if(station&&!station.express){
-      setCell(els.te,"—","express","No express service");
-      setCell(els.ze,"—","express","No express service");
+      setCell(els.te,"—","express");
+      setCell(els.ze,"—","express");
     }else{setCell(els.te,null,"express");setCell(els.ze,null,"express");}
-    els.status.textContent="Timetable unavailable · 請查詢官方時刻表";
-    els.status.className="mrt-status mrt-status-scheduled";
+    els.status.textContent="Official timetable unavailable · 請查詢桃捷官方資料";
+    els.status.className="mrt-status mrt-status-unavailable";
   }
   async function refresh(){
     const station=currentStation();
     if(!station)return;
     els.link.href=`https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-${station.code === "A14A" ? "A14a" : station.code}`;
-    if(station.comingSoon){renderScheduled(station);return}
+    if(station.comingSoon){renderUnavailable(station);return}
     if(requestController)requestController.abort();
     requestController=new AbortController();
     try{
@@ -130,5 +96,5 @@
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
     window.addEventListener("focus",refresh);
   }
-  fetch(`${DATA_URL}?v=7.2.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
+  fetch(`${DATA_URL}?v=8.0.0`,{cache:"no-store"}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(populate).catch(err=>{console.error("Airport MRT station data load failed",err);els.status.textContent="Station data unavailable · 車站資料無法載入"});
 })();

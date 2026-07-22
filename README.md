@@ -1,42 +1,25 @@
-# CrewPortal v6.4.3 正式版更新包
+# FlightDeck Crew Portal v8.0.0
 
-本更新包會在現有 CrewPortal 正式版原始碼上，自動完成以下修改：
+正式版 FlightDeck Crew Portal。Airport MRT 使用桃園捷運官方結構化時刻表資料，解析 `StationID`、`Direction`、`DestinationStationID` 與 `TrainType`；TDX LiveBoard 僅作次要即時資訊，不會產生估算或虛構班次。
 
-1. 公司系統區塊
-   - `CAL Web-Mail` 改為 `CAL Outlook`
-   - 連結改為 `https://outlook.com/china-airlines.com`
-   - 副標改為 `Outlook Mail`
+## 版本
 
-2. Quick Access 區塊
-   - 桌面版由每排 6 個改為每排 10 個
-   - 單一按鈕寬度約縮小 40%
-   - 圖案、文字大小及按鈕高度保持不變
-   - 平板每排 5 個、一般手機每排 3 個、窄手機每排 2 個
+- Portal Version：v8.0.0
+- Worker Version：2.3.0
+- Timetable Parser：`structured-official`
 
-3. 版本資訊
-   - Version：v6.4.3
-   - Build：20260720-027
-   - CSS、JavaScript 快取版本同步更新
+## 本版重點
 
-## 使用方式
+- A1 僅顯示官方資料中的中壢方向；台北方向無有效班次時顯示 `—`。
+- A22 僅顯示官方資料中的台北方向；中壢方向無有效班次時顯示 `—`。
+- A2–A21 依官方結構化欄位顯示所有有效方向，並分開普通車與直達車。
+- 時刻表欄位只顯示 `HH:mm` 或 `—`，移除排程備援與估算班次。
 
-把本 ZIP 解壓縮後，將 `apply_update.py` 放進 CrewPortal 專案根目錄，也就是與 `index.html` 同一層。
+## 部署
 
-在終端機執行：
+請依 [DEPLOY.md](DEPLOY.md) 部署 GitHub Pages 與 Cloudflare Worker，並在部署後驗證 `/api/health` 及指定車站 API。
 
-```bash
-python3 apply_update.py
-```
+## 資料來源
 
-也可以指定網站資料夾：
-
-```bash
-python3 apply_update.py /你的路徑/crewportal
-```
-
-完成後，將更新後的整個網站資料夾上傳至 GitHub Repo 即可。
-
-## 注意
-
-執行前建議先備份 `index.html` 與 `css/style.css`。
-此更新腳本可重複執行，不會重複加入 Quick Access 樣式。
+- 桃園市政府開放資料：官方桃園捷運站別時刻表 XML
+- TDX LiveBoard：僅作次要即時資訊
