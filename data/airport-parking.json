@@ -3,11 +3,11 @@
   "source": "https://www.opendata.vip/tdx/parkingAirport",
   "sourceType": "public-tdx",
   "contentType": "text/html; charset=UTF-8",
-  "updatedAt": "2026-07-22 23:55:17",
-  "fetchedAt": "2026-07-22 23:55:17",
-  "P1": 198,
-  "P2": 315,
-  "P4": 590,
+  "updatedAt": "2026-07-22 23:58:02",
+  "fetchedAt": "2026-07-22 23:58:02",
+  "P1": 247,
+  "P2": 378,
+  "P4": 940,
   "P3": null,
   "P3Available": false
 }
