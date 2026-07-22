@@ -1,8 +1,10 @@
 ## v8.0.0 — 2026-07-22
 
 - Rewrote Airport MRT parsing around the official structured fields `StationID`, `Direction`, `DestinationStationID`, and `TrainType`.
+- Uses official TDX `StationTimeTable` as the primary source, with the official Taoyuan XML as a structured fallback.
 - Removed direction detection from Chinese or display-name text.
 - Corrected `StationTimeTable` XML parsing and separated official commuter and express services.
+- Added 15-minute in-isolate and Cloudflare edge caching for official timetable rows to avoid TDX rate-limit failures during normal station refreshes.
 - Kept A1/A22 endpoint direction availability data-driven; no fake timetable rows are generated.
 - Kept TDX LiveBoard as secondary information only.
 - Frontend timetable cells now render only `HH:mm` or `—`; removed scheduled backup text and generated timetable fallback.

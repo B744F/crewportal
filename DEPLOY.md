@@ -21,6 +21,6 @@
 
 驗證車站：`A1`、`A3`、`A8`、`A12`、`A13`、`A21`、`A22`。
 
-每個 `/api/mrt?station=...&debug=1` 回應都必須使用官方結構化時刻表；TDX LiveBoard 不得取代官方時刻表，也不得在資料缺失時補造班次。
+每個 `/api/mrt?station=...&debug=1` 回應都必須使用官方結構化時刻表。主要來源為 TDX `StationTimeTable`，桃園市政府 XML 為官方結構化備援；TDX LiveBoard 不得取代官方時刻表，也不得在資料缺失時補造班次。
 
 完整結果請見 [MRT_TEST_REPORT.md](MRT_TEST_REPORT.md)。

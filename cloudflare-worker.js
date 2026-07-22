@@ -2,8 +2,8 @@
  * Crew Portal API — Cloudflare Worker
  * Version 2.3.0 (Crew Portal v8.0.0)
  *
- * Primary MRT source: Taoyuan City Government Open Data XML
- * Dataset: 桃園捷運站別時刻表資料
+ * Primary MRT source: TDX TYMC StationTimeTable
+ * Fallback MRT source: Taoyuan City Government Open Data XML
  * Secondary source: TDX TYMC LiveBoard (optional live status)
  *
  * Required secrets for live status:
@@ -17,6 +17,7 @@ const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TYM_OPEN_DATA_XML = 'https://opendata.tycg.gov.tw/api/dataset/8e6201c2-1968-4920-aba3-1a68093dab53/resource/83358afd-010a-4989-b63a-bbf20692e408/download';
 const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-';
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
+const TDX_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TYMC';
 const TDX_LIVEBOARD_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC';
 const ALLOWED_ORIGINS = new Set([
   'https://b744f.github.io',
@@ -27,6 +28,8 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 
 let tokenCache = { token: '', expiresAt: 0 };
+const tdxTimetableCache = new Map();
+const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
@@ -136,11 +139,9 @@ function parseClock(value) {
   return { hour, minute, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}` };
 }
 
-function classifyDirection(record, station) {
-  const directionCode = tagValue(record, ['Direction']);
-  const destinationStationId = normalizeStationId(
-    tagValue(record, ['DestinationStationID', 'DestinationStaionID'])
-  );
+function classifyDirectionFields(directionCode, destinationStationId, station) {
+  directionCode = String(directionCode ?? '').trim();
+  destinationStationId = normalizeStationId(destinationStationId);
   const stationIndex = stationNumber(station);
   const destinationIndex = stationNumber(destinationStationId);
   if (!['0', '1'].includes(directionCode) || stationIndex === null || destinationIndex === null) return null;
@@ -152,11 +153,19 @@ function classifyDirection(record, station) {
   return null;
 }
 
+function classifyDirection(record, station) {
+  return classifyDirectionFields(
+    tagValue(record, ['Direction']),
+    tagValue(record, ['DestinationStationID', 'DestinationStaionID']),
+    station
+  );
+}
+
 function classifyTrainType(entry, record) {
   const raw = tagValue(entry, ['TrainType']) || tagValue(record, ['TrainType']);
   const code = String(raw).trim().toLowerCase();
-  // Official TYMC timetable values: 0 = commuter, 2 = express.
-  if (code === '0' || code === 'commuter') return 'commuter';
+  // Official TYMC timetable values: 0/1 = commuter, 2 = express.
+  if (code === '0' || code === '1' || code === 'commuter') return 'commuter';
   if (code === '2' || code === 'express') return 'express';
   return null;
 }
@@ -217,7 +226,7 @@ function buildNextTrains(rows) {
     zhongli: { commuter: by('zhongli', 'commuter'), express: by('zhongli', 'express') }
   };
   if (!Object.values(trains).flatMap(group => Object.values(group)).some(Boolean)) {
-    throw new Error('No upcoming trains in official open data');
+    throw new Error('No upcoming trains in official structured timetable');
   }
   return trains;
 }
@@ -242,20 +251,132 @@ async function requestOpenDataTimetable(station) {
   };
 }
 
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
+}
+
+function structuredRecords(payload) {
+  if (Array.isArray(payload)) return payload;
+  return payload?.value || payload?.StationTimeTables || payload?.StationTimeTable || payload?.data || [];
+}
+
+function jsonServiceRunsToday(record, weekday) {
+  const source = record?.ServiceDay ?? record?.ServiceDays;
+  if (!source) return true;
+  const values = [];
+  for (const item of asArray(source)) {
+    if (typeof item === 'string' || typeof item === 'number') values.push(String(item));
+    else if (item && typeof item === 'object') {
+      for (const key of ['ServiceTag', 'ServiceTagName', 'Name', 'Code']) {
+        if (item[key] !== undefined && item[key] !== null) values.push(String(item[key]));
+      }
+    }
+  }
+  const raw = values.join(' ').toLowerCase();
+  if (!raw) return true;
+  if (/平日|weekday|weekdays/.test(raw)) return !['Sat', 'Sun'].includes(weekday);
+  if (/假日|例假日|holiday|weekend/.test(raw)) return ['Sat', 'Sun'].includes(weekday);
+  const names = {
+    Sun: ['sunday', 'sun', '日'], Mon: ['monday', 'mon', '一'], Tue: ['tuesday', 'tue', '二'],
+    Wed: ['wednesday', 'wed', '三'], Thu: ['thursday', 'thu', '四'], Fri: ['friday', 'fri', '五'], Sat: ['saturday', 'sat', '六']
+  }[weekday] || [];
+  return names.some(name => raw.includes(name));
+}
+
+function parseStructuredTimetableRows(payload, station) {
+  const now = taipeiNow();
+  const records = structuredRecords(payload);
+  const rows = [];
+  let stationRecordCount = 0;
+  let directionalRecordCount = 0;
+  const seen = new Set();
+  for (const record of records) {
+    if (normalizeStationId(record?.StationID) !== station) continue;
+    stationRecordCount += 1;
+    if (!jsonServiceRunsToday(record, now.weekday)) continue;
+    const direction = classifyDirectionFields(record.Direction, record.DestinationStationID ?? record.DestinationStaionID, station);
+    if (!direction) continue;
+    directionalRecordCount += 1;
+    const entries = asArray(record.Timetables?.Timetable ?? record.Timetables ?? record.Timetable);
+    for (const entry of entries) {
+      const clock = parseClock(entry?.DepartureTime ?? entry?.ArrivalTime ?? entry?.Time ?? entry?.TrainTime);
+      if (!clock) continue;
+      const type = trainType(entry);
+      if (!type) continue;
+      const key = `${direction}:${type}:${clock.time}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({ direction, type, ...clock });
+    }
+  }
+  return { rows, serviceDate: now.date, recordCount: records.length, stationRecordCount, directionalRecordCount };
+}
+
+async function requestTdxTimetable(station, token, ctx) {
+  const cached = tdxTimetableCache.get(station);
+  let parsed = cached && cached.expiresAt > Date.now() ? cached.value : null;
+  const edgeCache = caches.default;
+  const cacheKey = new Request(`${TDX_EDGE_CACHE_ORIGIN}/station-timetable/${encodeURIComponent(station)}`, { method: 'GET' });
+  if (!parsed) {
+    const cachedResponse = await edgeCache.match(cacheKey);
+    if (cachedResponse) parsed = await cachedResponse.json();
+  }
+  if (!parsed) {
+    const filter = encodeURIComponent(`StationID eq '${station}'`);
+    const response = await fetch(`${TDX_TIMETABLE_ROOT}?$filter=${filter}&$format=JSON`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+      cf: { cacheTtl: 1800, cacheEverything: true }
+    });
+    if (!response.ok) throw new Error(`TDX StationTimeTable request failed (${response.status})`);
+    const payload = await response.json();
+    parsed = parseStructuredTimetableRows(payload, station);
+    if (!parsed.rows.length) {
+      throw new Error(`No official TDX StationTimeTable rows found for ${station} (records=${parsed.recordCount}, stationRecords=${parsed.stationRecordCount}, directionalRecords=${parsed.directionalRecordCount})`);
+    }
+    const cacheResponse = new Response(JSON.stringify(parsed), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=900' }
+    });
+    if (ctx?.waitUntil) ctx.waitUntil(edgeCache.put(cacheKey, cacheResponse));
+  }
+  tdxTimetableCache.set(station, { value: parsed, expiresAt: Date.now() + 15 * 60 * 1000 });
+  return {
+    trains: buildNextTrains(parsed.rows),
+    serviceDate: parsed.serviceDate,
+    sourceRows: parsed.rows.length,
+    sourceRecords: parsed.recordCount,
+    source: 'TDX StationTimeTable',
+    officialUrl: `${TYM_OFFICIAL_TIMETABLE}${officialStationCode(station)}`,
+    timetableParser: 'structured-official'
+  };
+}
+
+async function requestOfficialTimetable(station, env, ctx) {
+  let tdxError = null;
+  try {
+    const token = await getTdxToken(env);
+    if (token) return await requestTdxTimetable(station, token, ctx);
+  } catch (error) {
+    tdxError = error;
+  }
+  try {
+    return await requestOpenDataTimetable(station);
+  } catch (error) {
+    if (tdxError) throw new Error(`${error.message}; TDX StationTimeTable: ${tdxError.message}`);
+    throw error;
+  }
+}
+
 function trainType(row) {
   const code = String(row.TrainType ?? '').trim().toLowerCase();
   if (code === '2' || code === 'express') return 'express';
-  if (code === '0' || code === 'commuter') return 'commuter';
+  if (code === '0' || code === '1' || code === 'commuter') return 'commuter';
   return null;
 }
 function trainDirection(row) {
   const directionCode = String(row.Direction ?? '').trim();
   const destinationStationId = normalizeStationId(row.DestinationStationID ?? row.DestinationStaionID);
-  if (!['0', '1'].includes(directionCode)) return null;
-  if (!stationNumber(row.StationID) || !stationNumber(destinationStationId)) return null;
-  if (directionCode === '0' && stationNumber(destinationStationId) > stationNumber(row.StationID)) return 'zhongli';
-  if (directionCode === '1' && stationNumber(destinationStationId) < stationNumber(row.StationID)) return 'taipei';
-  return null;
+  return classifyDirectionFields(directionCode, destinationStationId, row.StationID);
 }
 
 async function getTdxToken(env) {
@@ -318,12 +439,12 @@ async function handleMrt(request, env, ctx) {
   }
 
   try {
-    const [timetable, live] = await Promise.all([requestOpenDataTimetable(station), requestLiveStatus(station, env)]);
+    const [timetable, live] = await Promise.all([requestOfficialTimetable(station, env, ctx), requestLiveStatus(station, env)]);
     const payload = {
       ok: true,
       mode: 'timetable',
       station,
-      source: 'Taoyuan City Government Open Data',
+      source: 'Official structured timetable',
       sourceType: 'structured-official',
       timetableParser: 'structured-official',
       liveSource: live ? 'TDX LiveBoard' : null,
@@ -337,7 +458,7 @@ async function handleMrt(request, env, ctx) {
     return response;
   } catch (error) {
     return json(request, {
-      ok: false, mode: 'unavailable', station, source: 'Taoyuan City Government Open Data',
+      ok: false, mode: 'unavailable', station, source: 'Official structured timetable',
       fetchedAt: new Date().toISOString(), error: String(error?.message || error)
     }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
@@ -364,7 +485,7 @@ export default {
       ok: true, service: 'Crew Portal API', version: WORKER_VERSION,
       workerVersion: WORKER_VERSION,
       portalVersion: PORTAL_VERSION,
-      timetableSource: 'Taoyuan City Government Open Data XML',
+      timetableSource: 'TDX StationTimeTable with Taoyuan City Government Open Data XML fallback',
       timetableParser: 'structured-official',
       tdxLiveConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
       timestamp: new Date().toISOString()
