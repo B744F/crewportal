@@ -14,10 +14,12 @@
 ```json
 {
   "portalVersion": "v8.0.0",
-  "workerVersion": "2.3.0",
+  "workerVersion": "2.4.0",
   "timetableParser": "structured-official"
 }
 ```
+
+航班登機門查詢使用 `/api/flight-gate?flight=CI100`，資料由 GitHub Actions 每 5 分鐘擷取桃園機場 ADIP 官方即時航班資料並更新快照。
 
 驗證車站：`A1`、`A3`、`A8`、`A12`、`A13`、`A21`、`A22`。
 

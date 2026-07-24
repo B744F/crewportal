@@ -2,6 +2,7 @@
   const VERSION = "8.0.0";
   const BUILD = "20260722-001";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
+  const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const PARKING_INTERVAL=5*60*1000;
   const ARINC_INTERVAL=15*60*1000;
   const PARKING_CACHE_KEY="crewportal-combined-parking-last-good";
@@ -117,19 +118,54 @@
       #aircraftTrackInput::placeholder{color:rgba(238,247,255,.48);font-weight:700;letter-spacing:.03em;text-transform:none}
       .aircraft-track-button{height:100%;border:1px solid rgba(216,178,93,.76);border-right:0;border-top:0;border-bottom:0;background:linear-gradient(180deg,rgba(216,178,93,.88),rgba(147,108,43,.82));color:#07111d;font-size:13px;font-weight:1000;letter-spacing:.06em;cursor:pointer}
       .aircraft-track-button:hover{filter:brightness(1.12)}#aircraftTrackStatus{display:none;margin-top:7px;font-size:12px;color:#ffc8c8}
+      .aircraft-gate-divider{height:1px;background:rgba(255,255,255,.12);margin:10px 0 8px}
+      .aircraft-gate-title{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:14px;font-weight:900;letter-spacing:.04em;color:#eef7ff}
+      .aircraft-gate-title span:first-child{color:#86d4ff;font-size:16px}
+      .aircraft-gate-form{display:grid;grid-template-columns:1fr 108px;align-items:center;border:1px solid rgba(105,189,255,.35);background:rgba(0,5,12,.30);border-radius:10px;overflow:hidden;height:39px}
+      #aircraftGateInput{height:100%;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:15px;font-weight:750;padding:0 16px;text-transform:uppercase;letter-spacing:.06em}
+      #aircraftGateInput::placeholder{color:rgba(238,247,255,.48);font-weight:700;letter-spacing:.03em;text-transform:none}
+      .aircraft-gate-button{height:100%;border:1px solid rgba(105,189,255,.50);border-right:0;border-top:0;border-bottom:0;background:linear-gradient(180deg,rgba(52,137,190,.88),rgba(22,75,116,.88));color:#eff9ff;font-size:13px;font-weight:1000;letter-spacing:.06em;cursor:pointer}
+      .aircraft-gate-button:hover{filter:brightness(1.12)}#aircraftGateStatus{display:none;margin-top:7px;font-size:12px;color:#b9d8ed}
+      .aircraft-gate-result{display:none;margin-top:8px;border:1px solid rgba(105,189,255,.25);border-radius:9px;overflow:hidden;background:rgba(0,8,16,.24)}
+      .aircraft-gate-result-head{display:flex;justify-content:space-between;gap:8px;padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.10);color:#9fb7ca;font-size:10px}
+      .aircraft-gate-result-head strong{color:#dcefff;font-size:11px}.aircraft-gate-result-head small{white-space:nowrap}
+      .aircraft-gate-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:7px 9px;border-top:1px solid rgba(255,255,255,.08)}
+      .aircraft-gate-row:first-child{border-top:0}.aircraft-gate-row div{min-width:0}.aircraft-gate-row b{display:block;color:#eef7ff;font-size:11px}.aircraft-gate-row span{display:block;margin-top:2px;color:#9fb0c5;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .aircraft-gate-row strong{min-width:46px;text-align:center;color:#8ed8ff;font-size:18px;letter-spacing:.03em}.aircraft-gate-row strong.is-empty{color:#aab8ca;font-size:11px}
       @media(max-width:760px){.aircraft-track-form{grid-template-columns:1fr 96px}.aircraft-track-button{font-size:12px}}
+      @media(max-width:760px){.aircraft-gate-form{grid-template-columns:1fr 96px}.aircraft-gate-button{font-size:12px}}
     `;
     document.head.appendChild(style);
     const wrap=document.createElement("div");
-    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div>`;
+    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div><div class="aircraft-gate-divider"></div><div class="aircraft-gate-title"><span>▣</span><span>TAOYUAN GATE LOOKUP</span></div><form class="aircraft-gate-form" id="aircraftGateForm"><input id="aircraftGateInput" aria-label="Flight number for Taoyuan Airport gate lookup" autocomplete="off" maxlength="12" placeholder="e.g. CI100" type="text"><button class="aircraft-gate-button" type="submit">GATE ›</button></form><div id="aircraftGateStatus"></div><div id="aircraftGateResult" class="aircraft-gate-result"></div>`;
     atisPanel.appendChild(wrap);
     const trackForm=$("aircraftTrackForm"),trackInput=$("aircraftTrackInput"),trackStatus=$("aircraftTrackStatus");
+    const gateForm=$("aircraftGateForm"),gateInput=$("aircraftGateInput"),gateStatus=$("aircraftGateStatus"),gateResult=$("aircraftGateResult");
     trackInput.addEventListener("input",()=>{trackInput.value=trackInput.value.toUpperCase().replace(/[^A-Z0-9-]/g,"").slice(0,12);trackStatus.style.display="none"});
     trackForm.addEventListener("submit",e=>{
       e.preventDefault();const value=trackInput.value.trim().toUpperCase();
       if(!/^[A-Z0-9][A-Z0-9-]{1,11}$/.test(value)){trackStatus.textContent="請輸入 Call Sign 或 REG No.";trackStatus.style.display="block";trackInput.focus();return}
       const path=value.includes("-")?"aircraft":"flights";
       window.open(`https://www.flightradar24.com/data/${path}/${encodeURIComponent(value.toLowerCase())}`,"_blank","noopener,noreferrer");
+    });
+    const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+    gateInput.addEventListener("input",()=>{gateInput.value=gateInput.value.toUpperCase().replace(/[^A-Z0-9 -]/g,"").slice(0,12);gateStatus.style.display="none"});
+    gateForm.addEventListener("submit",async e=>{
+      e.preventDefault();
+      const value=gateInput.value.trim().toUpperCase();
+      if(!/^(?:[A-Z]{2,3}\s*-?\s*)?\d{1,4}[A-Z]?$/.test(value)){
+        gateStatus.textContent="請輸入航班號碼，例如 CI100 或 100";gateStatus.style.display="block";gateResult.style.display="none";gateInput.focus();return;
+      }
+      gateStatus.textContent="正在查詢桃園機場官方航班資料…";gateStatus.style.display="block";gateResult.style.display="none";
+      try{
+        const response=await fetch(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}`,{cache:"no-store"});
+        const data=await response.json();
+        if(!response.ok||!data.ok)throw new Error(data.error||"查詢失敗");
+        if(!data.matches?.length){gateStatus.textContent="找不到今日或明日的官方航班資料。";return}
+        gateStatus.textContent=`已找到 ${data.matches.length} 筆官方航班資料`;
+        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><small>資料 ${escapeHtml(data.fetchedAt?.slice(11,16)||"--:--")} 更新</small></div>${data.matches.map(match=>{const gate=match.gate||"尚未公布";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(match.direction)} · T${escapeHtml(match.terminal||"-")}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${match.status?` · ${escapeHtml(match.status)}`:""}</span></div><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div>`}).join("")}`;
+        gateResult.style.display="block";
+      }catch(error){gateStatus.textContent=`查詢失敗：${error.message||"請稍後再試"}`;gateResult.style.display="none"}
     });
   }
   function updateVisibleVersion(){

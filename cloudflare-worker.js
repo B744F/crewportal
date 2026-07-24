@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.3.0 (Crew Portal v8.0.0)
+ * Version 2.4.0 (Crew Portal v8.0.0)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,8 +12,9 @@
  */
 
 const PORTAL_VERSION = 'v8.0.0';
-const WORKER_VERSION = '2.3.0';
+const WORKER_VERSION = '2.4.0';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
+const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TYM_OPEN_DATA_XML = 'https://opendata.tycg.gov.tw/api/dataset/8e6201c2-1968-4920-aba3-1a68093dab53/resource/83358afd-010a-4989-b63a-bbf20692e408/download';
 const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-';
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
@@ -29,6 +30,7 @@ const ALLOWED_ORIGINS = new Set([
 
 let tokenCache = { token: '', expiresAt: 0 };
 const tdxTimetableCache = new Map();
+let airportFlightCache = { fetchedAt: 0, rows: null };
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
 
 function corsHeaders(request) {
@@ -48,6 +50,26 @@ function json(request, body, init = {}) {
   headers.set('Content-Type', 'application/json; charset=utf-8');
   for (const [key, value] of Object.entries(corsHeaders(request))) headers.set(key, value);
   return new Response(JSON.stringify(body), { ...init, headers });
+}
+
+function normalizeFlightQuery(value) {
+  const compact = String(value || '').trim().toUpperCase().replace(/[\s-]/g, '');
+  const match = compact.match(/^([A-Z]{2,3})?(\d{1,4}[A-Z]?)$/);
+  if (!match) return null;
+  return { airline: match[1] || '', number: match[2] };
+}
+
+async function loadAirportFlights() {
+  if (airportFlightCache.rows && Date.now() - airportFlightCache.fetchedAt < 60_000) return airportFlightCache;
+  const response = await fetch(TPE_FLIGHT_SOURCE, {
+    headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
+    cf: { cacheTtl: 300, cacheEverything: true }
+  });
+  if (!response.ok) throw new Error(`Taoyuan Airport flight source failed (${response.status})`);
+  const payload = await response.json();
+  if (!Array.isArray(payload.rows) || !payload.rows.length) throw new Error('Taoyuan Airport flight source returned no rows');
+  airportFlightCache = { fetchedAt: Date.parse(payload.fetchedAtUtc) || Date.now(), rows: payload.rows };
+  return airportFlightCache;
 }
 
 function stationIsValid(station) {
@@ -474,12 +496,58 @@ async function handleParking(request) {
   }
 }
 
+async function handleFlightGate(request) {
+  const url = new URL(request.url);
+  const query = normalizeFlightQuery(url.searchParams.get('flight'));
+  if (!query) return json(request, { ok: false, error: 'Invalid flight number. Use CI100 or 100.' }, { status: 400 });
+
+  try {
+    const now = taipeiNow();
+    const source = await loadAirportFlights();
+    const matches = source.rows
+      .filter(row => row.scheduledDate >= now.date)
+      .filter(row => (!query.airline || row.airline === query.airline) && row.number === query.number)
+      .sort((a, b) => `${a.scheduledDate} ${a.scheduledTime}`.localeCompare(`${b.scheduledDate} ${b.scheduledTime}`))
+      .slice(0, 6)
+      .map(row => ({
+        flight: `${row.airline}${row.number}`,
+        airline: row.airline,
+        airlineName: row.airlineName,
+        terminal: row.terminal,
+        direction: row.direction === 'A' ? '抵達' : row.direction === 'D' ? '出發' : row.direction,
+        date: row.scheduledDate,
+        time: row.scheduledTime,
+        estimatedDate: row.estimatedDate,
+        estimatedTime: row.estimatedTime,
+        gate: row.gate,
+        destination: row.destination,
+        status: row.status
+      }));
+
+    return json(request, {
+      ok: true,
+      query: `${query.airline}${query.number}`,
+      fetchedAt: new Date(source.fetchedAt).toISOString(),
+      source: 'Taoyuan Airport ADIP official real-time flight data',
+      matches
+    }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
+  } catch (error) {
+    return json(request, {
+      ok: false,
+      query: url.searchParams.get('flight') || '',
+      source: 'Taoyuan Airport ADIP official real-time flight data',
+      error: String(error?.message || error)
+    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
     if (request.method !== 'GET') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
+    if (url.pathname === '/api/flight-gate') return handleFlightGate(request);
     if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
     if (url.pathname === '/api/health') return json(request, {
       ok: true, service: 'Crew Portal API', version: WORKER_VERSION,

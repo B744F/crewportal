@@ -1,0 +1,31 @@
+name: Update Taoyuan Flight Gates
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crewportal-flight-gate-writes
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch and validate official flight-gate data
+        run: timeout 60s python3 scripts/update_flight_gates.py
+
+      - name: Publish flight-gate snapshot safely
+        run: bash scripts/commit_data_file.sh data/flight-gates.json "Update Taoyuan flight gate data"
