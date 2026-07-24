@@ -15,6 +15,7 @@ const PORTAL_VERSION = 'v8.0.0';
 const WORKER_VERSION = '2.5.0';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
+const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
 const TYM_OPEN_DATA_XML = 'https://opendata.tycg.gov.tw/api/dataset/8e6201c2-1968-4920-aba3-1a68093dab53/resource/83358afd-010a-4989-b63a-bbf20692e408/download';
 const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-';
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
@@ -90,6 +91,33 @@ async function loadAirportFlights() {
     rows: payload.rows
   };
   return airportFlightCache;
+}
+
+async function handleFlightGateSource(request) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(TPE_OFFICIAL_FLIGHT_SOURCE, {
+        headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
+        cf: { cacheTtl: 60, cacheEverything: true }
+      });
+      if (!response.ok) throw new Error(`Taoyuan official source failed (${response.status})`);
+      const text = await response.text();
+      if (text.length < 10_000 || !text.includes('機門')) throw new Error('Taoyuan official source returned invalid CSV');
+      const headers = new Headers(corsHeaders(request));
+      headers.set('Content-Type', 'text/csv; charset=utf-8');
+      headers.set('Cache-Control', 'public, max-age=30, s-maxage=60');
+      return new Response(text, { headers });
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 500));
+    }
+  }
+  return json(request, {
+    ok: false,
+    source: 'Taoyuan Airport ADIP official real-time flight data',
+    error: `Official source unavailable after 3 attempts: ${lastError?.message || lastError}`
+  }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
 }
 
 function flightFreshness(fetchedAt) {
@@ -585,6 +613,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
     if (request.method !== 'GET') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
+    if (url.pathname === '/api/flight-gate-source') return handleFlightGateSource(request);
     if (url.pathname === '/api/flight-gate') return handleFlightGate(request);
     if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
     if (url.pathname === '/api/health') return json(request, {

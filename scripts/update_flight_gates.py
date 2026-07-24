@@ -3,15 +3,15 @@
 
 import csv
 import json
+import subprocess
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 
 SOURCE_URL = "https://odp.taoyuan-airport.com/dataset/2025102001?format=csv"
+FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/flight-gate-source"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "flight-gates.json"
 TAIPEI = ZoneInfo("Asia/Taipei")
 FETCH_ATTEMPTS = 3
@@ -33,29 +33,42 @@ def time_part(raw: str) -> str:
     return text[0:5] if len(text) >= 5 and text[2] == ":" else ""
 
 
-def fetch_rows() -> list[dict[str, str]]:
-    last_error: Exception | None = None
-    for attempt in range(1, FETCH_ATTEMPTS + 1):
-        request = Request(
-            SOURCE_URL,
-            headers={"Accept": "text/csv,*/*", "User-Agent": "CrewPortal-FlightGate/1.0"},
-        )
-        try:
-            with urlopen(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
-                body = response.read().decode("utf-8-sig")
-            return list(csv.DictReader(body.splitlines()))
-        except (HTTPError, URLError, TimeoutError, OSError) as error:
-            last_error = error
-            if attempt < FETCH_ATTEMPTS:
-                delay = RETRY_BACKOFF_SECONDS[attempt - 1]
-                print(f"Official ADIP fetch attempt {attempt}/{FETCH_ATTEMPTS} failed: {error}; retrying in {delay}s")
-                time.sleep(delay)
+def fetch_rows() -> tuple[list[dict[str, str]], str]:
+    last_errors: list[str] = []
+    for source_url, source_label, attempts in (
+        (SOURCE_URL, "direct", FETCH_ATTEMPTS),
+        (FALLBACK_SOURCE_URL, "cloudflare-proxy", 1),
+    ):
+        for attempt in range(1, attempts + 1):
+            try:
+                result = subprocess.run(
+                    [
+                        "curl", "--fail", "--silent", "--show-error", "--location", "--ipv4",
+                        "--max-time", str(FETCH_TIMEOUT_SECONDS),
+                        "--header", "Accept: text/csv,*/*",
+                        "--header", "User-Agent: CrewPortal-FlightGate/1.0",
+                        source_url,
+                    ],
+                    capture_output=True,
+                    timeout=FETCH_TIMEOUT_SECONDS + 5,
+                    check=True,
+                )
+                body = result.stdout.decode("utf-8-sig")
+                print(f"Fetched official ADIP data via {source_label}")
+                return list(csv.DictReader(body.splitlines())), source_label
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, UnicodeDecodeError, OSError) as error:
+                last_errors.append(f"{source_label} attempt {attempt}: {error}")
+                if attempt < attempts:
+                    delay = RETRY_BACKOFF_SECONDS[attempt - 1]
+                    print(f"{source_label} fetch attempt {attempt}/{attempts} failed: {error}; retrying in {delay}s")
+                    time.sleep(delay)
 
-    raise RuntimeError(f"Unable to fetch official ADIP CSV after {FETCH_ATTEMPTS} attempts: {last_error}") from last_error
+    detail = "; ".join(last_errors)
+    raise RuntimeError(f"Unable to fetch official ADIP CSV from direct and fallback sources: {detail}")
 
 
 def main() -> None:
-    rows = fetch_rows()
+    rows, fetch_route = fetch_rows()
 
     required = {"航空公司代碼", "班次", "機門", "往來地點", "表訂日期", "表訂時間"}
     if not rows or not required.issubset(rows[0]):
@@ -114,6 +127,7 @@ def main() -> None:
     payload = {
         "source": "Taoyuan Airport ADIP official real-time flight data",
         "sourceUrl": SOURCE_URL,
+        "fetchRoute": fetch_route,
         "fetchedAtUtc": fetched_at,
         "quality": {
             "totalRows": len(output_rows),

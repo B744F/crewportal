@@ -19,7 +19,7 @@
 }
 ```
 
-航班登機門查詢使用 `/api/flight-gate?flight=CI100`，資料由 GitHub Actions 每 5 分鐘擷取桃園機場 ADIP 官方即時航班資料並更新快照。擷取失敗會自動重試；資料異常或當日完全沒有門位時會拒絕發布，API 會回傳資料年齡與 `freshness` 狀態。
+航班登機門查詢使用 `/api/flight-gate?flight=CI100`，資料由 GitHub Actions 每 5 分鐘擷取桃園機場 ADIP 官方即時航班資料並更新快照。擷取失敗會自動重試，並經由 Cloudflare `/api/flight-gate-source` 官方資料代理備援；資料異常或當日完全沒有門位時會拒絕發布，API 會回傳資料年齡與 `freshness` 狀態。
 
 驗證車站：`A1`、`A3`、`A8`、`A12`、`A13`、`A21`、`A22`。
 
