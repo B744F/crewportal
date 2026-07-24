@@ -163,7 +163,7 @@
         if(!response.ok||!data.ok)throw new Error(data.error||"查詢失敗");
         if(!data.matches?.length){gateStatus.textContent="找不到今日或明日的官方航班資料。";return}
         gateStatus.textContent=`已找到 ${data.matches.length} 筆官方航班資料`;
-        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><small>資料 ${escapeHtml(data.fetchedAt?.slice(11,16)||"--:--")} 更新</small></div>${data.matches.map(match=>{const gate=match.gate||"尚未公布";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(match.direction)} · T${escapeHtml(match.terminal||"-")}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${match.status?` · ${escapeHtml(match.status)}`:""}</span></div><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div>`}).join("")}`;
+        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><small>資料 ${escapeHtml(data.fetchedAt?.slice(11,16)||"--:--")} 更新</small></div>${data.matches.map(match=>{const gate=match.gate||"尚未公布";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(match.direction)} · ${escapeHtml(match.terminal||"-")}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${match.status?` · ${escapeHtml(match.status)}`:""}</span></div><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div>`}).join("")}`;
         gateResult.style.display="block";
       }catch(error){gateStatus.textContent=`查詢失敗：${error.message||"請稍後再試"}`;gateResult.style.display="none"}
     });
