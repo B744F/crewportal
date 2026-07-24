@@ -523,6 +523,8 @@ async function handleFlightGate(request) {
         estimatedDate: row.estimatedDate,
         estimatedTime: row.estimatedTime,
         gate: row.gate,
+        airportCode: row.airportCode,
+        route: row.direction === 'D' ? `TPE/${row.airportCode}` : `${row.airportCode}/TPE`,
         destination: row.destination,
         status: row.status
       }));

@@ -33,7 +33,7 @@ def main() -> None:
     with urlopen(request, timeout=45) as response:
         rows = list(csv.DictReader(response.read().decode("utf-8-sig").splitlines()))
 
-    required = {"航空公司代碼", "班次", "機門", "表訂日期", "表訂時間"}
+    required = {"航空公司代碼", "班次", "機門", "往來地點", "表訂日期", "表訂時間"}
     if not rows or not required.issubset(rows[0]):
         raise RuntimeError("Official ADIP CSV is missing required fields")
 
@@ -66,6 +66,7 @@ def main() -> None:
             "estimatedDate": date_part(value(row, "預計日期")),
             "estimatedTime": time_part(value(row, "預計時間")),
             "gate": value(row, "機門"),
+            "airportCode": value(row, "往來地點").upper(),
             "destination": value(row, "往來地點中文") or value(row, "往來地點"),
             "status": value(row, "航班動態中文") or value(row, "備註"),
         })

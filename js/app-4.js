@@ -130,8 +130,9 @@
       .aircraft-gate-result-head{display:flex;justify-content:space-between;gap:8px;padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.10);color:#9fb7ca;font-size:10px}
       .aircraft-gate-result-head strong{color:#dcefff;font-size:11px}.aircraft-gate-result-head small{white-space:nowrap}
       .aircraft-gate-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:7px 9px;border-top:1px solid rgba(255,255,255,.08)}
-      .aircraft-gate-row:first-child{border-top:0}.aircraft-gate-row div{min-width:0}.aircraft-gate-row b{display:block;color:#eef7ff;font-size:11px}.aircraft-gate-row span{display:block;margin-top:2px;color:#9fb0c5;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .aircraft-gate-row strong{min-width:46px;text-align:center;color:#8ed8ff;font-size:18px;letter-spacing:.03em}.aircraft-gate-row strong.is-empty{color:#aab8ca;font-size:11px}
+      .aircraft-gate-row:first-child{border-top:0}.aircraft-gate-row div{min-width:0}.aircraft-gate-row b{display:block;color:#eef7ff;font-size:11px}.aircraft-gate-route{display:block;color:#ffd21f;font-size:12px;font-weight:1000;letter-spacing:.10em;line-height:1.1}.aircraft-gate-line{display:flex;align-items:center;gap:6px;margin-top:4px}.aircraft-gate-line>span:last-child{margin-top:0;color:#eef7ff;font-size:10px;font-weight:800;white-space:nowrap}.aircraft-gate-terminal{display:inline-flex;align-items:center;justify-content:center;min-width:25px;padding:2px 5px;border-radius:4px;color:#08111b;font-size:10px;font-weight:1000;letter-spacing:.03em}.aircraft-gate-terminal.t1{background:#ff9d45}.aircraft-gate-terminal.t2{background:#61c9ff}.aircraft-gate-terminal.t3{background:#c4a7ff}.aircraft-gate-terminal.other{background:#cbd5df}
+      .aircraft-gate-row span{display:block;margin-top:2px;color:#9fb0c5;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .aircraft-gate-row strong{min-width:54px;padding:5px 7px;text-align:center;background:#ffd21f;border:1px solid #ffea70;border-radius:4px;box-shadow:0 1px 0 rgba(0,0,0,.35),inset 0 -2px 0 rgba(104,72,0,.28);color:#08111b;font-size:18px;line-height:1;letter-spacing:.03em}.aircraft-gate-row strong.is-empty{color:#08111b;font-size:11px}
       @media(max-width:760px){.aircraft-track-form{grid-template-columns:1fr 96px}.aircraft-track-button{font-size:12px}}
       @media(max-width:760px){.aircraft-gate-form{grid-template-columns:1fr 96px}.aircraft-gate-button{font-size:12px}}
     `;
@@ -150,6 +151,7 @@
     });
     const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
     const todayTaipei=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+    const terminalClass=value=>({T1:"t1",T2:"t2",T3:"t3"}[String(value||"").trim().toUpperCase()]||"other");
     const normalizeFlightNumber=value=>{const compact=String(value||"").trim().toUpperCase().replace(/[\s-]/g,"");const match=compact.match(/^([A-Z]{2,3})?(\d{1,4}[A-Z]?)$/);if(!match)return"";const rawNumber=match[2],suffix=/[A-Z]$/.test(rawNumber)?rawNumber.slice(-1):"",digits=rawNumber.slice(0,rawNumber.length-suffix.length).replace(/^0+(?=\d)/,"");return`${match[1]||"CI"}${digits}${suffix}`};
     gateInput.addEventListener("input",()=>{gateInput.value=gateInput.value.toUpperCase().replace(/[^A-Z0-9 -]/g,"").slice(0,12);gateStatus.style.display="none"});
     gateForm.addEventListener("submit",async e=>{
@@ -166,7 +168,7 @@
         const matches=(data.matches||[]).filter(match=>match.date===todayTaipei());
         if(!matches.length){gateStatus.textContent="找不到今日的官方航班資料。";return}
         gateStatus.textContent=`已找到 ${matches.length} 筆今日官方航班資料`;
-        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><small>資料 ${escapeHtml(data.fetchedAt?.slice(11,16)||"--:--")} 更新</small></div>${matches.map(match=>{const gate=match.gate||"尚未公布";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(match.direction)} · ${escapeHtml(match.terminal||"-")}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${match.status?` · ${escapeHtml(match.status)}`:""}</span></div><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div>`}).join("")}`;
+        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><small>資料 ${escapeHtml(data.fetchedAt?.slice(11,16)||"--:--")} 更新</small></div>${matches.map(match=>{const gate=match.gate||"尚未公布";return `<div class="aircraft-gate-row"><div><b><span class="aircraft-gate-route">${escapeHtml(match.route||"--/--")}</span><span class="aircraft-gate-line"><span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(match.terminal||"-")}</span><span>${escapeHtml(match.direction)}</span></span></b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${match.status?` · ${escapeHtml(match.status)}`:""}</span></div><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div>`}).join("")}`;
         gateResult.style.display="block";
       }catch(error){gateStatus.textContent=`查詢失敗：${error.message||"請稍後再試"}`;gateResult.style.display="none"}
     });
