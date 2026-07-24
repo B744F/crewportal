@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.4.2 (Crew Portal v8.0.0)
+ * Version 2.4.3 (Crew Portal v8.0.0)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.0.0';
-const WORKER_VERSION = '2.4.2';
+const WORKER_VERSION = '2.4.3';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TYM_OPEN_DATA_XML = 'https://opendata.tycg.gov.tw/api/dataset/8e6201c2-1968-4920-aba3-1a68093dab53/resource/83358afd-010a-4989-b63a-bbf20692e408/download';
@@ -59,7 +59,7 @@ function normalizeFlightQuery(value) {
   const rawNumber = match[2];
   const suffix = /[A-Z]$/.test(rawNumber) ? rawNumber.slice(-1) : '';
   const digits = rawNumber.slice(0, rawNumber.length - suffix.length).replace(/^0+(?=\d)/, '');
-  return { airline: match[1] || '', number: `${digits}${suffix}` };
+  return { airline: match[1] || 'CI', number: `${digits}${suffix}` };
 }
 
 async function loadAirportFlights() {
