@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 
 SOURCE_URL = "https://odp.taoyuan-airport.com/dataset/2025102001?format=csv"
+DIRECT_IP_RESOLVE = "odp.taoyuan-airport.com:443:60.251.184.156"
 FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/flight-gate-source"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "flight-gates.json"
 TAIPEI = ZoneInfo("Asia/Taipei")
@@ -35,9 +36,10 @@ def time_part(raw: str) -> str:
 
 def fetch_rows() -> tuple[list[dict[str, str]], str]:
     last_errors: list[str] = []
-    for source_url, source_label, attempts in (
-        (SOURCE_URL, "direct", FETCH_ATTEMPTS),
-        (FALLBACK_SOURCE_URL, "cloudflare-proxy", 1),
+    for source_url, source_label, attempts, extra_args in (
+        (SOURCE_URL, "direct", FETCH_ATTEMPTS, []),
+        (SOURCE_URL, "official-ip", FETCH_ATTEMPTS, ["--resolve", DIRECT_IP_RESOLVE]),
+        (FALLBACK_SOURCE_URL, "cloudflare-proxy", 1, []),
     ):
         for attempt in range(1, attempts + 1):
             try:
@@ -47,6 +49,7 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
                         "--max-time", str(FETCH_TIMEOUT_SECONDS),
                         "--header", "Accept: text/csv,*/*",
                         "--header", "User-Agent: CrewPortal-FlightGate/1.0",
+                        *extra_args,
                         source_url,
                     ],
                     capture_output=True,

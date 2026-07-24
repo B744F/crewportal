@@ -6,6 +6,7 @@
 - Separates Worker cache age from the source snapshot timestamp.
 - Adds a Cloudflare official-source proxy for GitHub Runner connectivity failures.
 - Uses IPv4 curl retrieval in the scheduled updater for the official CSV endpoint.
+- Adds an official-IP `--resolve` route when DNS-based access is unavailable.
 
 ## v8.0.0 — 2026-07-22
 
