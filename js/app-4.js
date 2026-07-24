@@ -158,7 +158,7 @@
       }
       gateStatus.textContent="正在查詢桃園機場官方航班資料…";gateStatus.style.display="block";gateResult.style.display="none";
       try{
-        const response=await fetch(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}`,{cache:"no-store"});
+        const response=await fetch(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,{cache:"no-store"});
         const data=await response.json();
         if(!response.ok||!data.ok)throw new Error(data.error||"查詢失敗");
         if(!data.matches?.length){gateStatus.textContent="找不到今日或明日的官方航班資料。";return}

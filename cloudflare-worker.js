@@ -505,9 +505,9 @@ async function handleFlightGate(request) {
     const now = taipeiNow();
     const source = await loadAirportFlights();
     const matches = source.rows
-      .filter(row => row.scheduledDate >= now.date)
+      .filter(row => row.date >= now.date)
       .filter(row => (!query.airline || row.airline === query.airline) && row.number === query.number)
-      .sort((a, b) => `${a.scheduledDate} ${a.scheduledTime}`.localeCompare(`${b.scheduledDate} ${b.scheduledTime}`))
+      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))
       .slice(0, 6)
       .map(row => ({
         flight: `${row.airline}${row.number}`,
@@ -515,8 +515,8 @@ async function handleFlightGate(request) {
         airlineName: row.airlineName,
         terminal: row.terminal,
         direction: row.direction === 'A' ? '抵達' : row.direction === 'D' ? '出發' : row.direction,
-        date: row.scheduledDate,
-        time: row.scheduledTime,
+        date: row.date,
+        time: row.time,
         estimatedDate: row.estimatedDate,
         estimatedTime: row.estimatedTime,
         gate: row.gate,
