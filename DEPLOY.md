@@ -14,7 +14,7 @@
 ```json
 {
   "portalVersion": "v8.0.0",
-  "workerVersion": "2.4.0",
+  "workerVersion": "2.4.2",
   "timetableParser": "structured-official"
 }
 ```
