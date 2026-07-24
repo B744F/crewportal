@@ -87,6 +87,18 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .arinc-table-head{min-height:23px;background:rgba(255,255,255,.035);color:#9fb0c5;font-size:8px;font-weight:900;letter-spacing:.06em}
 .arinc-table-head span:nth-child(n+2){text-align:center}
 .arinc-pulse{animation:parkingPulse .65s ease}
+.vhf-block{margin-top:7px;border-top:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(255,109,117,.055),rgba(255,255,255,.018))}
+.vhf-block-head{display:flex;align-items:center;gap:7px;padding:6px 10px 4px;color:#b9c7d8;font-size:8px;font-weight:900;letter-spacing:.08em}
+.vhf-badge{padding:2px 5px;border:1px solid rgba(255,112,120,.72);border-radius:4px;color:#ff9a9f;background:rgba(255,112,120,.12);font-size:9px;letter-spacing:.04em}
+.vhf-grid{border-top:1px solid rgba(255,255,255,.08)}
+.vhf-row{display:grid;grid-template-columns:minmax(170px,1fr) 86px;align-items:center;min-height:25px;border-top:1px solid rgba(255,255,255,.07)}
+.vhf-row:first-child{border-top:0}
+.vhf-row>b,.vhf-row>strong{padding:4px 9px;border-right:1px solid rgba(255,255,255,.10)}
+.vhf-row>*:last-child{border-right:0}
+.vhf-row b{font-size:10px;line-height:1.15;color:#e9f2fb}
+.vhf-row strong{text-align:center;font-size:12px;color:#ffb0a1;letter-spacing:.02em;white-space:nowrap}
+.vhf-table-head{min-height:19px;background:rgba(255,255,255,.035);color:#9fb0c5;font-size:8px;font-weight:900;letter-spacing:.06em}
+.vhf-table-head span:last-child{text-align:center}
 
 .quick-wrap{position:relative;z-index:3;margin-top:-4px;padding:34px 0 10px;background:linear-gradient(180deg,rgba(3,9,20,.70),rgba(3,9,20,0))}
 .section-title-center{display:flex;align-items:center;justify-content:center;gap:34px;color:var(--gold2);font-size:26px;font-weight:900;letter-spacing:.16em;margin:0 0 28px;text-transform:uppercase}
@@ -348,6 +360,9 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
   .arinc-valid{padding:0 12px 4px;font-size:10px}
   .arinc-row{grid-template-columns:minmax(120px,1fr) 64px 68px;min-height:29px}
   .arinc-row>span,.arinc-row>b,.arinc-row>strong{padding:4px 7px}
+  .vhf-block-head{padding-left:8px;padding-right:8px}
+  .vhf-row{grid-template-columns:minmax(120px,1fr) 68px;min-height:26px}
+  .vhf-row>b,.vhf-row>strong{padding:4px 7px}
   .mrt-head{padding:8px 10px 6px}
   .mrt-station-row{padding:6px 10px}
   #mrtStationSelect{height:30px}
