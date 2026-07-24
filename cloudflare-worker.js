@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.4.4 (Crew Portal v8.0.0)
+ * Version 2.5.0 (Crew Portal v8.0.0)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.0.0';
-const WORKER_VERSION = '2.4.4';
+const WORKER_VERSION = '2.5.0';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TYM_OPEN_DATA_XML = 'https://opendata.tycg.gov.tw/api/dataset/8e6201c2-1968-4920-aba3-1a68093dab53/resource/83358afd-010a-4989-b63a-bbf20692e408/download';
@@ -30,7 +30,7 @@ const ALLOWED_ORIGINS = new Set([
 
 let tokenCache = { token: '', expiresAt: 0 };
 const tdxTimetableCache = new Map();
-let airportFlightCache = { fetchedAt: 0, rows: null };
+let airportFlightCache = { loadedAt: 0, fetchedAt: 0, rows: null };
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
 
 function corsHeaders(request) {
@@ -63,18 +63,45 @@ function normalizeFlightQuery(value) {
 }
 
 async function loadAirportFlights() {
-  if (airportFlightCache.rows && Date.now() - airportFlightCache.fetchedAt < 60_000) return airportFlightCache;
+  if (airportFlightCache.rows && Date.now() - airportFlightCache.loadedAt < 60_000) return airportFlightCache;
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
   sourceUrl.searchParams.set('v', Math.floor(Date.now() / 300_000));
-  const response = await fetch(sourceUrl.toString(), {
-    headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
-    cf: { cacheTtl: 300, cacheEverything: true }
-  });
-  if (!response.ok) throw new Error(`Taoyuan Airport flight source failed (${response.status})`);
-  const payload = await response.json();
+  let payload;
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(sourceUrl.toString(), {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
+        cf: { cacheTtl: 300, cacheEverything: true }
+      });
+      if (!response.ok) throw new Error(`Taoyuan Airport flight source failed (${response.status})`);
+      payload = await response.json();
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 500));
+    }
+  }
+  if (!payload) throw new Error(`Taoyuan Airport flight source unavailable after 3 attempts: ${lastError?.message || lastError}`);
   if (!Array.isArray(payload.rows) || !payload.rows.length) throw new Error('Taoyuan Airport flight source returned no rows');
-  airportFlightCache = { fetchedAt: Date.parse(payload.fetchedAtUtc) || Date.now(), rows: payload.rows };
+  airportFlightCache = {
+    loadedAt: Date.now(),
+    fetchedAt: Date.parse(payload.fetchedAtUtc) || Date.now(),
+    rows: payload.rows
+  };
   return airportFlightCache;
+}
+
+function flightFreshness(fetchedAt) {
+  const ageSeconds = Math.max(0, Math.floor((Date.now() - fetchedAt) / 1000));
+  const status = ageSeconds <= 15 * 60 ? 'fresh' : ageSeconds <= 45 * 60 ? 'delayed' : 'stale';
+  return {
+    status,
+    ageSeconds,
+    warning: status === 'fresh' ? '' : status === 'delayed'
+      ? '官方航班資料更新延遲，登機門可能尚未是最新值'
+      : '官方航班資料已過期，登機門請以機場或航空公司公告為準'
+  };
 }
 
 function stationIsValid(station) {
@@ -509,6 +536,7 @@ async function handleFlightGate(request) {
   try {
     const now = taipeiNow();
     const source = await loadAirportFlights();
+    const freshness = flightFreshness(source.fetchedAt);
     const matches = source.rows
       .filter(row => row.date === now.date)
       .filter(row => (!query.airline || row.airline === query.airline) && row.number === query.number)
@@ -536,6 +564,9 @@ async function handleFlightGate(request) {
       query: `${query.airline}${query.number}`,
       fetchedAt: new Date(source.fetchedAt).toISOString(),
       source: 'Taoyuan Airport ADIP official real-time flight data',
+      freshness: freshness.status,
+      dataAgeSeconds: freshness.ageSeconds,
+      warning: freshness.warning,
       matches
     }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
   } catch (error) {

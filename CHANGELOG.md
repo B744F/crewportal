@@ -1,3 +1,10 @@
+## Operational reliability update — 2026-07-25
+
+- Added retry and timeout handling to the official Taoyuan flight-gate snapshot workflow.
+- Rejects empty or malformed daily gate snapshots instead of publishing them.
+- Reports flight-data freshness and visible stale-data warnings in the gate lookup.
+- Separates Worker cache age from the source snapshot timestamp.
+
 ## v8.0.0 — 2026-07-22
 
 - Rewrote Airport MRT parsing around the official structured fields `StationID`, `Direction`, `DestinationStationID`, and `TrainType`.
