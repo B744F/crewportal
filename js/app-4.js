@@ -137,7 +137,7 @@
     `;
     document.head.appendChild(style);
     const wrap=document.createElement("div");
-    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div><div class="aircraft-gate-divider"></div><div class="aircraft-gate-title"><span>▣</span><span>TAOYUAN GATE LOOKUP</span></div><form class="aircraft-gate-form" id="aircraftGateForm"><input id="aircraftGateInput" aria-label="Flight number for Taoyuan Airport gate lookup" autocomplete="off" maxlength="12" placeholder="e.g. CI100" type="text"><button class="aircraft-gate-button" type="submit">GATE ›</button></form><div id="aircraftGateStatus"></div><div id="aircraftGateResult" class="aircraft-gate-result"></div>`;
+    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div><div class="aircraft-gate-divider"></div><div class="aircraft-gate-title"><span>▣</span><span>RCTP GATE LOOKUP</span></div><form class="aircraft-gate-form" id="aircraftGateForm"><input id="aircraftGateInput" aria-label="Flight number for Taoyuan Airport gate lookup" autocomplete="off" maxlength="12" placeholder="e.g. CI100" type="text"><button class="aircraft-gate-button" type="submit">GATE ›</button></form><div id="aircraftGateStatus"></div><div id="aircraftGateResult" class="aircraft-gate-result"></div>`;
     atisPanel.appendChild(wrap);
     const trackForm=$("aircraftTrackForm"),trackInput=$("aircraftTrackInput"),trackStatus=$("aircraftTrackStatus");
     const gateForm=$("aircraftGateForm"),gateInput=$("aircraftGateInput"),gateStatus=$("aircraftGateStatus"),gateResult=$("aircraftGateResult");
@@ -149,6 +149,7 @@
       window.open(`https://www.flightradar24.com/data/${path}/${encodeURIComponent(value.toLowerCase())}`,"_blank","noopener,noreferrer");
     });
     const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+    const todayTaipei=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
     gateInput.addEventListener("input",()=>{gateInput.value=gateInput.value.toUpperCase().replace(/[^A-Z0-9 -]/g,"").slice(0,12);gateStatus.style.display="none"});
     gateForm.addEventListener("submit",async e=>{
       e.preventDefault();
@@ -161,9 +162,10 @@
         const response=await fetch(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,{cache:"no-store"});
         const data=await response.json();
         if(!response.ok||!data.ok)throw new Error(data.error||"查詢失敗");
-        if(!data.matches?.length){gateStatus.textContent="找不到今日或明日的官方航班資料。";return}
-        gateStatus.textContent=`已找到 ${data.matches.length} 筆官方航班資料`;
-        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><small>資料 ${escapeHtml(data.fetchedAt?.slice(11,16)||"--:--")} 更新</small></div>${data.matches.map(match=>{const gate=match.gate||"尚未公布";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(match.direction)} · ${escapeHtml(match.terminal||"-")}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${match.status?` · ${escapeHtml(match.status)}`:""}</span></div><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div>`}).join("")}`;
+        const matches=(data.matches||[]).filter(match=>match.date===todayTaipei());
+        if(!matches.length){gateStatus.textContent="找不到今日的官方航班資料。";return}
+        gateStatus.textContent=`已找到 ${matches.length} 筆今日官方航班資料`;
+        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><small>資料 ${escapeHtml(data.fetchedAt?.slice(11,16)||"--:--")} 更新</small></div>${matches.map(match=>{const gate=match.gate||"尚未公布";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(match.direction)} · ${escapeHtml(match.terminal||"-")}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${match.status?` · ${escapeHtml(match.status)}`:""}</span></div><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div>`}).join("")}`;
         gateResult.style.display="block";
       }catch(error){gateStatus.textContent=`查詢失敗：${error.message||"請稍後再試"}`;gateResult.style.display="none"}
     });
