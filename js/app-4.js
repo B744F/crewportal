@@ -1,6 +1,6 @@
 (function(){
   const VERSION = "8.0.0";
-  const BUILD = "20260725-002";
+  const BUILD = "20260725-003";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const PARKING_INTERVAL=5*60*1000;
@@ -168,9 +168,8 @@
         if(!response.ok||!data.ok)throw new Error(data.error||"查詢失敗");
         const matches=(data.matches||[]).filter(match=>match.date===todayTaipei());
         const freshness=data.freshness||"fresh",ageSeconds=Number(data.dataAgeSeconds),age=Number.isFinite(ageSeconds)?ageText(ageSeconds*1000):"未知時間";
-        const continuityMessage=data.warning&&freshness==="fresh"?` ⚠ ${data.warning}`:"";
-        const freshnessMessage=freshness==="stale"?` ⚠ 資料已過期（${age}前）`:(freshness==="delayed"?` ⚠ 資料更新延遲（${age}前）`:continuityMessage);
-        const freshnessLevel=freshness==="fresh"?(continuityMessage?"warning":""):"warning";
+        const freshnessMessage=freshness==="stale"?` ⚠ 資料已過期（${age}前）`:(freshness==="delayed"?` ⚠ 資料更新延遲（${age}前）`:"");
+        const freshnessLevel=freshness==="fresh"?"":"warning";
         if(!matches.length){setGateStatus(`找不到今日的官方航班資料。${freshnessMessage}`,freshnessLevel||"error");return}
         setGateStatus(`已找到 ${matches.length} 筆今日官方航班資料${freshnessMessage}`,freshnessLevel);
         const routes=[...new Set(matches.map(match=>match.route).filter(Boolean))].join(" · ")||"--/--";
