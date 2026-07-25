@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.2 (Crew Portal v8.0.0)
+ * Version 2.8.3 (Crew Portal v8.0.0)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.0.0';
-const WORKER_VERSION = '2.8.2';
+const WORKER_VERSION = '2.8.3';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
@@ -69,14 +69,14 @@ function normalizeFlightQuery(value) {
 async function loadAirportFlights() {
   if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) return airportFlightCache;
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
-  sourceUrl.searchParams.set('v', Math.floor(Date.now() / 60_000));
+  sourceUrl.searchParams.set('v', `${WORKER_VERSION}-${Date.now()}`);
   let payload;
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       const response = await fetch(sourceUrl.toString(), {
         headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
-        cf: { cacheTtl: 300, cacheEverything: true }
+        cf: { cacheTtl: 0, cacheEverything: false }
       });
       if (!response.ok) throw new Error(`Taoyuan Airport flight source failed (${response.status})`);
       payload = await response.json();
