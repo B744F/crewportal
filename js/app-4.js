@@ -1,6 +1,6 @@
 (function(){
   const VERSION = "8.0.0";
-  const BUILD = "20260725-005";
+  const BUILD = "20260725-006";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const PARKING_INTERVAL=5*60*1000;
@@ -173,7 +173,7 @@
         const freshnessMessage=freshness==="stale"?` ⚠ 資料已過期（${age}前）`:(freshness==="delayed"?` ⚠ 資料更新延遲（${age}前）`:"");
         const freshnessLevel=freshness==="fresh"?"":"warning";
         if(!matches.length){setGateStatus(`找不到今日的官方航班資料。${freshnessMessage}`,freshnessLevel||"error");return}
-        setGateStatus(`已找到 ${matches.length} 筆今日官方航班資料${freshnessMessage}`,freshnessLevel);
+        gateStatus.textContent="";gateStatus.className="";gateStatus.style.display="none";
         const routes=[...new Set(matches.map(match=>match.route).filter(Boolean))].join(" · ")||"--/--";
         const fetchedAt=parseUtc(data.fetchedAt),fetchedClock=fetchedAt?clock(fetchedAt):"--:--:--";
         gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><span class="aircraft-gate-route-inline">${escapeHtml(routes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${matches.map(match=>{const gate=match.gate||"尚未公布",status=String(match.status||""),statusMarkup=status?` · <em class="${status.includes("已飛")?"aircraft-gate-status-flown":""}">${escapeHtml(status)}</em>`:"";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(directionLabel(match.direction))}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${statusMarkup}</span></div><div class="aircraft-gate-value"><span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(terminalCode(match.terminal))}</span><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div></div>`}).join("")}`;

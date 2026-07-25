@@ -155,3 +155,8 @@
 - Normalized terminal labels to `T1`, `T2`, and `T3`.
 - Added English labels after arrival/departure directions.
 - Bumped frontend build to 20260725-005.
+## Gate success-status cleanup — 2026-07-25
+
+- Removed the successful gate-query status line from the result panel.
+- Kept the flight result rows and retained error messages for failed lookups.
+- Bumped frontend build to 20260725-006.
