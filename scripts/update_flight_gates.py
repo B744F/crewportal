@@ -4,7 +4,6 @@
 import csv
 import json
 import subprocess
-import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -16,11 +15,11 @@ DIRECT_IP_RESOLVES = (
     "odp.taoyuan-airport.com:443:60.251.184.156",
 )
 FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/flight-gate-source"
+TDX_FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/flight-gate-tdx-source"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "flight-gates.json"
 TAIPEI = ZoneInfo("Asia/Taipei")
-FETCH_ATTEMPTS = 3
+FETCH_ATTEMPTS = 1
 FETCH_TIMEOUT_SECONDS = 15
-RETRY_BACKOFF_SECONDS = (2, 5)
 
 
 def value(row: dict[str, str], key: str) -> str:
@@ -62,14 +61,41 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
                     check=True,
                 )
                 body = result.stdout.decode("utf-8-sig")
+                if source_label == "tdx-official":
+                    payload = json.loads(body)
+                    rows = payload.get("rows") if isinstance(payload, dict) else None
+                    if not isinstance(rows, list) or not rows:
+                        raise RuntimeError("TDX source returned no rows")
+                    print("Fetched official TDX flight data")
+                    return rows, source_label
                 print(f"Fetched official ADIP data via {source_label}")
                 return list(csv.DictReader(body.splitlines())), source_label
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired, UnicodeDecodeError, OSError) as error:
                 last_errors.append(f"{source_label} attempt {attempt}: {error}")
                 if attempt < attempts:
-                    delay = RETRY_BACKOFF_SECONDS[attempt - 1]
-                    print(f"{source_label} fetch attempt {attempt}/{attempts} failed: {error}; retrying in {delay}s")
-                    time.sleep(delay)
+                    print(f"{source_label} fetch attempt {attempt}/{attempts} failed: {error}; retrying")
+
+    try:
+        result = subprocess.run(
+            [
+                "curl", "--fail", "--silent", "--show-error", "--location", "--ipv4",
+                "--max-time", str(FETCH_TIMEOUT_SECONDS),
+                "--header", "Accept: application/json",
+                "--header", "User-Agent: CrewPortal-FlightGate/1.0",
+                TDX_FALLBACK_SOURCE_URL,
+            ],
+            capture_output=True,
+            timeout=FETCH_TIMEOUT_SECONDS + 5,
+            check=True,
+        )
+        payload = json.loads(result.stdout.decode("utf-8"))
+        rows = payload.get("rows") if isinstance(payload, dict) else None
+        if not isinstance(rows, list) or not rows:
+            raise RuntimeError("TDX source returned no rows")
+        print("Fetched official TDX flight data")
+        return rows, "tdx-official"
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, UnicodeDecodeError, json.JSONDecodeError, OSError, RuntimeError) as error:
+        last_errors.append(f"tdx-official: {error}")
 
     detail = "; ".join(last_errors)
     raise RuntimeError(f"Unable to fetch official ADIP CSV from direct and fallback sources: {detail}")
@@ -132,9 +158,10 @@ def main() -> None:
         if previous.get("rows") == output_rows
         else datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     )
+    is_tdx = fetch_route == "tdx-official"
     payload = {
-        "source": "Taoyuan Airport ADIP official real-time flight data",
-        "sourceUrl": SOURCE_URL,
+        "source": "TDX official Airport FIDS real-time flight data" if is_tdx else "Taoyuan Airport ADIP official real-time flight data",
+        "sourceUrl": TDX_FALLBACK_SOURCE_URL if is_tdx else SOURCE_URL,
         "fetchRoute": fetch_route,
         "fetchedAtUtc": fetched_at,
         "quality": {

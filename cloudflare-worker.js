@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.5.0 (Crew Portal v8.0.0)
+ * Version 2.6.0 (Crew Portal v8.0.0)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.0.0';
-const WORKER_VERSION = '2.5.0';
+const WORKER_VERSION = '2.6.0';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
@@ -21,6 +21,7 @@ const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
 const TDX_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TYMC';
 const TDX_LIVEBOARD_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC';
+const TDX_AIRPORT_FIDS_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Airport';
 const ALLOWED_ORIGINS = new Set([
   'https://b744f.github.io',
   'http://localhost:8000',
@@ -31,8 +32,10 @@ const ALLOWED_ORIGINS = new Set([
 
 let tokenCache = { token: '', expiresAt: 0 };
 const tdxTimetableCache = new Map();
-let airportFlightCache = { loadedAt: 0, fetchedAt: 0, rows: null };
+let airportFlightCache = { loadedAt: 0, fetchedAt: 0, source: '', rows: null };
+let tdxAirportFidsCache = { loadedAt: 0, rows: null };
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
+const TDX_AIRPORT_FIDS_CACHE_KEY = new Request(`${TDX_EDGE_CACHE_ORIGIN}/airport-fids/TPE`, { method: 'GET' });
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
@@ -88,6 +91,7 @@ async function loadAirportFlights() {
   airportFlightCache = {
     loadedAt: Date.now(),
     fetchedAt: Date.parse(payload.fetchedAtUtc) || Date.now(),
+    source: payload.source || 'Taoyuan Airport ADIP official real-time flight data',
     rows: payload.rows
   };
   return airportFlightCache;
@@ -118,6 +122,104 @@ async function handleFlightGateSource(request) {
     source: 'Taoyuan Airport ADIP official real-time flight data',
     error: `Official source unavailable after 3 attempts: ${lastError?.message || lastError}`
   }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+}
+
+function tdxDatePart(value) {
+  const match = String(value || '').match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
+}
+
+function tdxTimePart(value) {
+  const match = String(value || '').match(/T(\d{2}:\d{2})/);
+  return match ? match[1] : '';
+}
+
+function tdxFlightNumber(row) {
+  const raw = String(row.FlightNumber ?? row.FlightNo ?? '').replace(/\s+/g, '').toUpperCase();
+  const airline = String(row.AirlineID ?? row.AirlineCode ?? '').trim().toUpperCase();
+  const match = raw.match(/^(?:[A-Z0-9]{2,3})?(\d{1,4}[A-Z]?)$/);
+  return { airline, number: match ? match[1] : raw };
+}
+
+function normalizeTdxAirportRows(rows, direction) {
+  const dateField = direction === 'D' ? 'ScheduleDepartureTime' : 'ScheduleArrivalTime';
+  const estimatedField = direction === 'D' ? 'EstimatedDepartureTime' : 'EstimatedArrivalTime';
+  return rows.map(row => {
+    const flight = tdxFlightNumber(row);
+    const airportCode = direction === 'D'
+      ? String(row.ArrivalAirportID ?? row.ArrivalAirportCode ?? '').trim().toUpperCase()
+      : String(row.DepartureAirportID ?? row.DepartureAirportCode ?? '').trim().toUpperCase();
+    return {
+      '航空公司代碼': flight.airline,
+      '航空公司中文': String(row.AirlineName ?? '').trim(),
+      '班次': flight.number,
+      '機門': String(row.Gate ?? '').trim(),
+      '往來地點': airportCode,
+      '往來地點中文': direction === 'D'
+        ? String(row.ArrivalAirportName ?? '').trim()
+        : String(row.DepartureAirportName ?? '').trim(),
+      '航廈': String(row.Terminal ?? '').trim(),
+      '方向': direction,
+      '表訂日期': tdxDatePart(row[dateField]),
+      '表訂時間': tdxTimePart(row[dateField]),
+      '預計日期': tdxDatePart(row[estimatedField]),
+      '預計時間': tdxTimePart(row[estimatedField]),
+      '航班動態中文': String(row[direction === 'D' ? 'DepartureRemark' : 'ArrivalRemark'] ?? '').trim(),
+      '備註': '',
+    };
+  }).filter(row => row['航空公司代碼'] && row['班次'] && row['表訂日期'] && row['表訂時間']);
+}
+
+async function fetchTdxAirportFids(token, direction) {
+  const response = await fetch(`${TDX_AIRPORT_FIDS_ROOT}/${direction === 'D' ? 'Departure' : 'Arrival'}/TPE?$format=JSON`, {
+    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+    cf: { cacheTtl: 30, cacheEverything: true }
+  });
+  if (!response.ok) throw new Error(`TDX airport FIDS failed (${response.status})`);
+  const payload = await response.json();
+  const rows = Array.isArray(payload) ? payload : payload.value || payload.data || [];
+  if (!Array.isArray(rows)) throw new Error('TDX airport FIDS returned invalid rows');
+  return normalizeTdxAirportRows(rows, direction);
+}
+
+async function handleFlightGateTdxSource(request, env, ctx) {
+  try {
+    const edgeCached = await caches.default.match(TDX_AIRPORT_FIDS_CACHE_KEY);
+    if (edgeCached) return edgeCached;
+    if (tdxAirportFidsCache.rows && Date.now() - tdxAirportFidsCache.loadedAt < 60_000) {
+      const response = json(request, {
+        ok: true,
+        source: 'TDX official Airport FIDS real-time flight data',
+        fetchedAtUtc: new Date(tdxAirportFidsCache.loadedAt).toISOString(),
+        rows: tdxAirportFidsCache.rows
+      }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
+      ctx?.waitUntil(caches.default.put(TDX_AIRPORT_FIDS_CACHE_KEY, response.clone()));
+      return response;
+    }
+    const token = await getTdxToken(env);
+    if (!token) throw new Error('TDX credentials are not configured');
+    const [departures, arrivals] = await Promise.all([
+      fetchTdxAirportFids(token, 'D'),
+      fetchTdxAirportFids(token, 'A')
+    ]);
+    const rows = [...departures, ...arrivals];
+    if (rows.length < 10 || !rows.some(row => row['機門'])) throw new Error('TDX airport FIDS returned insufficient gate data');
+    tdxAirportFidsCache = { loadedAt: Date.now(), rows };
+    const response = json(request, {
+      ok: true,
+      source: 'TDX official Airport FIDS real-time flight data',
+      fetchedAtUtc: new Date().toISOString(),
+      rows
+    }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
+    ctx?.waitUntil(caches.default.put(TDX_AIRPORT_FIDS_CACHE_KEY, response.clone()));
+    return response;
+  } catch (error) {
+    return json(request, {
+      ok: false,
+      source: 'TDX official Airport FIDS real-time flight data',
+      error: String(error?.message || error)
+    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+  }
 }
 
 function flightFreshness(fetchedAt) {
@@ -591,7 +693,7 @@ async function handleFlightGate(request) {
       ok: true,
       query: `${query.airline}${query.number}`,
       fetchedAt: new Date(source.fetchedAt).toISOString(),
-      source: 'Taoyuan Airport ADIP official real-time flight data',
+      source: source.source || 'Taoyuan Airport ADIP official real-time flight data',
       freshness: freshness.status,
       dataAgeSeconds: freshness.ageSeconds,
       warning: freshness.warning,
@@ -614,6 +716,7 @@ export default {
     if (request.method !== 'GET') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
     if (url.pathname === '/api/flight-gate-source') return handleFlightGateSource(request);
+    if (url.pathname === '/api/flight-gate-tdx-source') return handleFlightGateTdxSource(request, env, ctx);
     if (url.pathname === '/api/flight-gate') return handleFlightGate(request);
     if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
     if (url.pathname === '/api/health') return json(request, {

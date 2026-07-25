@@ -131,3 +131,9 @@
 - 資料來源暫時無回應時保留上次成功資料，workflow 不再因單次逾時顯示失敗。
 - 縮短連線等待時間並強化多種 JSON／CSV 格式解析。
 - 更新版本號至 v6.4.2 / Build 20260718-026。
+## Operational reliability update — 2026-07-25
+
+- Added TDX official Airport FIDS as the final gate-data fallback when the Taoyuan ADIP endpoint is unreachable from GitHub Actions.
+- Normalized official TDX departure/arrival rows into the existing gate snapshot schema and retained strict same-day gate validation.
+- Added short-lived Worker-side caching for TDX fallback requests to avoid repeated upstream calls.
+- Bumped Worker version to 2.6.0.
