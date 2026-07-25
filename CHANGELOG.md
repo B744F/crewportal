@@ -149,3 +149,9 @@
 - TDX fallback now refreshes only the fixed last-known ADIP route set and never appends unverified extra routes.
 - Added a cache-busting frontend script URL and removed continuity wording from the API response.
 - Bumped Worker version to 2.8.0 and frontend build to 20260725-004.
+## Gate panel layout update — 2026-07-25
+
+- Separated the terminal column from the gate column so terminal values remain visible at desktop and mobile widths.
+- Normalized terminal labels to `T1`, `T2`, and `T3`.
+- Added English labels after arrival/departure directions.
+- Bumped frontend build to 20260725-005.

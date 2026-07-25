@@ -1,6 +1,6 @@
 (function(){
   const VERSION = "8.0.0";
-  const BUILD = "20260725-004";
+  const BUILD = "20260725-005";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const PARKING_INTERVAL=5*60*1000;
@@ -129,12 +129,12 @@
       .aircraft-gate-result{display:none;margin-top:8px;border:1px solid rgba(105,189,255,.25);border-radius:9px;overflow:hidden;background:rgba(0,8,16,.24)}
       .aircraft-gate-result-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.10);color:#9fb7ca;font-size:10px}
       .aircraft-gate-result-head strong{color:#dcefff;font-size:11px}.aircraft-gate-result-head small{white-space:nowrap}.aircraft-gate-route-inline{position:absolute;left:50%;transform:translateX(-50%);margin:0;color:#ffd400;font-size:12px;font-weight:1000;letter-spacing:.09em;text-align:center;white-space:nowrap}
-      .aircraft-gate-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:7px 9px;border-top:1px solid rgba(255,255,255,.08)}
-      .aircraft-gate-row:first-child{border-top:0}.aircraft-gate-row div{min-width:0}.aircraft-gate-row b{display:block;color:#eef7ff;font-size:11px}.aircraft-gate-value{display:flex;align-items:center;justify-content:flex-end;gap:2em;min-width:0}.aircraft-gate-terminal{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:0;border:0;border-radius:0;box-shadow:none;background:transparent;color:#eef7ff;font-size:18px;line-height:1;font-weight:1000;letter-spacing:.03em}.aircraft-gate-terminal.t1{color:#35c86a}.aircraft-gate-terminal.t2{color:#42a5ff}.aircraft-gate-terminal.t3{color:#f05a5a}.aircraft-gate-terminal.other{color:#cbd5df}
+      .aircraft-gate-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(62px,auto) minmax(54px,auto);align-items:center;gap:8px;padding:7px 9px;border-top:1px solid rgba(255,255,255,.08)}
+      .aircraft-gate-row:first-child{border-top:0}.aircraft-gate-row div{min-width:0}.aircraft-gate-row b{display:block;color:#eef7ff;font-size:11px}.aircraft-gate-value{display:contents}.aircraft-gate-terminal{display:inline-flex;align-items:center;justify-content:center;min-width:62px;padding:0;border:0;border-radius:0;box-shadow:none;background:transparent;color:#eef7ff;font-size:17px;line-height:1;font-weight:1000;letter-spacing:.03em;white-space:nowrap}.aircraft-gate-terminal.t1{color:#35c86a}.aircraft-gate-terminal.t2{color:#42a5ff}.aircraft-gate-terminal.t3{color:#f05a5a}.aircraft-gate-terminal.other{color:#cbd5df}
       .aircraft-gate-row span{display:block;margin-top:2px;color:#9fb0c5;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.aircraft-gate-row .aircraft-gate-terminal{font-size:18px;margin-top:0}.aircraft-gate-status-flown{color:#ff4f5e;font-style:normal;font-weight:1000}
       .aircraft-gate-row strong{min-width:54px;padding:5px 7px;text-align:center;background:#ffd21f;border:1px solid #ffea70;border-radius:4px;box-shadow:0 1px 0 rgba(0,0,0,.35),inset 0 -2px 0 rgba(104,72,0,.28);color:#08111b;font-size:18px;line-height:1;letter-spacing:.03em}.aircraft-gate-row strong.is-empty{color:#08111b;font-size:11px}
       @media(max-width:760px){.aircraft-track-form{grid-template-columns:1fr 96px}.aircraft-track-button{font-size:12px}}
-      @media(max-width:760px){.aircraft-gate-form{grid-template-columns:1fr 96px}.aircraft-gate-button{font-size:12px}}
+      @media(max-width:760px){.aircraft-gate-form{grid-template-columns:1fr 96px}.aircraft-gate-button{font-size:12px}.aircraft-gate-row{grid-template-columns:minmax(0,1fr) 54px 54px;gap:5px;padding-left:7px;padding-right:7px}.aircraft-gate-terminal{min-width:54px;font-size:15px}.aircraft-gate-row strong{min-width:54px;padding-left:4px;padding-right:4px;font-size:16px}}
     `;
     document.head.appendChild(style);
     const wrap=document.createElement("div");
@@ -151,7 +151,9 @@
     });
     const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
     const todayTaipei=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-    const terminalClass=value=>({T1:"t1",T2:"t2",T3:"t3"}[String(value||"").trim().toUpperCase()]||"other");
+    const terminalCode=value=>{const text=String(value||"").trim().toUpperCase(),match=text.match(/^T?([1-3])$/);return match?`T${match[1]}`:(text||"-")};
+    const terminalClass=value=>({T1:"t1",T2:"t2",T3:"t3"}[terminalCode(value)]||"other");
+    const directionLabel=value=>({"抵達":"抵達 ARRIVAL","出發":"出發 DEPARTURE"}[String(value||"")]||String(value||"--"));
     const normalizeFlightNumber=value=>{const compact=String(value||"").trim().toUpperCase().replace(/[\s-]/g,"");const match=compact.match(/^([A-Z]{2,3})?(\d{1,4}[A-Z]?)$/);if(!match)return"";const rawNumber=match[2],suffix=/[A-Z]$/.test(rawNumber)?rawNumber.slice(-1):"",digits=rawNumber.slice(0,rawNumber.length-suffix.length).replace(/^0+(?=\d)/,"");return`${match[1]||"CI"}${digits}${suffix}`};
     const setGateStatus=(text,level="")=>{gateStatus.textContent=text;gateStatus.className=level;gateStatus.style.display="block"};
     gateInput.addEventListener("input",()=>{gateInput.value=gateInput.value.toUpperCase().replace(/[^A-Z0-9 -]/g,"").slice(0,12);gateStatus.style.display="none"});
@@ -174,7 +176,7 @@
         setGateStatus(`已找到 ${matches.length} 筆今日官方航班資料${freshnessMessage}`,freshnessLevel);
         const routes=[...new Set(matches.map(match=>match.route).filter(Boolean))].join(" · ")||"--/--";
         const fetchedAt=parseUtc(data.fetchedAt),fetchedClock=fetchedAt?clock(fetchedAt):"--:--:--";
-        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><span class="aircraft-gate-route-inline">${escapeHtml(routes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${matches.map(match=>{const gate=match.gate||"尚未公布",status=String(match.status||""),statusMarkup=status?` · <em class="${status.includes("已飛")?"aircraft-gate-status-flown":""}">${escapeHtml(status)}</em>`:"";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(match.direction)}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${statusMarkup}</span></div><div class="aircraft-gate-value"><span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(match.terminal||"-")}</span><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div></div>`}).join("")}`;
+        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><span class="aircraft-gate-route-inline">${escapeHtml(routes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${matches.map(match=>{const gate=match.gate||"尚未公布",status=String(match.status||""),statusMarkup=status?` · <em class="${status.includes("已飛")?"aircraft-gate-status-flown":""}">${escapeHtml(status)}</em>`:"";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(directionLabel(match.direction))}</b><span>${escapeHtml(match.date)} ${escapeHtml(match.time)}${statusMarkup}</span></div><div class="aircraft-gate-value"><span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(terminalCode(match.terminal))}</span><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div></div>`}).join("")}`;
         gateResult.style.display="block";
       }catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error");gateResult.style.display="none"}
     });
