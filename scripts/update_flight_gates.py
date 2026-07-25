@@ -11,7 +11,10 @@ from zoneinfo import ZoneInfo
 
 
 SOURCE_URL = "https://odp.taoyuan-airport.com/dataset/2025102001?format=csv"
-DIRECT_IP_RESOLVE = "odp.taoyuan-airport.com:443:60.251.184.156"
+DIRECT_IP_RESOLVES = (
+    "odp.taoyuan-airport.com:443:60.251.215.156",
+    "odp.taoyuan-airport.com:443:60.251.184.156",
+)
 FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/flight-gate-source"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "flight-gates.json"
 TAIPEI = ZoneInfo("Asia/Taipei")
@@ -36,11 +39,13 @@ def time_part(raw: str) -> str:
 
 def fetch_rows() -> tuple[list[dict[str, str]], str]:
     last_errors: list[str] = []
-    for source_url, source_label, attempts, extra_args in (
-        (SOURCE_URL, "direct", FETCH_ATTEMPTS, []),
-        (SOURCE_URL, "official-ip", FETCH_ATTEMPTS, ["--resolve", DIRECT_IP_RESOLVE]),
-        (FALLBACK_SOURCE_URL, "cloudflare-proxy", 1, []),
-    ):
+    sources = [(SOURCE_URL, "direct", FETCH_ATTEMPTS, [])]
+    sources.extend(
+        (SOURCE_URL, f"official-ip-{index + 1}", FETCH_ATTEMPTS, ["--resolve", resolve])
+        for index, resolve in enumerate(DIRECT_IP_RESOLVES)
+    )
+    sources.append((FALLBACK_SOURCE_URL, "cloudflare-proxy", 1, []))
+    for source_url, source_label, attempts, extra_args in sources:
         for attempt in range(1, attempts + 1):
             try:
                 result = subprocess.run(
