@@ -137,3 +137,9 @@
 - Normalized official TDX departure/arrival rows into the existing gate snapshot schema and retained strict same-day gate validation.
 - Added short-lived Worker-side caching for TDX fallback requests to avoid repeated upstream calls.
 - Bumped Worker version to 2.6.0.
+## Flight gate continuity fix — 2026-07-25
+
+- Prevented TDX Airport FIDS code-share expansion from replacing the last known ADIP route set for an existing flight.
+- Restored lookup continuity for numeric queries such as `601` and `701` and normalized `CI008` to the correct `CI8` route set.
+- Added an API warning when a previous ADIP row is retained for continuity.
+- Bumped Worker version to 2.7.0.

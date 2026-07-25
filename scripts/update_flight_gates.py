@@ -101,8 +101,36 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
     raise RuntimeError(f"Unable to fetch official ADIP CSV from direct and fallback sources: {detail}")
 
 
+def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
+    """Keep the last known ADIP route set when TDX expands a flight into bad code-share rows."""
+    previous_pairs = {(row["flight"], row["date"]) for row in previous_rows}
+    previous_exact = {
+        (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"]): row
+        for row in previous_rows
+    }
+    tdx_pairs = {(row["flight"], row["date"]) for row in rows}
+    tdx_exact = {
+        (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"]): row
+        for row in rows
+    }
+    merged = []
+    for row in rows:
+        pair = (row["flight"], row["date"])
+        exact = (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"])
+        if pair not in previous_pairs or exact in previous_exact:
+            merged.append(row)
+    continuity_rows = 0
+    for exact, row in previous_exact.items():
+        pair = exact[:2]
+        if pair not in tdx_pairs or exact not in tdx_exact:
+            merged.append(row)
+            continuity_rows += 1
+    return merged, continuity_rows
+
+
 def main() -> None:
     rows, fetch_route = fetch_rows()
+    previous = json.loads(OUTPUT.read_text(encoding="utf-8")) if OUTPUT.exists() else {}
 
     required = {"航空公司代碼", "班次", "機門", "往來地點", "表訂日期", "表訂時間"}
     if not rows or not required.issubset(rows[0]):
@@ -151,8 +179,17 @@ def main() -> None:
     if not today_gate_rows:
         raise RuntimeError("Official ADIP snapshot contains no gate assignments for today; refusing to publish")
 
+    continuity_rows = 0
+    if fetch_route == "tdx-official" and previous.get("rows"):
+        previous_rows = [
+            row for row in previous["rows"]
+            if today.isoformat() <= row.get("date", "") <= last_date.isoformat()
+        ]
+        output_rows, continuity_rows = continuity_merge(output_rows, previous_rows)
+        today_rows = [row for row in output_rows if row["date"] == today.isoformat()]
+        today_gate_rows = [row for row in today_rows if row["gate"]]
+
     output_rows.sort(key=lambda row: (row["date"], row["time"], row["flight"]))
-    previous = json.loads(OUTPUT.read_text(encoding="utf-8")) if OUTPUT.exists() else {}
     fetched_at = (
         previous.get("fetchedAtUtc")
         if previous.get("rows") == output_rows
@@ -160,7 +197,13 @@ def main() -> None:
     )
     is_tdx = fetch_route == "tdx-official"
     payload = {
-        "source": "TDX official Airport FIDS real-time flight data" if is_tdx else "Taoyuan Airport ADIP official real-time flight data",
+        "source": (
+            "TDX official Airport FIDS with previous ADIP continuity rows"
+            if is_tdx and continuity_rows
+            else "TDX official Airport FIDS real-time flight data"
+            if is_tdx
+            else "Taoyuan Airport ADIP official real-time flight data"
+        ),
         "sourceUrl": TDX_FALLBACK_SOURCE_URL if is_tdx else SOURCE_URL,
         "fetchRoute": fetch_route,
         "fetchedAtUtc": fetched_at,
@@ -169,6 +212,7 @@ def main() -> None:
             "todayRows": len(today_rows),
             "todayGateRows": len(today_gate_rows),
             "nextDayRows": sum(row["date"] == last_date.isoformat() for row in output_rows),
+            "continuityRows": continuity_rows,
         },
         "rows": output_rows,
     }

@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.6.0 (Crew Portal v8.0.0)
+ * Version 2.7.0 (Crew Portal v8.0.0)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.0.0';
-const WORKER_VERSION = '2.6.0';
+const WORKER_VERSION = '2.7.0';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
@@ -32,7 +32,7 @@ const ALLOWED_ORIGINS = new Set([
 
 let tokenCache = { token: '', expiresAt: 0 };
 const tdxTimetableCache = new Map();
-let airportFlightCache = { loadedAt: 0, fetchedAt: 0, source: '', rows: null };
+let airportFlightCache = { loadedAt: 0, fetchedAt: 0, source: '', continuityRows: 0, rows: null };
 let tdxAirportFidsCache = { loadedAt: 0, rows: null };
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
 const TDX_AIRPORT_FIDS_CACHE_KEY = new Request(`${TDX_EDGE_CACHE_ORIGIN}/airport-fids/TPE`, { method: 'GET' });
@@ -92,6 +92,7 @@ async function loadAirportFlights() {
     loadedAt: Date.now(),
     fetchedAt: Date.parse(payload.fetchedAtUtc) || Date.now(),
     source: payload.source || 'Taoyuan Airport ADIP official real-time flight data',
+    continuityRows: Number(payload.quality?.continuityRows) || 0,
     rows: payload.rows
   };
   return airportFlightCache;
@@ -696,7 +697,9 @@ async function handleFlightGate(request) {
       source: source.source || 'Taoyuan Airport ADIP official real-time flight data',
       freshness: freshness.status,
       dataAgeSeconds: freshness.ageSeconds,
-      warning: freshness.warning,
+      warning: source.continuityRows
+        ? '部分航班沿用最近一次成功的 ADIP 快照，避免官方備援展開錯誤航段'
+        : freshness.warning,
       matches
     }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
   } catch (error) {
