@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.0 (Crew Portal v8.0.0)
+ * Version 2.8.1 (Crew Portal v8.0.0)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.0.0';
-const WORKER_VERSION = '2.8.0';
+const WORKER_VERSION = '2.8.1';
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
@@ -69,7 +69,7 @@ function normalizeFlightQuery(value) {
 async function loadAirportFlights() {
   if (airportFlightCache.rows && Date.now() - airportFlightCache.loadedAt < 60_000) return airportFlightCache;
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
-  sourceUrl.searchParams.set('v', Math.floor(Date.now() / 300_000));
+  sourceUrl.searchParams.set('v', Math.floor(Date.now() / 60_000));
   let payload;
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {

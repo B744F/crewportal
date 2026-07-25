@@ -5,7 +5,7 @@
 ## 版本
 
 - Portal Version：v8.0.0
-- Worker Version：2.8.0
+- Worker Version：2.8.1
 - Timetable Parser：`structured-official`
 
 ## 本版重點
