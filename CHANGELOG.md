@@ -143,3 +143,9 @@
 - Restored lookup continuity for numeric queries such as `601` and `701` and normalized `CI008` to the correct `CI8` route set.
 - Added an API warning when a previous ADIP row is retained for continuity.
 - Bumped Worker version to 2.7.0.
+## Flight gate snapshot reset — 2026-07-25
+
+- Stopped cumulative carry-over of malformed TDX flight rows between scheduled updates.
+- TDX fallback now refreshes only the fixed last-known ADIP route set and never appends unverified extra routes.
+- Added a cache-busting frontend script URL and removed continuity wording from the API response.
+- Bumped Worker version to 2.8.0 and frontend build to 20260725-004.

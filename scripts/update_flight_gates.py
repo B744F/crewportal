@@ -102,35 +102,32 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
 
 
 def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
-    """Keep the last known ADIP route set when TDX expands a flight into bad code-share rows."""
-    previous_pairs = {(row["flight"], row["date"]) for row in previous_rows}
-    previous_exact = {
-        (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"]): row
-        for row in previous_rows
-    }
-    tdx_pairs = {(row["flight"], row["date"]) for row in rows}
+    """Use TDX only to refresh the fixed last-known ADIP route set."""
     tdx_exact = {
         (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"]): row
         for row in rows
     }
     merged = []
-    for row in rows:
-        pair = (row["flight"], row["date"])
-        exact = (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"])
-        if pair not in previous_pairs or exact in previous_exact:
-            merged.append(row)
     continuity_rows = 0
-    for exact, row in previous_exact.items():
-        pair = exact[:2]
-        if pair not in tdx_pairs or exact not in tdx_exact:
+    for row in previous_rows:
+        exact = (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"])
+        if exact in tdx_exact:
+            merged.append(tdx_exact[exact])
+        else:
             merged.append(row)
             continuity_rows += 1
     return merged, continuity_rows
 
 
 def main() -> None:
-    rows, fetch_route = fetch_rows()
     previous = json.loads(OUTPUT.read_text(encoding="utf-8")) if OUTPUT.exists() else {}
+    try:
+        rows, fetch_route = fetch_rows()
+    except RuntimeError as error:
+        if previous.get("rows"):
+            print(f"No official source available; preserving the last validated snapshot: {error}")
+            return
+        raise
 
     required = {"航空公司代碼", "班次", "機門", "往來地點", "表訂日期", "表訂時間"}
     if not rows or not required.issubset(rows[0]):
@@ -180,9 +177,10 @@ def main() -> None:
         raise RuntimeError("Official ADIP snapshot contains no gate assignments for today; refusing to publish")
 
     continuity_rows = 0
+    continuity_base_rows = previous.get("continuityBaseRows") or previous.get("rows") or []
     if fetch_route == "tdx-official" and previous.get("rows"):
         previous_rows = [
-            row for row in previous["rows"]
+            row for row in continuity_base_rows
             if today.isoformat() <= row.get("date", "") <= last_date.isoformat()
         ]
         output_rows, continuity_rows = continuity_merge(output_rows, previous_rows)
@@ -214,6 +212,7 @@ def main() -> None:
             "nextDayRows": sum(row["date"] == last_date.isoformat() for row in output_rows),
             "continuityRows": continuity_rows,
         },
+        "continuityBaseRows": continuity_base_rows if is_tdx and continuity_base_rows else output_rows,
         "rows": output_rows,
     }
     OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
