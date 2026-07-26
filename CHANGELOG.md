@@ -205,6 +205,12 @@
 - Constrained multi-route gate headers with responsive grid columns and ellipsis so route text cannot overlap the query or update time.
 - Bumped frontend build to 20260726-018 and Worker version to 2.8.9.
 
+## Prevent stale flight fallback — 2026-07-26
+
+- Stopped the Worker from returning the old GitHub flight snapshot when the live TDX source is unavailable.
+- Added an explicit live-data-unavailable response so morning flights such as CI833 cannot intermittently appear or disappear based on the Worker instance handling the request.
+- Bumped frontend build to 20260726-019 and Worker version to 2.8.10.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.

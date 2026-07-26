@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.9 (Crew Portal v8.1.3)
+ * Version 2.8.10 (Crew Portal v8.1.3)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.1.3';
-const WORKER_VERSION = '2.8.9';
+const WORKER_VERSION = '2.8.10';
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
@@ -142,8 +142,10 @@ async function loadAirportFlights(env, ctx) {
   if (snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
     try {
       airportFlightCache = await loadLiveTdxFlights(env, ctx);
-    } catch (_) {
-      // Keep the last validated GitHub snapshot and expose its delayed/stale age.
+      return airportFlightCache;
+    } catch (error) {
+      // Never expose an old GitHub snapshot as if it were today's official data.
+      throw new Error(`Official live flight data unavailable: ${error?.message || error}`);
     }
   }
   return airportFlightCache;
@@ -764,12 +766,15 @@ async function handleFlightGate(request, env, ctx) {
       matches
     }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
   } catch (error) {
+    const errorText = String(error?.message || error);
+    const liveUnavailable = errorText.startsWith('Official live flight data unavailable:');
     return json(request, {
       ok: false,
       query: url.searchParams.get('flight') || '',
       source: 'Taoyuan Airport ADIP official real-time flight data',
-      error: String(error?.message || error)
-    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+      errorCode: liveUnavailable ? 'LIVE_FLIGHT_DATA_UNAVAILABLE' : 'FLIGHT_GATE_QUERY_FAILED',
+      error: errorText
+    }, { status: liveUnavailable ? 503 : 502, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 

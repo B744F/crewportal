@@ -1,6 +1,6 @@
 (function(){
   const VERSION = "8.1.3";
-  const BUILD = "20260726-018";
+  const BUILD = "20260726-019";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const PARKING_INTERVAL=5*60*1000;
@@ -179,7 +179,10 @@
       try{
         const response=await fetch(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,{cache:"no-store"});
         const data=await response.json();
-        if(!response.ok||!data.ok)throw new Error(data.error||"查詢失敗");
+        if(!response.ok||!data.ok){
+          if(data.errorCode==="LIVE_FLIGHT_DATA_UNAVAILABLE")throw new Error("桃園機場官方即時資料暫時無法取得，未使用過期快照，請稍後重試。");
+          throw new Error(data.error||"查詢失敗");
+        }
         const matches=(data.matches||[]).filter(match=>match.date===todayTaipei());
         const freshness=data.freshness||"fresh",ageSeconds=Number(data.dataAgeSeconds),age=Number.isFinite(ageSeconds)?ageText(ageSeconds*1000):"未知時間";
         const freshnessMessage=freshness==="stale"?` ⚠ 資料已過期（${age}前）`:(freshness==="delayed"?` ⚠ 資料更新延遲（${age}前）`:"");

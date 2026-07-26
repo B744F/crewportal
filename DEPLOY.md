@@ -14,12 +14,12 @@
 ```json
 {
   "portalVersion": "v8.1.3",
-  "workerVersion": "2.8.9",
+  "workerVersion": "2.8.10",
   "timetableParser": "structured-official"
 }
 ```
 
-航班登機門查詢使用 `/api/flight-gate?flight=CI100`，資料由 GitHub Actions 每 5 分鐘擷取桃園機場 ADIP 官方即時航班資料並更新快照；當快照超過 10 分鐘時，Cloudflare Worker 會直接抓取 TDX 官方 Airport FIDS 即時資料。擷取失敗會保留最後一份有效快照，API 會回傳資料年齡與 `freshness` 狀態。
+航班登機門查詢使用 `/api/flight-gate?flight=CI100`，資料由 GitHub Actions 每 5 分鐘擷取桃園機場 ADIP 官方即時航班資料並更新快照；當快照超過 10 分鐘時，Cloudflare Worker 會直接抓取 TDX 官方 Airport FIDS 即時資料。即時來源無法取得時不會回傳過期快照，API 會明確回報暫時無法取得，避免顯示錯誤航班狀態。
 
 驗證車站：`A1`、`A3`、`A8`、`A12`、`A13`、`A21`、`A22`。
 
