@@ -193,6 +193,11 @@
 - Kept officially unpublished gates as auditable no-data rows during TDX fallback instead of aborting the full refresh.
 - Bumped frontend build to 20260726-007.
 
+## Crew parking display order — 2026-07-26
+
+- Reordered the China Airlines parking cells to BOT, RD1A, RD1B, TSA.
+- Bumped frontend build to 20260726-008.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.
