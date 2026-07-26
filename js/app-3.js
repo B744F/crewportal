@@ -1,5 +1,5 @@
 (function(){
-  const VERSION="6.5.1";
+  const VERSION="6.5.2";
   const RAW_ARINC="https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
   const LOCAL_ARINC="data/arinc.json";
   const REFRESH_MS=15*60*1000;
@@ -47,13 +47,23 @@
     }).format(date);
   }
 
+  function formatValidFrom(data){
+    if(data?.validFrom)return String(data.validFrom).trim();
+    const valid=dateOrNull(data?.validFromUtc);
+    if(!valid)return "--";
+    const parts=new Intl.DateTimeFormat("en-US",{
+      timeZone:"UTC",year:"numeric",month:"long",day:"numeric",
+      hour:"2-digit",minute:"2-digit",hour12:false,hourCycle:"h23"
+    }).formatToParts(valid);
+    const get=type=>parts.find(part=>part.type===type)?.value||"";
+    return `${get("month")} ${get("day")}, ${get("year")}, ${get("hour")}${get("minute")}Z`;
+  }
+
   function formatMeta(data){
     const valid=dateOrNull(data?.validFromUtc);
     const fetched=dateOrNull(data?.fetchedAtUtc);
     const parts=[];
-    if(valid)parts.push(`生效 ${fmt(valid,"UTC")} UTC`);
-    else if(data?.validFrom)parts.push(`生效 ${data.validFrom}`);
-    else parts.push("生效時間 --");
+    parts.push(formatValidFrom(data));
     if(fetched)parts.push(`檢查 ${fmt(fetched,"Asia/Taipei")} 台灣`);
     return parts.join("｜");
   }

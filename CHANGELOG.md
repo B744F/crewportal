@@ -208,3 +208,11 @@
 - Added three selectable premium Hero typography treatments via `?heroStyle=1`, `?heroStyle=2`, and `?heroStyle=3`.
 - Preserved the existing wording, background artwork, responsive layout, and operational panels.
 - Bumped frontend build to 20260726-009.
+## v8.1.1 — 2026-07-26
+
+- Updated Pacific HF validity metadata to the official English format: `Valid from July 26, 2026, 1100Z`.
+- Bumped frontend build to 20260726-010.
+## v8.1.2 — 2026-07-26
+
+- Shortened the Hero subtitle to `Professional Resources for Crew`.
+- Bumped frontend build to 20260726-011.
