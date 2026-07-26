@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.3 (Crew Portal v8.0.0)
+ * Version 2.8.6 (Crew Portal v8.1.3)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,9 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.0.0';
-const WORKER_VERSION = '2.8.3';
+const PORTAL_VERSION = 'v8.1.3';
+const WORKER_VERSION = '2.8.6';
+const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
@@ -66,7 +67,44 @@ function normalizeFlightQuery(value) {
   return { airline: match[1] || 'CI', number: `${digits}${suffix}` };
 }
 
-async function loadAirportFlights() {
+function normalizeWorkerTdxRows(rows) {
+  return rows.map(row => ({
+    flight: `${row['航空公司代碼']}${row['班次']}`,
+    airline: row['航空公司代碼'],
+    airlineName: row['航空公司中文'] || '',
+    number: row['班次'],
+    terminal: row['航廈'],
+    direction: row['方向'],
+    date: row['表訂日期'],
+    time: row['表訂時間'],
+    estimatedDate: row['預計日期'],
+    estimatedTime: row['預計時間'],
+    gate: row['機門'],
+    airportCode: row['往來地點'],
+    destination: row['往來地點中文'] || row['往來地點'],
+    status: row['航班動態中文'] || row['備註'] || ''
+  })).filter(row => row.flight && row.date && row.time);
+}
+
+async function loadLiveTdxFlights(env) {
+  const response = await handleFlightGateTdxSource(TDX_AIRPORT_FIDS_CACHE_KEY, env);
+  const payload = await response.json();
+  const fetchedAt = Date.parse(payload.fetchedAtUtc);
+  const rows = normalizeWorkerTdxRows(payload.rows || []);
+  if (!response.ok || !Number.isFinite(fetchedAt) || rows.length < 10 || !rows.some(row => row.gate)) {
+    throw new Error(payload.error || 'TDX Airport FIDS returned insufficient gate data');
+  }
+  return {
+    version: WORKER_VERSION,
+    loadedAt: Date.now(),
+    fetchedAt,
+    source: 'TDX official Airport FIDS live fallback',
+    continuityRows: 0,
+    rows
+  };
+}
+
+async function loadAirportFlights(env) {
   if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) return airportFlightCache;
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
   sourceUrl.searchParams.set('v', `${WORKER_VERSION}-${Date.now()}`);
@@ -96,6 +134,14 @@ async function loadAirportFlights() {
     continuityRows: Number(payload.quality?.continuityRows) || 0,
     rows: payload.rows
   };
+  const snapshotAgeSeconds = Math.max(0, Math.floor((Date.now() - airportFlightCache.fetchedAt) / 1000));
+  if (snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
+    try {
+      airportFlightCache = await loadLiveTdxFlights(env);
+    } catch (_) {
+      // Keep the last validated GitHub snapshot and expose its delayed/stale age.
+    }
+  }
   return airportFlightCache;
 }
 
@@ -660,14 +706,14 @@ async function handleParking(request) {
   }
 }
 
-async function handleFlightGate(request) {
+async function handleFlightGate(request, env) {
   const url = new URL(request.url);
   const query = normalizeFlightQuery(url.searchParams.get('flight'));
   if (!query) return json(request, { ok: false, error: 'Invalid flight number. Use CI100 or 100.' }, { status: 400 });
 
   try {
     const now = taipeiNow();
-    const source = await loadAirportFlights();
+    const source = await loadAirportFlights(env);
     const freshness = flightFreshness(source.fetchedAt);
     const matches = source.rows
       .filter(row => row.date === now.date)
@@ -719,7 +765,7 @@ export default {
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
     if (url.pathname === '/api/flight-gate-source') return handleFlightGateSource(request);
     if (url.pathname === '/api/flight-gate-tdx-source') return handleFlightGateTdxSource(request, env, ctx);
-    if (url.pathname === '/api/flight-gate') return handleFlightGate(request);
+    if (url.pathname === '/api/flight-gate') return handleFlightGate(request, env);
     if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
     if (url.pathname === '/api/health') return json(request, {
       ok: true, service: 'Crew Portal API', version: WORKER_VERSION,

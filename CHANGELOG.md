@@ -198,6 +198,13 @@
 - Reordered the China Airlines parking cells to BOT, RD1A, RD1B, TSA.
 - Bumped frontend build to 20260726-008.
 
+## Live flight fallback and multi-route layout — 2026-07-26
+
+- Added a direct TDX Airport FIDS live fallback when the GitHub flight snapshot is more than 10 minutes old.
+- Kept the last validated snapshot when the live fallback is unavailable, with the existing freshness warning.
+- Constrained multi-route gate headers with responsive grid columns and ellipsis so route text cannot overlap the query or update time.
+- Bumped frontend build to 20260726-015 and Worker version to 2.8.6.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.
