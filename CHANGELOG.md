@@ -211,6 +211,12 @@
 - Added an explicit live-data-unavailable response so morning flights such as CI833 cannot intermittently appear or disappear based on the Worker instance handling the request.
 - Bumped frontend build to 20260726-019 and Worker version to 2.8.10.
 
+## Preserve same-day completed flights — 2026-07-26
+
+- Merged same-day departed, arrived, and cancelled rows from the validated continuity snapshot into the live TDX result when the live FIDS list has already dropped them.
+- Kept live TDX rows authoritative for current and future flights, including gates and estimated times.
+- Bumped frontend build to 20260726-020 and Worker version to 2.8.11.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.

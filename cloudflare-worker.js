@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.10 (Crew Portal v8.1.3)
+ * Version 2.8.11 (Crew Portal v8.1.3)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.1.3';
-const WORKER_VERSION = '2.8.10';
+const WORKER_VERSION = '2.8.11';
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
@@ -90,20 +90,48 @@ function normalizeWorkerTdxRows(rows) {
   })).filter(row => row.flight && row.date && row.time);
 }
 
-async function loadLiveTdxFlights(env, ctx) {
+function flightRowKey(row) {
+  return [row.flight, row.direction, row.date, row.time, row.airportCode].map(value => String(value || '').trim().toUpperCase()).join('|');
+}
+
+function isCompletedFlightRow(row) {
+  const status = String(row.status || '').toUpperCase();
+  return /已飛|DEPARTED|已到|ARRIVED|抵達|取消|CANCEL/.test(status);
+}
+
+function sameDayContinuityRows(rows) {
+  const today = taipeiNow().date;
+  return (Array.isArray(rows) ? rows : []).filter(row => row.date === today && isCompletedFlightRow(row));
+}
+
+function mergeLiveFlightRows(liveRows, continuitySourceRows) {
+  const merged = [...liveRows];
+  const seen = new Set(merged.map(flightRowKey));
+  for (const row of sameDayContinuityRows(continuitySourceRows)) {
+    const key = flightRowKey(row);
+    if (!seen.has(key)) {
+      merged.push(row);
+      seen.add(key);
+    }
+  }
+  return merged;
+}
+
+async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
   const response = await handleFlightGateTdxSource(tdxAirportFidsCacheKey(), env, ctx);
   const payload = await response.json();
   const fetchedAt = Date.parse(payload.fetchedAtUtc);
-  const rows = normalizeWorkerTdxRows(payload.rows || []);
-  if (!response.ok || !Number.isFinite(fetchedAt) || rows.length < 10 || !rows.some(row => row.gate)) {
+  const liveRows = normalizeWorkerTdxRows(payload.rows || []);
+  const rows = mergeLiveFlightRows(liveRows, continuitySourceRows);
+  if (!response.ok || !Number.isFinite(fetchedAt) || liveRows.length < 10 || !liveRows.some(row => row.gate)) {
     throw new Error(payload.error || 'TDX Airport FIDS returned insufficient gate data');
   }
   return {
     version: WORKER_VERSION,
     loadedAt: Date.now(),
     fetchedAt,
-    source: 'TDX official Airport FIDS live fallback',
-    continuityRows: 0,
+    source: 'TDX official Airport FIDS live fallback with same-day continuity',
+    continuityRows: rows.length - liveRows.length,
     rows
   };
 }
@@ -141,10 +169,20 @@ async function loadAirportFlights(env, ctx) {
   const snapshotAgeSeconds = Math.max(0, Math.floor((Date.now() - airportFlightCache.fetchedAt) / 1000));
   if (snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
     try {
-      airportFlightCache = await loadLiveTdxFlights(env, ctx);
+      airportFlightCache = await loadLiveTdxFlights(env, ctx, airportFlightCache.rows);
       return airportFlightCache;
     } catch (error) {
-      // Never expose an old GitHub snapshot as if it were today's official data.
+      const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
+      if (continuityRows.length) {
+        return {
+          version: WORKER_VERSION,
+          loadedAt: Date.now(),
+          fetchedAt: airportFlightCache.fetchedAt,
+          source: 'TDX official live data unavailable; same-day continuity snapshot',
+          continuityRows: continuityRows.length,
+          rows: continuityRows
+        };
+      }
       throw new Error(`Official live flight data unavailable: ${error?.message || error}`);
     }
   }
