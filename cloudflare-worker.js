@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.20 (Crew Portal v8.2.2)
+ * Version 2.8.21 (Crew Portal v8.2.3)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.2';
-const WORKER_VERSION = '2.8.20';
+const PORTAL_VERSION = 'v8.2.3';
+const WORKER_VERSION = '2.8.21';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -198,9 +198,25 @@ function isCompletedFlightRow(row) {
   return /已飛|DEPARTED|已到|ARRIVED|抵達|取消|CANCEL/.test(status);
 }
 
+function flightRowMinutes(row) {
+  const date = String(row.estimatedDate || row.date || '').trim();
+  const time = String(row.estimatedTime || row.time || '').trim();
+  if (date !== taipeiNow().date || !/^\d{2}:\d{2}$/.test(time)) return null;
+  const minutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+  return Number.isFinite(minutes) ? minutes : null;
+}
+
 function sameDayContinuityRows(rows) {
-  const today = taipeiNow().date;
-  return (Array.isArray(rows) ? rows : []).filter(row => row.date === today && isCompletedFlightRow(row));
+  const now = taipeiNow();
+  return (Array.isArray(rows) ? rows : []).filter(row => {
+    if (row.date !== now.date) return false;
+    if (isCompletedFlightRow(row)) return true;
+    const minutes = flightRowMinutes(row);
+    // Keep the current same-day schedule when TDX omits pending flights.
+    // The four-hour look-back also covers a delayed or just-departed flight
+    // without resurrecting an entire stale day's schedule.
+    return minutes !== null && minutes >= now.minutes - 4 * 60;
+  });
 }
 
 function mergeLiveFlightRows(liveRows, continuitySourceRows) {

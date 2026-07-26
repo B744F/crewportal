@@ -1,7 +1,7 @@
 {
-  "version": "8.2.2",
-  "build": "20260727-0717",
+  "version": "8.2.3",
+  "build": "20260727-0732",
   "date": "2026-07-27",
-  "workerVersion": "2.8.20",
-  "label": "Compact English flight input hint"
+  "workerVersion": "2.8.21",
+  "label": "Preserve pending same-day flights during live-source fallback"
 }
