@@ -216,3 +216,8 @@
 
 - Shortened the Hero subtitle to `Professional Resources for Crew`.
 - Bumped frontend build to 20260726-011.
+## v8.1.3 — 2026-07-26
+
+- Renamed the Pacific HF table header from `區域` to `Region`.
+- Removed the VHF `用途／頻率` header row for a cleaner compact panel.
+- Bumped frontend build to 20260726-012.
