@@ -1,6 +1,6 @@
 (function(){
   const VERSION = "8.0.0";
-  const BUILD = "20260726-003";
+  const BUILD = "20260726-004";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const PARKING_INTERVAL=5*60*1000;
@@ -184,7 +184,7 @@
         if(freshnessMessage)setGateStatus(freshnessMessage.trim(),freshnessLevel);else{gateStatus.textContent="";gateStatus.className="";gateStatus.style.display="none";}
         const routes=[...new Set(matches.map(match=>match.route).filter(Boolean))].join(" · ")||"--/--";
         const fetchedAt=parseUtc(data.fetchedAt),fetchedClock=fetchedAt?clock(fetchedAt):"--:--:--";
-        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><span class="aircraft-gate-route-inline">${escapeHtml(routes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${matches.map(match=>{const departed=flightHasDeparted(match),gate=match.gate||(departed?"無資料":freshness==="fresh"?"尚未公布":"無法確認"),status=String(match.status||"")||(departed?"已飛":""),displayDate=match.estimatedDate||match.date,displayTime=match.estimatedTime||match.time,timeChanged=match.estimatedTime&&match.estimatedTime!==match.time,statusMarkup=status?` · <em class="${status.includes("已飛")?"aircraft-gate-status-flown":""}">${escapeHtml(status)}</em>`:"",timeMarkup=timeChanged?" · 預計":"";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(directionLabel(match.direction))}</b><span>${escapeHtml(displayDate)} ${escapeHtml(displayTime)}${timeMarkup}${statusMarkup}</span></div><div class="aircraft-gate-value"><span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(terminalCode(match.terminal))}</span><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div></div>`}).join("")}`;
+        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><span class="aircraft-gate-route-inline">${escapeHtml(routes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${matches.map(match=>{const departed=flightHasDeparted(match),rawStatus=String(match.status||""),status=rawStatus||(departed?"已飛":""),gate=match.gate||(rawStatus.includes("取消")||departed?"無資料":freshness==="fresh"?"尚未公布":"無法確認"),displayDate=match.estimatedDate||match.date,displayTime=match.estimatedTime||match.time,timeChanged=match.estimatedTime&&match.estimatedTime!==match.time,statusMarkup=status?` · <em class="${status.includes("已飛")?"aircraft-gate-status-flown":""}">${escapeHtml(status)}</em>`:"",timeMarkup=timeChanged?" · 預計":"";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(directionLabel(match.direction))}</b><span>${escapeHtml(displayDate)} ${escapeHtml(displayTime)}${timeMarkup}${statusMarkup}</span></div><div class="aircraft-gate-value"><span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(terminalCode(match.terminal))}</span><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div></div>`}).join("")}`;
         gateResult.style.display="block";
       }catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error");gateResult.style.display="none"}
     });

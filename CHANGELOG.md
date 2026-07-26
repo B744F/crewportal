@@ -174,6 +174,11 @@
 - Added snapshot quality counters for today’s departure coverage and missing departed gates.
 - Bumped frontend build to 20260726-003.
 
+## Gate status semantics cleanup — 2026-07-26
+
+- Displayed `無資料` instead of `尚未公布` for cancelled flights without an official gate.
+- Bumped frontend build to 20260726-004.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.
