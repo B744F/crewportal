@@ -168,6 +168,12 @@
 - Kept stale-data warnings visible after a successful lookup and changed blank gates on stale data to `無法確認`.
 - Bumped frontend build to 20260726-002.
 
+## Full flight-gate snapshot validation — 2026-07-26
+
+- Rejected duplicate route rows and any departed non-cancelled flight without an official gate.
+- Added snapshot quality counters for today’s departure coverage and missing departed gates.
+- Bumped frontend build to 20260726-003.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.

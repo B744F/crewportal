@@ -4,6 +4,7 @@
 import csv
 import json
 import subprocess
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -133,6 +134,33 @@ def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, s
     return merged, continuity_rows
 
 
+def row_identity(row: dict[str, str]) -> tuple[str, str, str, str]:
+    return (row["flight"], row["date"], row["direction"], row["airportCode"])
+
+
+def is_cancelled(row: dict[str, str]) -> bool:
+    status = value(row, "status").upper()
+    return "取消" in status or "CANCEL" in status
+
+
+def past_departures_without_gates(rows: list[dict[str, str]], now: datetime) -> list[dict[str, str]]:
+    missing = []
+    for row in rows:
+        if row.get("date") != now.date().isoformat() or row.get("direction") != "D" or row.get("gate") or is_cancelled(row):
+            continue
+        flight_date = row.get("estimatedDate") or row.get("date")
+        flight_time = row.get("estimatedTime") or row.get("time")
+        try:
+            departure = datetime.strptime(
+                f"{flight_date} {flight_time}", "%Y-%m-%d %H:%M"
+            ).replace(tzinfo=TAIPEI)
+        except (TypeError, ValueError):
+            continue
+        if departure <= now:
+            missing.append(row)
+    return missing
+
+
 def main() -> None:
     previous = json.loads(OUTPUT.read_text(encoding="utf-8")) if OUTPUT.exists() else {}
     try:
@@ -211,8 +239,19 @@ def main() -> None:
         ]
         deduplicated_base = {}
         for row in continuity_base_rows:
-            deduplicated_base[(row["flight"], row["date"], row["direction"], row["airportCode"])] = row
+            deduplicated_base[row_identity(row)] = row
         continuity_base_rows = list(deduplicated_base.values())
+
+    duplicate_keys = [key for key, count in Counter(row_identity(row) for row in output_rows).items() if count > 1]
+    if duplicate_keys:
+        raise RuntimeError(f"Official flight snapshot contains duplicate route rows: {duplicate_keys[:3]}")
+    missing_departure_gates = past_departures_without_gates(output_rows, now)
+    if missing_departure_gates:
+        flights = ", ".join(row["flight"] for row in missing_departure_gates[:8])
+        raise RuntimeError(
+            f"Official snapshot contains departed non-cancelled flights without gates ({len(missing_departure_gates)}): {flights}"
+        )
+    today_departure_rows = [row for row in today_rows if row["direction"] == "D"]
 
     output_rows.sort(key=lambda row: (row["date"], row["time"], row["flight"]))
     fetched_at = (
@@ -238,6 +277,8 @@ def main() -> None:
             "todayGateRows": len(today_gate_rows),
             "nextDayRows": sum(row["date"] == last_date.isoformat() for row in output_rows),
             "continuityRows": continuity_rows,
+            "todayDepartureRows": len(today_departure_rows),
+            "departedRowsWithoutGate": len(missing_departure_gates),
         },
         "continuityBaseRows": continuity_base_rows if is_tdx and continuity_base_rows else output_rows,
         "rows": output_rows,
