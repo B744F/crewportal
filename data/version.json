@@ -1,7 +1,7 @@
 {
-  "version": "8.1.9",
-  "build": "20260726-028",
+  "version": "8.2.0",
+  "build": "20260727-001",
   "date": "2026-07-26",
   "workerVersion": "2.8.17",
-  "label": "Numeric CI normalization and completed-flight continuity"
+  "label": "Cargo lookup display and responsive CI normalization"
 }

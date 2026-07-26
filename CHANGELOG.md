@@ -259,6 +259,13 @@
 - Evaluated numeric-only input before airline-prefix parsing so `160` cannot be misread as airline `16` plus flight `0`.
 - Bumped portal version to v8.1.7, frontend build to 20260726-026, and Worker version to 2.8.15.
 
+## Cargo lookup display and responsive CI normalization — 2026-07-27
+
+- Bumped portal version to v8.2.0, frontend build to 20260727-001, and Worker version to 2.8.18.
+- Removed the visible TPE GOSS source line from the cargo-stand result and hid terminal information for cargo stands.
+- Cargo-stand results render as soon as the cargo source responds instead of waiting for a slow passenger gate lookup.
+- Documented that a four-digit numeric input is automatically treated as a CI flight; the existing frontend and Worker normalization continues to enforce CI plus the number.
+
 ## Numeric CI normalization and upstream timeout guard — 2026-07-26
 
 - Bumped portal version to v8.1.8, frontend build to 20260726-027, and Worker version to 2.8.16.
