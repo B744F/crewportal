@@ -146,6 +146,28 @@ def schedule_identity(row: dict[str, str]) -> tuple[str, str, str, str, str]:
     return (*route_identity(row), row["time"])
 
 
+def deduplicate_schedule_rows(rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
+    """Collapse terminal-only duplicates without hiding a confirmed gate/status."""
+    grouped: dict[tuple[str, str, str, str, str], list[dict[str, str]]] = defaultdict(list)
+    for row in rows:
+        grouped[schedule_identity(row)].append(row)
+
+    deduplicated: list[dict[str, str]] = []
+    for candidates in grouped.values():
+        selected = max(
+            candidates,
+            key=lambda row: (
+                not is_cancelled(row),
+                bool(row.get("gate")),
+                bool(row.get("status")),
+                bool(row.get("estimatedDate") and row.get("estimatedTime")),
+                row.get("terminal", ""),
+            ),
+        )
+        deduplicated.append(selected)
+    return deduplicated, len(rows) - len(deduplicated)
+
+
 def is_cancelled(row: dict[str, str]) -> bool:
     status = value(row, "status").upper()
     return "取消" in status or "CANCEL" in status
@@ -229,6 +251,7 @@ def main() -> None:
         raise RuntimeError("TDX Airport FIDS is missing next-day rows; refusing to publish a stale snapshot")
 
     continuity_rows = 0
+    deduplicated_rows = 0
     continuity_base_rows = previous.get("continuityBaseRows") or previous.get("rows") or []
     if fetch_route == "tdx-official" and previous.get("rows"):
         previous_rows = [
@@ -245,20 +268,26 @@ def main() -> None:
                 if row.get("gate") or row.get("status")
             ],
         ]
-        deduplicated_base = {}
-        for row in continuity_base_rows:
-            deduplicated_base[schedule_identity(row)] = row
-        continuity_base_rows = list(deduplicated_base.values())
+        continuity_base_rows, _ = deduplicate_schedule_rows(continuity_base_rows)
 
+    output_rows, deduplicated_rows = deduplicate_schedule_rows(output_rows)
+    today_rows = [row for row in output_rows if row["date"] == today.isoformat()]
+    today_gate_rows = [row for row in today_rows if row["gate"]]
     duplicate_keys = [key for key, count in Counter(schedule_identity(row) for row in output_rows).items() if count > 1]
     if duplicate_keys:
-        raise RuntimeError(f"Official flight snapshot contains duplicate route rows: {duplicate_keys[:3]}")
+        raise RuntimeError(f"Official flight snapshot still contains duplicate schedule rows: {duplicate_keys[:3]}")
     missing_departure_gates = past_departures_without_gates(output_rows, now)
     if missing_departure_gates:
         flights = ", ".join(row["flight"] for row in missing_departure_gates[:8])
-        raise RuntimeError(
-            f"Official snapshot contains departed non-cancelled flights without gates ({len(missing_departure_gates)}): {flights}"
-        )
+        if fetch_route == "tdx-official":
+            print(
+                f"TDX official snapshot has {len(missing_departure_gates)} departed flights without published gates; "
+                f"keeping them as no-data rows: {flights}"
+            )
+        else:
+            raise RuntimeError(
+                f"Official snapshot contains departed non-cancelled flights without gates ({len(missing_departure_gates)}): {flights}"
+            )
     today_departure_rows = [row for row in today_rows if row["direction"] == "D"]
 
     output_rows.sort(key=lambda row: (row["date"], row["time"], row["flight"]))
@@ -285,6 +314,7 @@ def main() -> None:
             "todayGateRows": len(today_gate_rows),
             "nextDayRows": sum(row["date"] == last_date.isoformat() for row in output_rows),
             "continuityRows": continuity_rows,
+            "deduplicatedRows": deduplicated_rows,
             "todayDepartureRows": len(today_departure_rows),
             "departedRowsWithoutGate": len(missing_departure_gates),
         },

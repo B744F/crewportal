@@ -186,6 +186,13 @@
 - Restored the recurring flight-gate workflow after its duplicate-row guard caused three consecutive scheduled failures.
 - Bumped frontend build to 20260726-005.
 
+## TDX fallback resilience — 2026-07-26
+
+- Deterministically collapsed official TDX rows duplicated only by terminal while preserving non-cancelled status and confirmed gates.
+- Added the deduplicated-row count to snapshot quality metrics so the full recurring refresh remains auditable.
+- Kept officially unpublished gates as auditable no-data rows during TDX fallback instead of aborting the full refresh.
+- Bumped frontend build to 20260726-007.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.
