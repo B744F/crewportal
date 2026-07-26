@@ -1,6 +1,6 @@
 (function(){
   const VERSION = "8.1.3";
-  const BUILD = "20260726-021";
+  const BUILD = "20260726-022";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const PARKING_INTERVAL=5*60*1000;
@@ -127,14 +127,14 @@
       .aircraft-gate-button{height:100%;border:1px solid rgba(105,189,255,.50);border-right:0;border-top:0;border-bottom:0;background:linear-gradient(180deg,rgba(52,137,190,.88),rgba(22,75,116,.88));color:#eff9ff;font-size:13px;font-weight:1000;letter-spacing:.06em;cursor:pointer}
       .aircraft-gate-button:hover{filter:brightness(1.12)}#aircraftGateStatus{display:none;margin-top:7px;font-size:12px;color:#b9d8ed}#aircraftGateStatus.warning{color:#ffd27a}#aircraftGateStatus.error{color:#ffc8c8}
       .aircraft-gate-result{display:none;margin-top:8px;border:1px solid rgba(105,189,255,.25);border-radius:9px;overflow:hidden;background:rgba(0,8,16,.24)}
-      .aircraft-gate-result-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,auto);align-items:center;gap:8px;padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.10);color:#9fb7ca;font-size:10px}
-      .aircraft-gate-result-head strong,.aircraft-gate-result-head small,.aircraft-gate-route-inline{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.aircraft-gate-result-head strong{color:#dcefff;font-size:11px}.aircraft-gate-result-head small{text-align:right}.aircraft-gate-route-inline{margin:0;color:#ffd400;font-size:12px;font-weight:1000;letter-spacing:.09em;text-align:center}
+      .aircraft-gate-result-head{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;align-items:center;gap:8px;padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.10);color:#9fb7ca;font-size:10px}
+      .aircraft-gate-result-head strong{min-width:max-content;overflow:visible;text-overflow:clip;white-space:nowrap;color:#dcefff;font-size:11px}.aircraft-gate-result-head small,.aircraft-gate-route-inline{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.aircraft-gate-result-head small{text-align:right}.aircraft-gate-route-inline{margin:0;color:#ffd400;font-size:12px;font-weight:1000;letter-spacing:.09em;text-align:center}
       .aircraft-gate-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(62px,auto) minmax(54px,auto);align-items:center;gap:8px;padding:7px 9px;border-top:1px solid rgba(255,255,255,.08)}
       .aircraft-gate-row:first-child{border-top:0}.aircraft-gate-row div{min-width:0}.aircraft-gate-row b{display:block;color:#eef7ff;font-size:11px}.aircraft-gate-value{display:contents}.aircraft-gate-terminal{display:inline-flex;align-items:center;justify-content:center;min-width:62px;padding:0;border:0;border-radius:0;box-shadow:none;background:transparent;color:#eef7ff;font-size:17px;line-height:1;font-weight:1000;letter-spacing:.03em;white-space:nowrap}.aircraft-gate-terminal.t1{color:#35c86a}.aircraft-gate-terminal.t2{color:#42a5ff}.aircraft-gate-terminal.t3{color:#f05a5a}.aircraft-gate-terminal.other{color:#cbd5df}
       .aircraft-gate-row span{display:block;margin-top:2px;color:#9fb0c5;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.aircraft-gate-row .aircraft-gate-terminal{font-size:18px;margin-top:0}.aircraft-gate-status-flown{color:#ff4f5e;font-style:normal;font-weight:1000}
       .aircraft-gate-row strong{min-width:54px;padding:5px 7px;text-align:center;background:#ffd21f;border:1px solid #ffea70;border-radius:4px;box-shadow:0 1px 0 rgba(0,0,0,.35),inset 0 -2px 0 rgba(104,72,0,.28);color:#08111b;font-size:18px;line-height:1;letter-spacing:.03em}.aircraft-gate-row strong.is-empty{color:#08111b;font-size:11px}
       @media(max-width:760px){.aircraft-track-form{grid-template-columns:1fr 96px}.aircraft-track-button{font-size:12px}}
-      @media(max-width:760px){.aircraft-gate-form{grid-template-columns:1fr 96px}.aircraft-gate-button{font-size:12px}.aircraft-gate-row{grid-template-columns:minmax(0,1fr) 54px 54px;gap:5px;padding-left:7px;padding-right:7px}.aircraft-gate-terminal{min-width:54px;font-size:15px}.aircraft-gate-row strong{min-width:54px;padding-left:4px;padding-right:4px;font-size:16px}}
+      @media(max-width:760px){.aircraft-gate-form{grid-template-columns:1fr 96px}.aircraft-gate-button{font-size:12px}.aircraft-gate-result-head{gap:5px;padding-left:7px;padding-right:7px}.aircraft-gate-result-head strong{font-size:10px}.aircraft-gate-route-inline{font-size:11px;letter-spacing:.04em}.aircraft-gate-result-head small{font-size:9px}.aircraft-gate-row{grid-template-columns:minmax(0,1fr) 54px 54px;gap:5px;padding-left:7px;padding-right:7px}.aircraft-gate-terminal{min-width:54px;font-size:15px}.aircraft-gate-row strong{min-width:54px;padding-left:4px;padding-right:4px;font-size:16px}}
     `;
     document.head.appendChild(style);
     const wrap=document.createElement("div");

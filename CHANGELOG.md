@@ -224,6 +224,12 @@
 - Preserved CI833's official TPE/BKK continuity row while keeping CI008 as TPE/LAX with gate D2.
 - Bumped frontend build to 20260726-021 and Worker version to 2.8.12.
 
+## Preserve gate result title — 2026-07-26
+
+- Reserved a max-content column for the flight title so `CI160 登機門` and similar labels remain complete.
+- Kept long route text ellipsized in the middle column instead of truncating the title.
+- Bumped frontend build to 20260726-022.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.
