@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.13 (Crew Portal v8.1.5)
+ * Version 2.8.15 (Crew Portal v8.1.7)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,9 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.1.5';
-const WORKER_VERSION = '2.8.13';
+const PORTAL_VERSION = 'v8.1.7';
+const WORKER_VERSION = '2.8.15';
+const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
@@ -66,9 +67,10 @@ function json(request, body, init = {}) {
 
 function normalizeFlightQuery(value) {
   const compact = String(value || '').trim().toUpperCase().replace(/[\s-]/g, '');
-  const match = compact.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/) || compact.match(/^([A-Z]{3})(\d{1,4}[A-Z]?)$/) || compact.match(/^(\d{1,4}[A-Z]?)$/);
+  const numericOnly = compact.match(/^(\d{1,4}[A-Z]?)$/);
+  const match = numericOnly || compact.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/) || compact.match(/^([A-Z]{3})(\d{1,4}[A-Z]?)$/);
   if (!match) return null;
-  const airline = match[2] ? match[1] : 'CI';
+  const airline = numericOnly ? DEFAULT_FLIGHT_AIRLINE : match[2] ? match[1] : DEFAULT_FLIGHT_AIRLINE;
   const rawNumber = match[2] || match[1];
   const suffix = /[A-Z]$/.test(rawNumber) ? rawNumber.slice(-1) : '';
   const digits = rawNumber.slice(0, rawNumber.length - suffix.length).replace(/^0+(?=\d)/, '');
@@ -359,7 +361,7 @@ async function handleFlightGateSource(request) {
 async function handleCargoStand(request) {
   const url = new URL(request.url);
   const query = normalizeFlightQuery(url.searchParams.get('flight'));
-  if (!query) return json(request, { ok: false, error: 'Invalid flight number. Use CI100, 5X61, or 100.' }, { status: 400 });
+  if (!query) return json(request, { ok: false, error: 'Invalid flight number. Use CI100, 5X61, or 100 (CI100).' }, { status: 400 });
 
   try {
     const response = await fetch(TPE_GOSS_CARGO_SOURCE, {

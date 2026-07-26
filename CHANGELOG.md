@@ -247,6 +247,17 @@
 
 - Kept passenger flight snapshot delay warnings separate from fresh cargo-stand results.
 - Bumped portal version to v8.1.5 and frontend build to 20260726-024.
+
+## Numeric flight input defaults to China Airlines — 2026-07-26
+
+- Made the default airline explicit: numeric-only input such as `160` is normalized to `CI160` in both frontend and Worker queries.
+- Updated the input hint to document the behavior.
+- Bumped portal version to v8.1.6, frontend build to 20260726-025, and Worker version to 2.8.14.
+
+## Numeric CI normalization guard — 2026-07-26
+
+- Evaluated numeric-only input before airline-prefix parsing so `160` cannot be misread as airline `16` plus flight `0`.
+- Bumped portal version to v8.1.7, frontend build to 20260726-026, and Worker version to 2.8.15.
 ## v8.1.0 — 2026-07-26
 
 - Added three selectable premium Hero typography treatments via `?heroStyle=1`, `?heroStyle=2`, and `?heroStyle=3`.
