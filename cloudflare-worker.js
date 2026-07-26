@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.7 (Crew Portal v8.1.3)
+ * Version 2.8.9 (Crew Portal v8.1.3)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,8 +12,9 @@
  */
 
 const PORTAL_VERSION = 'v8.1.3';
-const WORKER_VERSION = '2.8.7';
+const WORKER_VERSION = '2.8.9';
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
+const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
@@ -36,8 +37,9 @@ const tdxTimetableCache = new Map();
 let airportFlightCache = { version: '', loadedAt: 0, fetchedAt: 0, source: '', continuityRows: 0, rows: null };
 let tdxAirportFidsCache = { loadedAt: 0, rows: null };
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
-function tdxAirportFidsCacheKey() {
-  return new Request(`${TDX_EDGE_CACHE_ORIGIN}/airport-fids/TPE/${Math.floor(Date.now() / 60_000)}`, { method: 'GET' });
+function tdxAirportFidsCacheKey(bucketOffset = 0) {
+  const bucket = Math.floor(Date.now() / (TDX_FIDS_CACHE_BUCKET_SECONDS * 1000)) + bucketOffset;
+  return new Request(`${TDX_EDGE_CACHE_ORIGIN}/airport-fids/TPE/${bucket}`, { method: 'GET' });
 }
 
 function corsHeaders(request) {
@@ -88,8 +90,8 @@ function normalizeWorkerTdxRows(rows) {
   })).filter(row => row.flight && row.date && row.time);
 }
 
-async function loadLiveTdxFlights(env) {
-  const response = await handleFlightGateTdxSource(tdxAirportFidsCacheKey(), env);
+async function loadLiveTdxFlights(env, ctx) {
+  const response = await handleFlightGateTdxSource(tdxAirportFidsCacheKey(), env, ctx);
   const payload = await response.json();
   const fetchedAt = Date.parse(payload.fetchedAtUtc);
   const rows = normalizeWorkerTdxRows(payload.rows || []);
@@ -106,7 +108,7 @@ async function loadLiveTdxFlights(env) {
   };
 }
 
-async function loadAirportFlights(env) {
+async function loadAirportFlights(env, ctx) {
   if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) return airportFlightCache;
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
   sourceUrl.searchParams.set('v', `${WORKER_VERSION}-${Date.now()}`);
@@ -139,7 +141,7 @@ async function loadAirportFlights(env) {
   const snapshotAgeSeconds = Math.max(0, Math.floor((Date.now() - airportFlightCache.fetchedAt) / 1000));
   if (snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
     try {
-      airportFlightCache = await loadLiveTdxFlights(env);
+      airportFlightCache = await loadLiveTdxFlights(env, ctx);
     } catch (_) {
       // Keep the last validated GitHub snapshot and expose its delayed/stale age.
     }
@@ -221,15 +223,24 @@ function normalizeTdxAirportRows(rows, direction) {
 }
 
 async function fetchTdxAirportFids(token, direction) {
-  const response = await fetch(`${TDX_AIRPORT_FIDS_ROOT}/${direction === 'D' ? 'Departure' : 'Arrival'}/TPE?$format=JSON`, {
-    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-    cf: { cacheTtl: 30, cacheEverything: true }
-  });
-  if (!response.ok) throw new Error(`TDX airport FIDS failed (${response.status})`);
-  const payload = await response.json();
-  const rows = Array.isArray(payload) ? payload : payload.value || payload.data || [];
-  if (!Array.isArray(rows)) throw new Error('TDX airport FIDS returned invalid rows');
-  return normalizeTdxAirportRows(rows, direction);
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(`${TDX_AIRPORT_FIDS_ROOT}/${direction === 'D' ? 'Departure' : 'Arrival'}/TPE?$format=JSON`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        cf: { cacheTtl: 30, cacheEverything: true }
+      });
+      if (!response.ok) throw new Error(`TDX airport FIDS failed (${response.status})`);
+      const payload = await response.json();
+      const rows = Array.isArray(payload) ? payload : payload.value || payload.data || [];
+      if (!Array.isArray(rows)) throw new Error('TDX airport FIDS returned invalid rows');
+      return normalizeTdxAirportRows(rows, direction);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 1200));
+    }
+  }
+  throw lastError;
 }
 
 async function handleFlightGateTdxSource(request, env, ctx) {
@@ -237,13 +248,13 @@ async function handleFlightGateTdxSource(request, env, ctx) {
     const cacheKey = tdxAirportFidsCacheKey();
     const edgeCached = await caches.default.match(cacheKey);
     if (edgeCached) return edgeCached;
-    if (tdxAirportFidsCache.rows && Date.now() - tdxAirportFidsCache.loadedAt < 60_000) {
+    if (tdxAirportFidsCache.rows && Date.now() - tdxAirportFidsCache.loadedAt < TDX_FIDS_CACHE_BUCKET_SECONDS * 1000) {
       const response = json(request, {
         ok: true,
         source: 'TDX official Airport FIDS real-time flight data',
         fetchedAtUtc: new Date(tdxAirportFidsCache.loadedAt).toISOString(),
         rows: tdxAirportFidsCache.rows
-      }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
+      }, { headers: { 'Cache-Control': 'public, max-age=300, s-maxage=300' } });
       ctx?.waitUntil(caches.default.put(cacheKey, response.clone()));
       return response;
     }
@@ -261,10 +272,12 @@ async function handleFlightGateTdxSource(request, env, ctx) {
       source: 'TDX official Airport FIDS real-time flight data',
       fetchedAtUtc: new Date().toISOString(),
       rows
-    }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
+    }, { headers: { 'Cache-Control': 'public, max-age=300, s-maxage=300' } });
     ctx?.waitUntil(caches.default.put(cacheKey, response.clone()));
     return response;
   } catch (error) {
+    const previousCached = await caches.default.match(tdxAirportFidsCacheKey(-1));
+    if (previousCached) return previousCached;
     return json(request, {
       ok: false,
       source: 'TDX official Airport FIDS real-time flight data',
@@ -709,14 +722,14 @@ async function handleParking(request) {
   }
 }
 
-async function handleFlightGate(request, env) {
+async function handleFlightGate(request, env, ctx) {
   const url = new URL(request.url);
   const query = normalizeFlightQuery(url.searchParams.get('flight'));
   if (!query) return json(request, { ok: false, error: 'Invalid flight number. Use CI100 or 100.' }, { status: 400 });
 
   try {
     const now = taipeiNow();
-    const source = await loadAirportFlights(env);
+    const source = await loadAirportFlights(env, ctx);
     const freshness = flightFreshness(source.fetchedAt);
     const matches = source.rows
       .filter(row => row.date === now.date)
@@ -768,7 +781,7 @@ export default {
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
     if (url.pathname === '/api/flight-gate-source') return handleFlightGateSource(request);
     if (url.pathname === '/api/flight-gate-tdx-source') return handleFlightGateTdxSource(request, env, ctx);
-    if (url.pathname === '/api/flight-gate') return handleFlightGate(request, env);
+    if (url.pathname === '/api/flight-gate') return handleFlightGate(request, env, ctx);
     if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
     if (url.pathname === '/api/health') return json(request, {
       ok: true, service: 'Crew Portal API', version: WORKER_VERSION,

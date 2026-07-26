@@ -203,7 +203,7 @@
 - Added a direct TDX Airport FIDS live fallback when the GitHub flight snapshot is more than 10 minutes old.
 - Kept the last validated snapshot when the live fallback is unavailable, with the existing freshness warning.
 - Constrained multi-route gate headers with responsive grid columns and ellipsis so route text cannot overlap the query or update time.
-- Bumped frontend build to 20260726-016 and Worker version to 2.8.7.
+- Bumped frontend build to 20260726-018 and Worker version to 2.8.9.
 
 ## Gate success-status cleanup — 2026-07-25
 

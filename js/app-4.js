@@ -1,6 +1,6 @@
 (function(){
   const VERSION = "8.1.3";
-  const BUILD = "20260726-016";
+  const BUILD = "20260726-018";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const PARKING_INTERVAL=5*60*1000;
