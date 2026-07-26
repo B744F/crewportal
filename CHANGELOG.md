@@ -235,6 +235,13 @@
 - Removed the successful gate-query status line from the result panel.
 - Kept the flight result rows and retained error messages for failed lookups.
 - Bumped frontend build to 20260725-006.
+
+## Cargo stand integration — 2026-07-26
+
+- Added a Worker cargo-stand endpoint backed by TPE GOSS public ground-operations data.
+- Validated cargo positions against the RCTP cargo-stand range 501–525 and today’s Taipei date before displaying them.
+- Added cargo-airline query support such as `5X61` and kept cargo stands separate from passenger boarding gates in RCTP GATE INFO.
+- Bumped portal version to v8.1.4, frontend build to 20260726-023, and Worker version to 2.8.13.
 ## v8.1.0 — 2026-07-26
 
 - Added three selectable premium Hero typography treatments via `?heroStyle=1`, `?heroStyle=2`, and `?heroStyle=3`.

@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.12 (Crew Portal v8.1.3)
+ * Version 2.8.13 (Crew Portal v8.1.4)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,13 +11,16 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.1.3';
-const WORKER_VERSION = '2.8.12';
+const PORTAL_VERSION = 'v8.1.4';
+const WORKER_VERSION = '2.8.13';
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
+const TPE_GOSS_CARGO_SOURCE = 'https://www.tpegoss.com/api/db/gates/schedule';
+const RCTP_CARGO_STAND_MIN = 501;
+const RCTP_CARGO_STAND_MAX = 525;
 const TYM_OPEN_DATA_XML = 'https://opendata.tycg.gov.tw/api/dataset/8e6201c2-1968-4920-aba3-1a68093dab53/resource/83358afd-010a-4989-b63a-bbf20692e408/download';
 const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-';
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
@@ -63,12 +66,45 @@ function json(request, body, init = {}) {
 
 function normalizeFlightQuery(value) {
   const compact = String(value || '').trim().toUpperCase().replace(/[\s-]/g, '');
-  const match = compact.match(/^([A-Z]{2,3})?(\d{1,4}[A-Z]?)$/);
+  const match = compact.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/) || compact.match(/^([A-Z]{3})(\d{1,4}[A-Z]?)$/) || compact.match(/^(\d{1,4}[A-Z]?)$/);
   if (!match) return null;
+  const airline = match[2] ? match[1] : 'CI';
+  const rawNumber = match[2] || match[1];
+  const suffix = /[A-Z]$/.test(rawNumber) ? rawNumber.slice(-1) : '';
+  const digits = rawNumber.slice(0, rawNumber.length - suffix.length).replace(/^0+(?=\d)/, '');
+  return { airline, number: `${digits}${suffix}` };
+}
+
+function normalizeCargoFlightIdentity(value) {
+  const compact = String(value || '').trim().toUpperCase().replace(/[\s-]/g, '');
+  const match = compact.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/) || compact.match(/^([A-Z]{3})(\d{1,4}[A-Z]?)$/);
+  if (!match) return compact;
   const rawNumber = match[2];
   const suffix = /[A-Z]$/.test(rawNumber) ? rawNumber.slice(-1) : '';
   const digits = rawNumber.slice(0, rawNumber.length - suffix.length).replace(/^0+(?=\d)/, '');
-  return { airline: match[1] || 'CI', number: `${digits}${suffix}` };
+  return `${match[1]}${digits}${suffix}`;
+}
+
+function cargoStandNumber(value) {
+  const stand = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isInteger(stand) && stand >= RCTP_CARGO_STAND_MIN && stand <= RCTP_CARGO_STAND_MAX ? String(stand) : '';
+}
+
+function cargoDateTimeParts(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+  return match ? { date: match[1], time: match[2] } : { date: '', time: '' };
+}
+
+function cargoDirectionLabel(value) {
+  return String(value || '').toLowerCase() === 'arrival' ? '抵達' : '出發';
+}
+
+function cargoRoute(direction, origin, destination) {
+  const from = String(origin || '').trim().toUpperCase();
+  const to = String(destination || '').trim().toUpperCase();
+  if (direction === '出發') return `TPE/${/^[A-Z0-9]{3}$/.test(to) ? to : '--'}`;
+  return `${/^[A-Z0-9]{3}$/.test(from) ? from : '--'}/TPE`;
 }
 
 function normalizeWorkerTdxRows(rows) {
@@ -318,6 +354,77 @@ async function handleFlightGateSource(request) {
     source: 'Taoyuan Airport ADIP official real-time flight data',
     error: `Official source unavailable after 3 attempts: ${lastError?.message || lastError}`
   }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+}
+
+async function handleCargoStand(request) {
+  const url = new URL(request.url);
+  const query = normalizeFlightQuery(url.searchParams.get('flight'));
+  if (!query) return json(request, { ok: false, error: 'Invalid flight number. Use CI100, 5X61, or 100.' }, { status: 400 });
+
+  try {
+    const response = await fetch(TPE_GOSS_CARGO_SOURCE, {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-CargoStand/1.0' },
+      cf: { cacheTtl: 30, cacheEverything: true }
+    });
+    if (!response.ok) throw new Error(`TPE GOSS cargo-stand source failed (${response.status})`);
+    const payload = await response.json();
+    const today = taipeiNow().date;
+    const queryIdentity = `${query.airline}${query.number}`;
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    const seen = new Set();
+    const matches = rows.map(row => {
+      const direction = cargoDirectionLabel(row.flight_type);
+      const dateTime = cargoDateTimeParts(row.scheduled_time);
+      const estimated = cargoDateTimeParts(row.estimated_time);
+      const identity = normalizeCargoFlightIdentity(row.flight_number);
+      const airline = String(row.airline_code_iata || row.airline_code || '').trim().toUpperCase();
+      const stand = cargoStandNumber(row.gate);
+      return {
+        flight: identity,
+        airline,
+        airlineName: String(row.airline_name || '').trim(),
+        number: identity.startsWith(airline) ? identity.slice(airline.length) : identity,
+        terminal: String(row.terminal || '').trim(),
+        direction,
+        date: dateTime.date,
+        time: dateTime.time,
+        estimatedDate: estimated.date,
+        estimatedTime: estimated.time,
+        stand,
+        route: cargoRoute(direction, row.origin, row.destination),
+        origin: String(row.origin || '').trim().toUpperCase(),
+        destination: String(row.destination || '').trim().toUpperCase(),
+        status: String(row.flight_status || '').trim(),
+        aircraftType: String(row.aircraft_type || '').trim(),
+        updatedAt: String(row.updated_at || row.last_contact || '').trim()
+      };
+    }).filter(row => row.flight === queryIdentity && row.date === today && row.stand);
+
+    const uniqueMatches = matches.filter(row => {
+      const key = [row.flight, row.direction, row.date, row.time, row.stand, row.origin, row.destination].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)).slice(0, 12);
+
+    return json(request, {
+      ok: true,
+      query: `${query.airline}${query.number}`,
+      fetchedAt: new Date().toISOString(),
+      source: 'TPE GOSS public ground-operations data',
+      sourceUrl: TPE_GOSS_CARGO_SOURCE,
+      standRange: `${RCTP_CARGO_STAND_MIN}-${RCTP_CARGO_STAND_MAX}`,
+      matches: uniqueMatches
+    }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
+  } catch (error) {
+    return json(request, {
+      ok: false,
+      query: url.searchParams.get('flight') || '',
+      source: 'TPE GOSS public ground-operations data',
+      errorCode: 'CARGO_STAND_DATA_UNAVAILABLE',
+      error: String(error?.message || error)
+    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+  }
 }
 
 function tdxDatePart(value) {
@@ -929,6 +1036,7 @@ export default {
     if (url.pathname === '/api/flight-gate-source') return handleFlightGateSource(request);
     if (url.pathname === '/api/flight-gate-tdx-source') return handleFlightGateTdxSource(request, env, ctx);
     if (url.pathname === '/api/flight-gate') return handleFlightGate(request, env, ctx);
+    if (url.pathname === '/api/cargo-stand') return handleCargoStand(request);
     if (url.pathname === '/api/parking' || url.pathname === '/') return handleParking(request);
     if (url.pathname === '/api/health') return json(request, {
       ok: true, service: 'Crew Portal API', version: WORKER_VERSION,
@@ -936,6 +1044,8 @@ export default {
       portalVersion: PORTAL_VERSION,
       timetableSource: 'TDX StationTimeTable with Taoyuan City Government Open Data XML fallback',
       timetableParser: 'structured-official',
+      cargoStandSource: 'TPE GOSS public ground-operations data',
+      cargoStandRange: '501-525',
       tdxLiveConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
       timestamp: new Date().toISOString()
     });

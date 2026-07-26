@@ -1,8 +1,9 @@
 (function(){
-  const VERSION = "8.1.3";
-  const BUILD = "20260726-022";
+  const VERSION = "8.1.4";
+  const BUILD = "20260726-023";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
+  const CARGO_STAND_API="https://flightdeck-api.201505-login.workers.dev/api/cargo-stand";
   const PARKING_INTERVAL=5*60*1000;
   const ARINC_INTERVAL=15*60*1000;
   const PARKING_CACHE_KEY="crewportal-combined-parking-last-good";
@@ -127,6 +128,7 @@
       .aircraft-gate-button{height:100%;border:1px solid rgba(105,189,255,.50);border-right:0;border-top:0;border-bottom:0;background:linear-gradient(180deg,rgba(52,137,190,.88),rgba(22,75,116,.88));color:#eff9ff;font-size:13px;font-weight:1000;letter-spacing:.06em;cursor:pointer}
       .aircraft-gate-button:hover{filter:brightness(1.12)}#aircraftGateStatus{display:none;margin-top:7px;font-size:12px;color:#b9d8ed}#aircraftGateStatus.warning{color:#ffd27a}#aircraftGateStatus.error{color:#ffc8c8}
       .aircraft-gate-result{display:none;margin-top:8px;border:1px solid rgba(105,189,255,.25);border-radius:9px;overflow:hidden;background:rgba(0,8,16,.24)}
+      .aircraft-cargo-block{border-top:1px solid rgba(255,207,64,.25);background:rgba(43,28,0,.10)}.aircraft-cargo-title{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border-bottom:1px solid rgba(255,207,64,.18);color:#ffd21f;font-size:10px;font-weight:1000;letter-spacing:.06em}.aircraft-cargo-title small{color:#d7bd78;font-size:9px;font-weight:700;letter-spacing:0}.aircraft-cargo-block .aircraft-gate-row strong{background:#ffbd2e;border-color:#ffe27a}
       .aircraft-gate-result-head{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;align-items:center;gap:8px;padding:6px 9px;border-bottom:1px solid rgba(255,255,255,.10);color:#9fb7ca;font-size:10px}
       .aircraft-gate-result-head strong{min-width:max-content;overflow:visible;text-overflow:clip;white-space:nowrap;color:#dcefff;font-size:11px}.aircraft-gate-result-head small,.aircraft-gate-route-inline{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.aircraft-gate-result-head small{text-align:right}.aircraft-gate-route-inline{margin:0;color:#ffd400;font-size:12px;font-weight:1000;letter-spacing:.09em;text-align:center}
       .aircraft-gate-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(62px,auto) minmax(54px,auto);align-items:center;gap:8px;padding:7px 9px;border-top:1px solid rgba(255,255,255,.08)}
@@ -134,7 +136,7 @@
       .aircraft-gate-row span{display:block;margin-top:2px;color:#9fb0c5;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.aircraft-gate-row .aircraft-gate-terminal{font-size:18px;margin-top:0}.aircraft-gate-status-flown{color:#ff4f5e;font-style:normal;font-weight:1000}
       .aircraft-gate-row strong{min-width:54px;padding:5px 7px;text-align:center;background:#ffd21f;border:1px solid #ffea70;border-radius:4px;box-shadow:0 1px 0 rgba(0,0,0,.35),inset 0 -2px 0 rgba(104,72,0,.28);color:#08111b;font-size:18px;line-height:1;letter-spacing:.03em}.aircraft-gate-row strong.is-empty{color:#08111b;font-size:11px}
       @media(max-width:760px){.aircraft-track-form{grid-template-columns:1fr 96px}.aircraft-track-button{font-size:12px}}
-      @media(max-width:760px){.aircraft-gate-form{grid-template-columns:1fr 96px}.aircraft-gate-button{font-size:12px}.aircraft-gate-result-head{gap:5px;padding-left:7px;padding-right:7px}.aircraft-gate-result-head strong{font-size:10px}.aircraft-gate-route-inline{font-size:11px;letter-spacing:.04em}.aircraft-gate-result-head small{font-size:9px}.aircraft-gate-row{grid-template-columns:minmax(0,1fr) 54px 54px;gap:5px;padding-left:7px;padding-right:7px}.aircraft-gate-terminal{min-width:54px;font-size:15px}.aircraft-gate-row strong{min-width:54px;padding-left:4px;padding-right:4px;font-size:16px}}
+      @media(max-width:760px){.aircraft-gate-form{grid-template-columns:1fr 96px}.aircraft-gate-button{font-size:12px}.aircraft-gate-result-head{gap:5px;padding-left:7px;padding-right:7px}.aircraft-gate-result-head strong{font-size:10px}.aircraft-gate-route-inline{font-size:11px;letter-spacing:.04em}.aircraft-gate-result-head small{font-size:9px}.aircraft-gate-row{grid-template-columns:minmax(0,1fr) 54px 54px;gap:5px;padding-left:7px;padding-right:7px}.aircraft-gate-terminal{min-width:54px;font-size:15px}.aircraft-gate-row strong{min-width:54px;padding-left:4px;padding-right:4px;font-size:16px}.aircraft-cargo-title{padding-left:7px;padding-right:7px}}
     `;
     document.head.appendChild(style);
     const wrap=document.createElement("div");
@@ -166,32 +168,36 @@
       const status=String(match.status||"");
       return String(match.direction||"")==="抵達"&&(status.includes("已到")||status.includes("ARRIVED")||status.includes("抵達"));
     };
-    const normalizeFlightNumber=value=>{const compact=String(value||"").trim().toUpperCase().replace(/[\s-]/g,"");const match=compact.match(/^([A-Z]{2,3})?(\d{1,4}[A-Z]?)$/);if(!match)return"";const rawNumber=match[2],suffix=/[A-Z]$/.test(rawNumber)?rawNumber.slice(-1):"",digits=rawNumber.slice(0,rawNumber.length-suffix.length).replace(/^0+(?=\d)/,"");return`${match[1]||"CI"}${digits}${suffix}`};
+    const normalizeFlightNumber=value=>{const compact=String(value||"").trim().toUpperCase().replace(/[\s-]/g,"");const match=compact.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/)||compact.match(/^([A-Z]{3})(\d{1,4}[A-Z]?)$/)||compact.match(/^(\d{1,4}[A-Z]?)$/);if(!match)return"";const airline=match[2]?match[1]:"CI",rawNumber=match[2]||match[1],suffix=/[A-Z]$/.test(rawNumber)?rawNumber.slice(-1):"",digits=rawNumber.slice(0,rawNumber.length-suffix.length).replace(/^0+(?=\d)/,"");return`${airline}${digits}${suffix}`};
+    const renderFlightRow=(match,cargo=false,freshness="fresh")=>{const departed=flightHasDeparted(match),arrived=flightHasArrived(match),rawStatus=String(match.status||""),status=rawStatus||(departed?"已飛":""),position=cargo?match.stand:match.gate,emptyLabel=cargo?"無資料":(rawStatus.includes("取消")||departed||arrived?"無資料":freshness==="fresh"?"尚未公布":"無法確認"),displayDate=match.estimatedDate||match.date,displayTime=match.estimatedTime||match.time,timeChanged=match.estimatedTime&&match.estimatedTime!==match.time,statusMarkup=status?` · <em class="${status.includes("已飛")||status.includes("DEPARTED")?"aircraft-gate-status-flown":""}">${escapeHtml(status)}</em>`:"",timeMarkup=timeChanged?" · 預計":"",aircraftMarkup=cargo&&match.aircraftType?` · ${escapeHtml(match.aircraftType)}`:"";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(directionLabel(match.direction))}</b><span>${escapeHtml(displayDate)} ${escapeHtml(displayTime)}${timeMarkup}${aircraftMarkup}${statusMarkup}</span></div><div class="aircraft-gate-value"><span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(terminalCode(match.terminal))}</span><strong class="${position?"":"is-empty"}">${escapeHtml(position||emptyLabel)}</strong></div></div>`};
     const setGateStatus=(text,level="")=>{gateStatus.textContent=text;gateStatus.className=level;gateStatus.style.display="block"};
     gateInput.addEventListener("input",()=>{gateInput.value=gateInput.value.toUpperCase().replace(/[^A-Z0-9 -]/g,"").slice(0,12);gateStatus.style.display="none"});
     gateForm.addEventListener("submit",async e=>{
       e.preventDefault();
       const value=normalizeFlightNumber(gateInput.value);
-      if(!/^(?:[A-Z]{2,3}\s*-?\s*)?\d{1,4}[A-Z]?$/.test(value)){
-        setGateStatus("請輸入航班號碼，例如 CI100 或 100","error");gateResult.style.display="none";gateInput.focus();return;
+      if(!/^(?:[A-Z0-9]{2,3}\s*-?\s*)?\d{1,4}[A-Z]?$/.test(value)){
+        setGateStatus("請輸入航班號碼，例如 CI100、5X61 或 100","error");gateResult.style.display="none";gateInput.focus();return;
       }
-      setGateStatus("正在查詢桃園機場官方航班資料…");gateResult.style.display="none";
+      setGateStatus("正在查詢桃園機場航班與貨機坪資料…");gateResult.style.display="none";
       try{
-        const response=await fetch(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,{cache:"no-store"});
-        const data=await response.json();
-        if(!response.ok||!data.ok){
+        const [gateResultData,cargoResultData]=await Promise.all([fetch(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,{cache:"no-store"}).then(async response=>({response,data:await response.json()})).catch(()=>({response:null,data:null})),fetch(`${CARGO_STAND_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,{cache:"no-store"}).then(async response=>({response,data:await response.json()})).catch(()=>({response:null,data:null}))]);
+        const response=gateResultData.response,data=gateResultData.data||{},cargoResponse=cargoResultData.response,cargoData=cargoResultData.data||{};
+        const matches=response?.ok&&data.ok?(data.matches||[]).filter(match=>match.date===todayTaipei()):[];
+        const cargoMatches=cargoResponse?.ok&&cargoData.ok?(cargoData.matches||[]).filter(match=>match.date===todayTaipei()):[];
+        if(!matches.length&&!cargoMatches.length&&!response?.ok){
           if(data.errorCode==="LIVE_FLIGHT_DATA_UNAVAILABLE")throw new Error("桃園機場官方即時資料暫時無法取得，未使用過期快照，請稍後重試。");
           throw new Error(data.error||"查詢失敗");
         }
-        const matches=(data.matches||[]).filter(match=>match.date===todayTaipei());
         const freshness=data.freshness||"fresh",ageSeconds=Number(data.dataAgeSeconds),age=Number.isFinite(ageSeconds)?ageText(ageSeconds*1000):"未知時間";
         const freshnessMessage=freshness==="stale"?` ⚠ 資料已過期（${age}前）`:(freshness==="delayed"?` ⚠ 資料更新延遲（${age}前）`:"");
         const freshnessLevel=freshness==="fresh"?"":"warning";
-        if(!matches.length){setGateStatus(`找不到今日的官方航班資料。${freshnessMessage}`,freshnessLevel||"error");return}
+        if(!matches.length&&!cargoMatches.length){setGateStatus(`找不到今日的官方航班或貨機坪資料。${freshnessMessage}`,freshnessLevel||"error");return}
         if(freshnessMessage)setGateStatus(freshnessMessage.trim(),freshnessLevel);else{gateStatus.textContent="";gateStatus.className="";gateStatus.style.display="none";}
-        const routes=[...new Set(matches.map(match=>match.route).filter(Boolean))].join(" · ")||"--/--";
-        const fetchedAt=parseUtc(data.fetchedAt),fetchedClock=fetchedAt?clock(fetchedAt):"--:--:--";
-        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(data.query)} 登機門</strong><span class="aircraft-gate-route-inline">${escapeHtml(routes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${matches.map(match=>{const departed=flightHasDeparted(match),arrived=flightHasArrived(match),rawStatus=String(match.status||""),status=rawStatus||(departed?"已飛":""),gate=match.gate||(rawStatus.includes("取消")||departed||arrived?"無資料":freshness==="fresh"?"尚未公布":"無法確認"),displayDate=match.estimatedDate||match.date,displayTime=match.estimatedTime||match.time,timeChanged=match.estimatedTime&&match.estimatedTime!==match.time,statusMarkup=status?` · <em class="${status.includes("已飛")?"aircraft-gate-status-flown":""}">${escapeHtml(status)}</em>`:"",timeMarkup=timeChanged?" · 預計":"";return `<div class="aircraft-gate-row"><div><b>${escapeHtml(directionLabel(match.direction))}</b><span>${escapeHtml(displayDate)} ${escapeHtml(displayTime)}${timeMarkup}${statusMarkup}</span></div><div class="aircraft-gate-value"><span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(terminalCode(match.terminal))}</span><strong class="${match.gate?"":"is-empty"}">${escapeHtml(gate)}</strong></div></div>`}).join("")}`;
+        const allRoutes=[...new Set([...matches,...cargoMatches].map(match=>match.route).filter(Boolean))].join(" · ")||"--/--";
+        const fetchedAt=parseUtc(data.fetchedAt||cargoData.fetchedAt),fetchedClock=fetchedAt?clock(fetchedAt):"--:--:--",queryLabel=data.query||cargoData.query||value,headerLabel=matches.length&&cargoMatches.length?"登機門／貨機坪":matches.length?"登機門":"貨機坪";
+        const passengerRows=matches.map(match=>renderFlightRow(match,false,freshness)).join("");
+        const cargoRows=cargoMatches.length?`<div class="aircraft-cargo-block"><div class="aircraft-cargo-title"><span>貨機坪停機位</span><small>TPE GOSS · 501–525</small></div>${cargoMatches.map(match=>renderFlightRow(match,true,"fresh")).join("")}</div>`:"";
+        gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(queryLabel)} ${headerLabel}</strong><span class="aircraft-gate-route-inline">${escapeHtml(allRoutes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${passengerRows}${cargoRows}`;
         gateResult.style.display="block";
       }catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error");gateResult.style.display="none"}
     });
