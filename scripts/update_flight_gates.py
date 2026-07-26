@@ -4,7 +4,7 @@
 import csv
 import json
 import subprocess
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -104,20 +104,24 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
 
 def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
     """Keep confirmed same-day values when TDX blanks or removes a flight row."""
-    def identity(row: dict[str, str]) -> tuple[str, str, str, str]:
-        return (row["flight"], row["date"], row["direction"], row["airportCode"])
-
-    previous_by_identity = {identity(row): row for row in previous_rows}
+    previous_by_schedule = defaultdict(list)
+    previous_by_route = defaultdict(list)
+    for index, row in enumerate(previous_rows):
+        previous_by_schedule[schedule_identity(row)].append((index, row))
+        previous_by_route[route_identity(row)].append((index, row))
     merged = []
-    current_identities = set()
+    matched_previous = set()
     continuity_rows = 0
     preserve_fields = ("gate", "estimatedDate", "estimatedTime", "status")
 
     for row in rows:
-        key = identity(row)
-        current_identities.add(key)
-        previous = previous_by_identity.get(key)
-        if previous:
+        candidates = [item for item in previous_by_schedule[schedule_identity(row)] if item[0] not in matched_previous]
+        if not candidates:
+            route_candidates = [item for item in previous_by_route[route_identity(row)] if item[0] not in matched_previous]
+            candidates = route_candidates if len(route_candidates) == 1 else []
+        if candidates:
+            previous_index, previous = candidates[0]
+            matched_previous.add(previous_index)
             merged_row = dict(row)
             for field in preserve_fields:
                 if not merged_row.get(field) and previous.get(field):
@@ -126,16 +130,20 @@ def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, s
         else:
             merged.append(row)
 
-    for previous in previous_rows:
-        if identity(previous) not in current_identities:
+    for index, previous in enumerate(previous_rows):
+        if index not in matched_previous:
             merged.append(previous)
             continuity_rows += 1
 
     return merged, continuity_rows
 
 
-def row_identity(row: dict[str, str]) -> tuple[str, str, str, str]:
+def route_identity(row: dict[str, str]) -> tuple[str, str, str, str]:
     return (row["flight"], row["date"], row["direction"], row["airportCode"])
+
+
+def schedule_identity(row: dict[str, str]) -> tuple[str, str, str, str, str]:
+    return (*route_identity(row), row["time"])
 
 
 def is_cancelled(row: dict[str, str]) -> bool:
@@ -239,10 +247,10 @@ def main() -> None:
         ]
         deduplicated_base = {}
         for row in continuity_base_rows:
-            deduplicated_base[row_identity(row)] = row
+            deduplicated_base[schedule_identity(row)] = row
         continuity_base_rows = list(deduplicated_base.values())
 
-    duplicate_keys = [key for key, count in Counter(row_identity(row) for row in output_rows).items() if count > 1]
+    duplicate_keys = [key for key, count in Counter(schedule_identity(row) for row in output_rows).items() if count > 1]
     if duplicate_keys:
         raise RuntimeError(f"Official flight snapshot contains duplicate route rows: {duplicate_keys[:3]}")
     missing_departure_gates = past_departures_without_gates(output_rows, now)

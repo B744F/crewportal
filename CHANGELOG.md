@@ -179,6 +179,13 @@
 - Displayed `無資料` instead of `尚未公布` for cancelled flights without an official gate.
 - Bumped frontend build to 20260726-004.
 
+## Continuous automation stability fix — 2026-07-26
+
+- Distinguished legitimate multiple scheduled services of the same flight number from duplicate route rows.
+- Preserved gate continuity only when the scheduled time is exact, or when a changed time has one unambiguous prior route.
+- Restored the recurring flight-gate workflow after its duplicate-row guard caused three consecutive scheduled failures.
+- Bumped frontend build to 20260726-005.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.
