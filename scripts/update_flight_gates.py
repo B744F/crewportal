@@ -103,7 +103,7 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
 
 
 def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
-    """Keep confirmed same-day values when TDX blanks or removes a flight row."""
+    """Keep confirmed values when TDX blanks or removes a flight row."""
     previous_by_schedule = defaultdict(list)
     previous_by_route = defaultdict(list)
     for index, row in enumerate(previous_rows):
@@ -136,6 +136,27 @@ def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, s
             continuity_rows += 1
 
     return merged, continuity_rows
+
+
+def route_filter_tdx_rows(rows: list[dict[str, str]], route_baseline: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Reject ambiguous TDX route expansion unless an official route baseline exists."""
+    baseline_routes: defaultdict[tuple[str, str], set[tuple[str, str, str, str]]] = defaultdict(set)
+    for row in route_baseline:
+        baseline_routes[(row["flight"], row["date"])].add(route_identity(row))
+    current_routes: defaultdict[tuple[str, str], set[tuple[str, str, str, str]]] = defaultdict(set)
+    for row in rows:
+        current_routes[(row["flight"], row["date"])].add(route_identity(row))
+
+    filtered = []
+    for row in rows:
+        key = (row["flight"], row["date"])
+        known = baseline_routes.get(key)
+        if known:
+            if route_identity(row) in known:
+                filtered.append(row)
+        elif len(current_routes[key]) == 1:
+            filtered.append(row)
+    return filtered
 
 
 def route_identity(row: dict[str, str]) -> tuple[str, str, str, str]:
@@ -252,17 +273,24 @@ def main() -> None:
 
     continuity_rows = 0
     deduplicated_rows = 0
+    previous_source = str(previous.get("source") or "")
+    previous_route_base_rows = previous.get("officialRouteBaseRows") or (
+        previous.get("rows") or []
+        if not previous_source.startswith("TDX official")
+        else []
+    )
     continuity_base_rows = previous.get("continuityBaseRows") or previous.get("rows") or []
     if fetch_route == "tdx-official" and previous.get("rows"):
         previous_rows = [
-            row for row in continuity_base_rows
+            row for row in previous_route_base_rows
             if today.isoformat() <= row.get("date", "") <= last_date.isoformat()
         ]
+        output_rows = route_filter_tdx_rows(output_rows, previous_rows)
         output_rows, continuity_rows = continuity_merge(output_rows, previous_rows)
         today_rows = [row for row in output_rows if row["date"] == today.isoformat()]
         today_gate_rows = [row for row in today_rows if row["gate"]]
         continuity_base_rows = [
-            *continuity_base_rows,
+            *previous_route_base_rows,
             *[
                 row for row in output_rows
                 if row.get("gate") or row.get("status")
@@ -297,6 +325,7 @@ def main() -> None:
         else datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     )
     is_tdx = fetch_route == "tdx-official"
+    official_route_base_rows = previous_route_base_rows if is_tdx and previous_route_base_rows else output_rows
     payload = {
         "source": (
             "TDX official Airport FIDS with previous ADIP continuity rows"
@@ -319,6 +348,7 @@ def main() -> None:
             "departedRowsWithoutGate": len(missing_departure_gates),
         },
         "continuityBaseRows": continuity_base_rows if is_tdx and continuity_base_rows else output_rows,
+        "officialRouteBaseRows": official_route_base_rows,
         "rows": output_rows,
     }
     OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")

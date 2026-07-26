@@ -1,7 +1,7 @@
 {
   "version": "8.1.3",
-  "build": "20260726-020",
+  "build": "20260726-021",
   "date": "2026-07-26",
-  "workerVersion": "2.8.11",
+  "workerVersion": "2.8.12",
   "label": "Structured official Taoyuan Metro timetable"
 }

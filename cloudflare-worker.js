@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.11 (Crew Portal v8.1.3)
+ * Version 2.8.12 (Crew Portal v8.1.3)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.1.3';
-const WORKER_VERSION = '2.8.11';
+const WORKER_VERSION = '2.8.12';
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
@@ -90,6 +90,56 @@ function normalizeWorkerTdxRows(rows) {
   })).filter(row => row.flight && row.date && row.time);
 }
 
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = '', quoted = false;
+  const source = String(text || '').replace(/^\uFEFF/, '');
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '"') {
+      if (quoted && source[index + 1] === '"') { field += '"'; index += 1; }
+      else quoted = !quoted;
+    } else if (char === ',' && !quoted) {
+      row.push(field); field = '';
+    } else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && source[index + 1] === '\n') index += 1;
+      row.push(field); field = '';
+      if (row.some(value => String(value).trim())) rows.push(row);
+      row = [];
+    } else field += char;
+  }
+  if (field || row.length) { row.push(field); if (row.some(value => String(value).trim())) rows.push(row); }
+  if (rows.length < 2) return [];
+  const headers = rows.shift().map(value => String(value).trim());
+  return rows.map(values => Object.fromEntries(headers.map((header, index) => [header, String(values[index] ?? '').trim()])))
+    .filter(row => Object.values(row).some(Boolean));
+}
+
+function normalizeOfficialCsvRows(rows) {
+  return rows.map(row => {
+    const airline = String(row['航空公司代碼'] || '').trim().toUpperCase();
+    const number = String(row['班次'] || '').trim().replace(/^0+(?=\d)/, '');
+    const date = String(row['表訂日期'] || '').trim().slice(0, 10);
+    const time = String(row['表訂時間'] || '').trim().slice(0, 5);
+    return {
+      flight: `${airline}${number}`,
+      airline,
+      airlineName: String(row['航空公司中文'] || '').trim(),
+      number,
+      terminal: String(row['航廈'] || '').trim(),
+      direction: String(row['方向'] || '').trim(),
+      date,
+      time,
+      estimatedDate: String(row['預計日期'] || '').trim().slice(0, 10),
+      estimatedTime: String(row['預計時間'] || '').trim().slice(0, 5),
+      gate: String(row['機門'] || '').trim(),
+      airportCode: String(row['往來地點'] || '').trim().toUpperCase(),
+      destination: String(row['往來地點中文'] || row['往來地點'] || '').trim(),
+      status: String(row['航班動態中文'] || row['備註'] || '').trim()
+    };
+  }).filter(row => row.airline && row.number && row.date && row.time);
+}
+
 function flightRowKey(row) {
   return [row.flight, row.direction, row.date, row.time, row.airportCode].map(value => String(value || '').trim().toUpperCase()).join('|');
 }
@@ -117,11 +167,60 @@ function mergeLiveFlightRows(liveRows, continuitySourceRows) {
   return merged;
 }
 
+function filterAmbiguousTdxRows(liveRows, routeBaselineRows) {
+  const baseline = new Map();
+  for (const row of Array.isArray(routeBaselineRows) ? routeBaselineRows : []) {
+    const key = `${row.flight}|${row.date}`;
+    if (!baseline.has(key)) baseline.set(key, new Set());
+    baseline.get(key).add(flightRowKey(row));
+  }
+  const grouped = new Map();
+  for (const row of liveRows) {
+    const key = `${row.flight}|${row.date}`;
+    if (!grouped.has(key)) grouped.set(key, new Set());
+    grouped.get(key).add(flightRowKey(row));
+  }
+  return liveRows.filter(row => {
+    const key = `${row.flight}|${row.date}`;
+    const knownRoutes = baseline.get(key);
+    if (knownRoutes?.size) return knownRoutes.has(flightRowKey(row));
+    return grouped.get(key)?.size === 1;
+  });
+}
+
+async function loadLiveAdipFlights(continuitySourceRows = []) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(TPE_OFFICIAL_FLIGHT_SOURCE, {
+        headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
+        cf: { cacheTtl: 30, cacheEverything: true }
+      });
+      if (!response.ok) throw new Error(`Taoyuan official ADIP source failed (${response.status})`);
+      const rows = normalizeOfficialCsvRows(parseCsv(await response.text()));
+      if (rows.length < 100 || !rows.some(row => row.gate)) throw new Error('Taoyuan official ADIP source returned insufficient flight data');
+      const mergedRows = mergeLiveFlightRows(rows, continuitySourceRows);
+      return {
+        version: WORKER_VERSION,
+        loadedAt: Date.now(),
+        fetchedAt: Date.now(),
+        source: 'Taoyuan Airport ADIP official real-time flight data',
+        continuityRows: mergedRows.length - rows.length,
+        rows: mergedRows
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 500));
+    }
+  }
+  throw lastError;
+}
+
 async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
   const response = await handleFlightGateTdxSource(tdxAirportFidsCacheKey(), env, ctx);
   const payload = await response.json();
   const fetchedAt = Date.parse(payload.fetchedAtUtc);
-  const liveRows = normalizeWorkerTdxRows(payload.rows || []);
+  const liveRows = filterAmbiguousTdxRows(normalizeWorkerTdxRows(payload.rows || []), continuitySourceRows);
   const rows = mergeLiveFlightRows(liveRows, continuitySourceRows);
   if (!response.ok || !Number.isFinite(fetchedAt) || liveRows.length < 10 || !liveRows.some(row => row.gate)) {
     throw new Error(payload.error || 'TDX Airport FIDS returned insufficient gate data');
@@ -169,21 +268,26 @@ async function loadAirportFlights(env, ctx) {
   const snapshotAgeSeconds = Math.max(0, Math.floor((Date.now() - airportFlightCache.fetchedAt) / 1000));
   if (snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
     try {
-      airportFlightCache = await loadLiveTdxFlights(env, ctx, airportFlightCache.rows);
+      airportFlightCache = await loadLiveAdipFlights(airportFlightCache.rows);
       return airportFlightCache;
-    } catch (error) {
-      const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
-      if (continuityRows.length) {
-        return {
-          version: WORKER_VERSION,
-          loadedAt: Date.now(),
-          fetchedAt: airportFlightCache.fetchedAt,
-          source: 'TDX official live data unavailable; same-day continuity snapshot',
-          continuityRows: continuityRows.length,
-          rows: continuityRows
-        };
+    } catch (adipError) {
+      try {
+        airportFlightCache = await loadLiveTdxFlights(env, ctx, airportFlightCache.rows);
+        return airportFlightCache;
+      } catch (tdxError) {
+        const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
+        if (continuityRows.length) {
+          return {
+            version: WORKER_VERSION,
+            loadedAt: Date.now(),
+            fetchedAt: airportFlightCache.fetchedAt,
+            source: 'Official live data unavailable; same-day continuity snapshot',
+            continuityRows: continuityRows.length,
+            rows: continuityRows
+          };
+        }
+        throw new Error(`Official live flight data unavailable: ADIP ${adipError?.message || adipError}; TDX ${tdxError?.message || tdxError}`);
       }
-      throw new Error(`Official live flight data unavailable: ${error?.message || error}`);
     }
   }
   return airportFlightCache;

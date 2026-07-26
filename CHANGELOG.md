@@ -217,6 +217,13 @@
 - Kept live TDX rows authoritative for current and future flights, including gates and estimated times.
 - Bumped frontend build to 20260726-020 and Worker version to 2.8.11.
 
+## Correct official flight route matching — 2026-07-26
+
+- Made the official Taoyuan Airport ADIP CSV the primary live source for gate lookup.
+- Rejected ambiguous TDX multi-route expansion when no official route baseline exists, preventing CI008 from displaying unrelated PVG, ANC, BKK, or PUS sectors.
+- Preserved CI833's official TPE/BKK continuity row while keeping CI008 as TPE/LAX with gate D2.
+- Bumped frontend build to 20260726-021 and Worker version to 2.8.12.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.
