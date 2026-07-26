@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.15 (Crew Portal v8.1.7)
+ * Version 2.8.17 (Crew Portal v8.1.9)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,9 +11,10 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.1.7';
-const WORKER_VERSION = '2.8.15';
+const PORTAL_VERSION = 'v8.1.9';
+const WORKER_VERSION = '2.8.17';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
+const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
@@ -63,6 +64,16 @@ function json(request, body, init = {}) {
   headers.set('Content-Type', 'application/json; charset=utf-8');
   for (const [key, value] of Object.entries(corsHeaders(request))) headers.set(key, value);
   return new Response(JSON.stringify(body), { ...init, headers });
+}
+
+async function fetchUpstream(resource, init = {}, timeoutMs = FLIGHT_UPSTREAM_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort('upstream timeout'), timeoutMs);
+  try {
+    return await fetch(resource, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function normalizeFlightQuery(value) {
@@ -230,7 +241,7 @@ async function loadLiveAdipFlights(continuitySourceRows = []) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const response = await fetch(TPE_OFFICIAL_FLIGHT_SOURCE, {
+      const response = await fetchUpstream(TPE_OFFICIAL_FLIGHT_SOURCE, {
         headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
         cf: { cacheTtl: 30, cacheEverything: true }
       });
@@ -273,7 +284,7 @@ async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
   };
 }
 
-async function loadAirportFlights(env, ctx) {
+async function loadAirportFlights(env, ctx, query = null) {
   if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) return airportFlightCache;
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
   sourceUrl.searchParams.set('v', `${WORKER_VERSION}-${Date.now()}`);
@@ -281,7 +292,7 @@ async function loadAirportFlights(env, ctx) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const response = await fetch(sourceUrl.toString(), {
+      const response = await fetchUpstream(sourceUrl.toString(), {
         headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
         cf: { cacheTtl: 0, cacheEverything: false }
       });
@@ -305,6 +316,17 @@ async function loadAirportFlights(env, ctx) {
   };
   const snapshotAgeSeconds = Math.max(0, Math.floor((Date.now() - airportFlightCache.fetchedAt) / 1000));
   if (snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
+    const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
+    const hasRequestedContinuity = query && continuityRows.some(row => row.airline === query.airline && row.number === query.number);
+    if (hasRequestedContinuity) {
+      return {
+        ...airportFlightCache,
+        loadedAt: Date.now(),
+        source: 'Official live data unavailable; same-day continuity snapshot',
+        continuityRows: continuityRows.length,
+        rows: continuityRows
+      };
+    }
     try {
       airportFlightCache = await loadLiveAdipFlights(airportFlightCache.rows);
       return airportFlightCache;
@@ -335,7 +357,7 @@ async function handleFlightGateSource(request) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const response = await fetch(TPE_OFFICIAL_FLIGHT_SOURCE, {
+      const response = await fetchUpstream(TPE_OFFICIAL_FLIGHT_SOURCE, {
         headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
         cf: { cacheTtl: 60, cacheEverything: true }
       });
@@ -364,7 +386,7 @@ async function handleCargoStand(request) {
   if (!query) return json(request, { ok: false, error: 'Invalid flight number. Use CI100, 5X61, or 100 (CI100).' }, { status: 400 });
 
   try {
-    const response = await fetch(TPE_GOSS_CARGO_SOURCE, {
+    const response = await fetchUpstream(TPE_GOSS_CARGO_SOURCE, {
       headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-CargoStand/1.0' },
       cf: { cacheTtl: 30, cacheEverything: true }
     });
@@ -479,7 +501,7 @@ async function fetchTdxAirportFids(token, direction) {
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      const response = await fetch(`${TDX_AIRPORT_FIDS_ROOT}/${direction === 'D' ? 'Departure' : 'Arrival'}/TPE?$format=JSON`, {
+      const response = await fetchUpstream(`${TDX_AIRPORT_FIDS_ROOT}/${direction === 'D' ? 'Departure' : 'Arrival'}/TPE?$format=JSON`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
         cf: { cacheTtl: 30, cacheEverything: true }
       });
@@ -883,7 +905,7 @@ function trainDirection(row) {
 async function getTdxToken(env) {
   if (!env.TDX_CLIENT_ID || !env.TDX_CLIENT_SECRET) return null;
   if (tokenCache.token && Date.now() < tokenCache.expiresAt - 60_000) return tokenCache.token;
-  const response = await fetch(TDX_TOKEN_URL, {
+  const response = await fetchUpstream(TDX_TOKEN_URL, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'client_credentials', client_id: env.TDX_CLIENT_ID, client_secret: env.TDX_CLIENT_SECRET })
   });
@@ -982,7 +1004,7 @@ async function handleFlightGate(request, env, ctx) {
 
   try {
     const now = taipeiNow();
-    const source = await loadAirportFlights(env, ctx);
+    const source = await loadAirportFlights(env, ctx, query);
     const freshness = flightFreshness(source.fetchedAt);
     const matches = source.rows
       .filter(row => row.date === now.date)

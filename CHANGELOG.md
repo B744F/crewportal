@@ -258,6 +258,17 @@
 
 - Evaluated numeric-only input before airline-prefix parsing so `160` cannot be misread as airline `16` plus flight `0`.
 - Bumped portal version to v8.1.7, frontend build to 20260726-026, and Worker version to 2.8.15.
+
+## Numeric CI normalization and upstream timeout guard — 2026-07-26
+
+- Bumped portal version to v8.1.8, frontend build to 20260726-027, and Worker version to 2.8.16.
+- Added bounded timeouts to official flight, TDX fallback, and cargo upstream requests so a stalled source cannot leave lookup indefinitely in a loading state.
+- Preserved the rule that stale official snapshots are not silently presented as current live data.
+
+## Numeric CI query responsiveness — 2026-07-26
+
+- Bumped portal version to v8.1.9, frontend build to 20260726-028, and Worker version to 2.8.17.
+- Return a requested same-day completed flight from the official continuity snapshot immediately when live upstream data is delayed, with the stale-data warning preserved.
 ## v8.1.0 — 2026-07-26
 
 - Added three selectable premium Hero typography treatments via `?heroStyle=1`, `?heroStyle=2`, and `?heroStyle=3`.

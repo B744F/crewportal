@@ -1,7 +1,7 @@
 {
-  "version": "8.1.7",
-  "build": "20260726-026",
+  "version": "8.1.9",
+  "build": "20260726-028",
   "date": "2026-07-26",
-  "workerVersion": "2.8.15",
-  "label": "Cargo stand integration for RCTP gate lookup"
+  "workerVersion": "2.8.17",
+  "label": "Numeric CI normalization and completed-flight continuity"
 }
