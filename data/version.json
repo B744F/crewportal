@@ -1,7 +1,7 @@
 {
-  "version": "8.2.3",
-  "build": "20260727-0732",
+  "version": "8.2.4",
+  "build": "20260727-0747",
   "date": "2026-07-27",
-  "workerVersion": "2.8.21",
-  "label": "Preserve pending same-day flights during live-source fallback"
+  "workerVersion": "2.8.22",
+  "label": "Use 未定 for unpublished gate or stand"
 }
