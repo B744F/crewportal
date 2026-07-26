@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.6 (Crew Portal v8.1.3)
+ * Version 2.8.7 (Crew Portal v8.1.3)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,7 +12,7 @@
  */
 
 const PORTAL_VERSION = 'v8.1.3';
-const WORKER_VERSION = '2.8.6';
+const WORKER_VERSION = '2.8.7';
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
@@ -36,7 +36,9 @@ const tdxTimetableCache = new Map();
 let airportFlightCache = { version: '', loadedAt: 0, fetchedAt: 0, source: '', continuityRows: 0, rows: null };
 let tdxAirportFidsCache = { loadedAt: 0, rows: null };
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
-const TDX_AIRPORT_FIDS_CACHE_KEY = new Request(`${TDX_EDGE_CACHE_ORIGIN}/airport-fids/TPE`, { method: 'GET' });
+function tdxAirportFidsCacheKey() {
+  return new Request(`${TDX_EDGE_CACHE_ORIGIN}/airport-fids/TPE/${Math.floor(Date.now() / 60_000)}`, { method: 'GET' });
+}
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
@@ -87,7 +89,7 @@ function normalizeWorkerTdxRows(rows) {
 }
 
 async function loadLiveTdxFlights(env) {
-  const response = await handleFlightGateTdxSource(TDX_AIRPORT_FIDS_CACHE_KEY, env);
+  const response = await handleFlightGateTdxSource(tdxAirportFidsCacheKey(), env);
   const payload = await response.json();
   const fetchedAt = Date.parse(payload.fetchedAtUtc);
   const rows = normalizeWorkerTdxRows(payload.rows || []);
@@ -232,7 +234,8 @@ async function fetchTdxAirportFids(token, direction) {
 
 async function handleFlightGateTdxSource(request, env, ctx) {
   try {
-    const edgeCached = await caches.default.match(TDX_AIRPORT_FIDS_CACHE_KEY);
+    const cacheKey = tdxAirportFidsCacheKey();
+    const edgeCached = await caches.default.match(cacheKey);
     if (edgeCached) return edgeCached;
     if (tdxAirportFidsCache.rows && Date.now() - tdxAirportFidsCache.loadedAt < 60_000) {
       const response = json(request, {
@@ -241,7 +244,7 @@ async function handleFlightGateTdxSource(request, env, ctx) {
         fetchedAtUtc: new Date(tdxAirportFidsCache.loadedAt).toISOString(),
         rows: tdxAirportFidsCache.rows
       }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
-      ctx?.waitUntil(caches.default.put(TDX_AIRPORT_FIDS_CACHE_KEY, response.clone()));
+      ctx?.waitUntil(caches.default.put(cacheKey, response.clone()));
       return response;
     }
     const token = await getTdxToken(env);
@@ -259,7 +262,7 @@ async function handleFlightGateTdxSource(request, env, ctx) {
       fetchedAtUtc: new Date().toISOString(),
       rows
     }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
-    ctx?.waitUntil(caches.default.put(TDX_AIRPORT_FIDS_CACHE_KEY, response.clone()));
+    ctx?.waitUntil(caches.default.put(cacheKey, response.clone()));
     return response;
   } catch (error) {
     return json(request, {
