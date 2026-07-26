@@ -203,3 +203,8 @@
 - Removed the successful gate-query status line from the result panel.
 - Kept the flight result rows and retained error messages for failed lookups.
 - Bumped frontend build to 20260725-006.
+## v8.1.0 — 2026-07-26
+
+- Added three selectable premium Hero typography treatments via `?heroStyle=1`, `?heroStyle=2`, and `?heroStyle=3`.
+- Preserved the existing wording, background artwork, responsive layout, and operational panels.
+- Bumped frontend build to 20260726-009.

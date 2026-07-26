@@ -371,3 +371,133 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
   .mrt-time{font-size:18px}
   .mrt-foot{padding:6px 10px 8px}
 }
+
+/* v8.1.0 - Premium Hero typography previews
+   Switch with ?heroStyle=1, ?heroStyle=2, or ?heroStyle=3. */
+.hero-copy h1,
+.hero-copy .gold-line,
+.hero-copy .hero-sub{
+  position:relative;
+  isolation:isolate;
+}
+.hero-copy h1::after,
+.hero-copy .gold-line::after,
+.hero-copy .hero-sub::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  opacity:0;
+}
+
+/* 1 — Aviation metal: polished white/silver lettering with a restrained gold edge. */
+[data-hero-style="1"] .hero-copy h1{
+  color:transparent;
+  background:linear-gradient(180deg,#ffffff 0%,#f7fbff 38%,#c8d5e2 72%,#ffffff 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  text-shadow:0 2px 0 rgba(255,255,255,.26),0 8px 18px rgba(0,0,0,.46),0 18px 34px rgba(0,0,0,.24);
+  letter-spacing:-.055em;
+}
+[data-hero-style="1"] .hero-copy h1::after{
+  background:none;
+}
+[data-hero-style="1"] .hero-copy .gold-line{
+  color:#ffe19a;
+  text-shadow:0 1px 0 rgba(255,255,255,.22),0 4px 12px rgba(0,0,0,.46),0 0 22px rgba(240,193,91,.18);
+  letter-spacing:.015em;
+}
+[data-hero-style="1"] .hero-copy .gold-line::before{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:-11px;
+  width:clamp(180px,28vw,330px);
+  height:2px;
+  background:linear-gradient(90deg,#ffe9a8,rgba(255,224,143,.34),transparent);
+  box-shadow:0 0 12px rgba(255,219,115,.34);
+}
+[data-hero-style="1"] .hero-copy .hero-sub{
+  color:#f7fbff;
+  font-weight:560;
+  letter-spacing:.008em;
+  text-shadow:0 3px 12px rgba(0,0,0,.58);
+}
+
+/* 2 — Ice glass: luminous, lighter-weight and quietly futuristic. */
+[data-hero-style="2"] .hero-copy h1{
+  color:transparent;
+  background:linear-gradient(105deg,#ffffff 0%,#dff4ff 42%,#a5d8f6 68%,#ffffff 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  font-weight:760;
+  letter-spacing:-.04em;
+  text-shadow:0 0 1px rgba(255,255,255,.9),0 0 18px rgba(136,215,255,.38),0 14px 28px rgba(0,0,0,.40);
+}
+[data-hero-style="2"] .hero-copy h1::after{
+  background:none;
+}
+[data-hero-style="2"] .hero-copy .gold-line{
+  color:#bfeaff;
+  font-weight:720;
+  letter-spacing:.045em;
+  text-shadow:0 0 10px rgba(133,214,255,.48),0 3px 12px rgba(0,0,0,.42);
+}
+[data-hero-style="2"] .hero-copy .gold-line::before{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:-12px;
+  width:clamp(150px,24vw,280px);
+  height:1px;
+  background:linear-gradient(90deg,#aee6ff,rgba(174,230,255,.20),transparent);
+  box-shadow:0 0 14px rgba(124,211,255,.65);
+}
+[data-hero-style="2"] .hero-copy .hero-sub{
+  color:#e1f5ff;
+  font-weight:480;
+  letter-spacing:.035em;
+  text-shadow:0 0 10px rgba(129,203,244,.20),0 3px 12px rgba(0,0,0,.5);
+}
+
+/* 3 — Command gold: confident, editorial and more dimensional. */
+[data-hero-style="3"] .hero-copy h1{
+  color:#fffdf5;
+  font-weight:900;
+  letter-spacing:-.05em;
+  text-shadow:0 1px 0 #fff8d6,0 3px 0 rgba(184,144,61,.85),0 7px 0 rgba(79,52,17,.62),0 15px 28px rgba(0,0,0,.58);
+}
+[data-hero-style="3"] .hero-copy h1::after{
+  background:none;
+}
+[data-hero-style="3"] .hero-copy .gold-line{
+  color:#f5cb6c;
+  font-weight:860;
+  letter-spacing:.025em;
+  text-shadow:0 1px 0 #fff1b0,0 3px 0 rgba(117,75,20,.70),0 8px 16px rgba(0,0,0,.54);
+}
+[data-hero-style="3"] .hero-copy .gold-line::before{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:-13px;
+  width:clamp(190px,30vw,360px);
+  height:3px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#ffe6a0,#c7963e 56%,transparent);
+  box-shadow:0 2px 0 rgba(56,36,11,.7),0 0 16px rgba(242,189,73,.38);
+}
+[data-hero-style="3"] .hero-copy .hero-sub{
+  color:#fffaf0;
+  font-weight:580;
+  letter-spacing:.012em;
+  text-shadow:0 2px 0 rgba(0,0,0,.48),0 7px 15px rgba(0,0,0,.48);
+}
+
+@media(max-width:720px){
+  [data-hero-style="1"] .hero-copy .gold-line::before,
+  [data-hero-style="2"] .hero-copy .gold-line::before,
+  [data-hero-style="3"] .hero-copy .gold-line::before{bottom:-8px}
+  [data-hero-style="3"] .hero-copy h1{text-shadow:0 1px 0 #fff8d6,0 2px 0 rgba(184,144,61,.8),0 5px 0 rgba(79,52,17,.58),0 10px 18px rgba(0,0,0,.56)}
+}
