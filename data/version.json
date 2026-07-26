@@ -1,7 +1,7 @@
 {
-  "version": "8.2.1",
-  "build": "20260727-002",
+  "version": "8.2.2",
+  "build": "20260727-0717",
   "date": "2026-07-27",
-  "workerVersion": "2.8.19",
-  "label": "Simplified cargo and foreign-crew input guidance"
+  "workerVersion": "2.8.20",
+  "label": "Compact English flight input hint"
 }

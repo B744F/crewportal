@@ -259,6 +259,11 @@
 - Evaluated numeric-only input before airline-prefix parsing so `160` cannot be misread as airline `16` plus flight `0`.
 - Bumped portal version to v8.1.7, frontend build to 20260726-026, and Worker version to 2.8.15.
 
+## Compact English flight input hint — 2026-07-27
+
+- Bumped portal version to v8.2.2, frontend build to 20260727-0717, and Worker version to 2.8.20.
+- Shortened the RCTP GATE INFO input hint to `CI100 / 4 digits` so it remains visible beside the GATE button.
+
 ## Simplified cargo and foreign-crew input guidance — 2026-07-27
 
 - Bumped portal version to v8.2.1, frontend build to 20260727-002, and Worker version to 2.8.19.
