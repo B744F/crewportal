@@ -102,20 +102,34 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
 
 
 def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
-    """Use TDX only to refresh the fixed last-known ADIP route set."""
-    tdx_exact = {
-        (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"]): row
-        for row in rows
-    }
+    """Keep confirmed same-day values when TDX blanks or removes a flight row."""
+    def identity(row: dict[str, str]) -> tuple[str, str, str, str]:
+        return (row["flight"], row["date"], row["direction"], row["airportCode"])
+
+    previous_by_identity = {identity(row): row for row in previous_rows}
     merged = []
+    current_identities = set()
     continuity_rows = 0
-    for row in previous_rows:
-        exact = (row["flight"], row["date"], row["time"], row["direction"], row["airportCode"])
-        if exact in tdx_exact:
-            merged.append(tdx_exact[exact])
+    preserve_fields = ("gate", "estimatedDate", "estimatedTime", "status")
+
+    for row in rows:
+        key = identity(row)
+        current_identities.add(key)
+        previous = previous_by_identity.get(key)
+        if previous:
+            merged_row = dict(row)
+            for field in preserve_fields:
+                if not merged_row.get(field) and previous.get(field):
+                    merged_row[field] = previous[field]
+            merged.append(merged_row)
         else:
             merged.append(row)
+
+    for previous in previous_rows:
+        if identity(previous) not in current_identities:
+            merged.append(previous)
             continuity_rows += 1
+
     return merged, continuity_rows
 
 
@@ -175,6 +189,8 @@ def main() -> None:
         raise RuntimeError("Official ADIP snapshot contains no flights for today")
     if not today_gate_rows:
         raise RuntimeError("Official ADIP snapshot contains no gate assignments for today; refusing to publish")
+    if fetch_route == "tdx-official" and not any(row["date"] == last_date.isoformat() for row in output_rows):
+        raise RuntimeError("TDX Airport FIDS is missing next-day rows; refusing to publish a stale snapshot")
 
     continuity_rows = 0
     continuity_base_rows = previous.get("continuityBaseRows") or previous.get("rows") or []
@@ -186,6 +202,17 @@ def main() -> None:
         output_rows, continuity_rows = continuity_merge(output_rows, previous_rows)
         today_rows = [row for row in output_rows if row["date"] == today.isoformat()]
         today_gate_rows = [row for row in today_rows if row["gate"]]
+        continuity_base_rows = [
+            *continuity_base_rows,
+            *[
+                row for row in output_rows
+                if row.get("gate") or row.get("status")
+            ],
+        ]
+        deduplicated_base = {}
+        for row in continuity_base_rows:
+            deduplicated_base[(row["flight"], row["date"], row["direction"], row["airportCode"])] = row
+        continuity_base_rows = list(deduplicated_base.values())
 
     output_rows.sort(key=lambda row: (row["date"], row["time"], row["flight"]))
     fetched_at = (

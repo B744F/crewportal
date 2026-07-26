@@ -155,6 +155,19 @@
 - Normalized terminal labels to `T1`, `T2`, and `T3`.
 - Added English labels after arrival/departure directions.
 - Bumped frontend build to 20260725-005.
+## Gate data continuity and departure-time fix — 2026-07-26
+
+- Preserved confirmed same-day gates when TDX temporarily returns an empty gate or removes a departed flight.
+- Merged same-flight rows by route identity so schedule-time changes do not create stale duplicates.
+- Displayed official estimated departure/arrival times and marked changed times as `預計`.
+- Replaced misleading `尚未公布` for departed flights without an official gate with honest `無資料`.
+
+## Gate source freshness guard — 2026-07-26
+
+- Refused to publish TDX snapshots that do not contain next-day rows, preventing stale-date data from replacing the last validated snapshot.
+- Kept stale-data warnings visible after a successful lookup and changed blank gates on stale data to `無法確認`.
+- Bumped frontend build to 20260726-002.
+
 ## Gate success-status cleanup — 2026-07-25
 
 - Removed the successful gate-query status line from the result panel.
