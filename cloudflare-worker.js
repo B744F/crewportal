@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.13 (Crew Portal v8.1.4)
+ * Version 2.8.13 (Crew Portal v8.1.5)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,7 +11,7 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.1.4';
+const PORTAL_VERSION = 'v8.1.5';
 const WORKER_VERSION = '2.8.13';
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;

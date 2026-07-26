@@ -1,6 +1,6 @@
 {
-  "version": "8.1.4",
-  "build": "20260726-023",
+  "version": "8.1.5",
+  "build": "20260726-024",
   "date": "2026-07-26",
   "workerVersion": "2.8.13",
   "label": "Cargo stand integration for RCTP gate lookup"
