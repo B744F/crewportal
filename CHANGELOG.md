@@ -259,6 +259,12 @@
 - Evaluated numeric-only input before airline-prefix parsing so `160` cannot be misread as airline `16` plus flight `0`.
 - Bumped portal version to v8.1.7, frontend build to 20260726-026, and Worker version to 2.8.15.
 
+## Simplified cargo and foreign-crew input guidance — 2026-07-27
+
+- Bumped portal version to v8.2.1, frontend build to 20260727-002, and Worker version to 2.8.19.
+- Removed the cargo-stand title row and passenger-flight data-freshness warning from the visible RCTP GATE INFO result.
+- Changed the flight input hint to English: `CI100 or 4 digits = CI flight`.
+
 ## Cargo lookup display and responsive CI normalization — 2026-07-27
 
 - Bumped portal version to v8.2.0, frontend build to 20260727-001, and Worker version to 2.8.18.

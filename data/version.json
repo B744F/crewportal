@@ -1,7 +1,7 @@
 {
-  "version": "8.2.0",
-  "build": "20260727-001",
-  "date": "2026-07-26",
-  "workerVersion": "2.8.18",
-  "label": "Cargo lookup display and responsive CI normalization"
+  "version": "8.2.1",
+  "build": "20260727-002",
+  "date": "2026-07-27",
+  "workerVersion": "2.8.19",
+  "label": "Simplified cargo and foreign-crew input guidance"
 }
