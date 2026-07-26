@@ -1,7 +1,7 @@
 {
-  "version": "8.2.4",
-  "build": "20260727-0747",
+  "version": "8.2.5",
+  "build": "20260727-0755",
   "date": "2026-07-27",
-  "workerVersion": "2.8.22",
-  "label": "Use 未定 for unpublished gate or stand"
+  "workerVersion": "2.8.23",
+  "label": "Use 未定 for all unpublished gate or stand states"
 }

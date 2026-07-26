@@ -260,8 +260,8 @@
 - Bumped portal version to v8.1.7, frontend build to 20260726-026, and Worker version to 2.8.15.
 
 # Use 未定 for unpublished gate or stand — 2026-07-27
-- Bumped portal version to v8.2.4, frontend build to 20260727-0747, and Worker version to 2.8.22.
-- Replaced the fresh-data empty gate/stand label `尚未公布` with `未定`.
+- Bumped portal version to v8.2.5, frontend build to 20260727-0755, and Worker version to 2.8.23.
+- Replaced all pending empty gate/stand labels, including delayed-data states, with `未定`; departed or cancelled flights remain `無資料`.
 
 # Preserve pending same-day flights during live-source fallback — 2026-07-27
 - Bumped portal version to v8.2.3, frontend build to 20260727-0732, and Worker version to 2.8.21.
