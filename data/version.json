@@ -1,7 +1,7 @@
 {
-  "version": "8.2.12",
-  "build": "20260727-1704",
+  "version": "8.2.13",
+  "build": "20260727-1711",
   "date": "2026-07-27",
   "workerVersion": "2.8.28",
-  "label": "Use English departed status and flown cargo badge"
+  "label": "Hide terminal and replace gate or stand with flown badge"
 }
