@@ -284,6 +284,10 @@
 - Normalized departed flight status to `DEPARTED` without the Chinese status text.
 - Replaced the cargo stand number with a red-background, white-text `DEPARTED` badge after departure.
 
+## Cache-busted departed badge hotfix — 2026-07-27
+- Bumped portal version to v8.2.12 and frontend build to 20260727-1704.
+- Advanced the asset cache-buster so browsers cannot retain the pre-hotfix `app-4.js` bundle.
+
 # Preserve pending same-day flights during live-source fallback — 2026-07-27
 - Bumped portal version to v8.2.3, frontend build to 20260727-0732, and Worker version to 2.8.21.
 - Preserved current same-day scheduled flights from the validated official snapshot when the live TDX source omits pending rows, while retaining live rows as the authoritative values when present.
