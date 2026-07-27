@@ -1,3 +1,9 @@
+## v8.2.15 — 2026-07-27
+
+- Removed the embedded lower Hero title, subtitle, logo, and value icons to reduce visual interference.
+- Preserved the original Hero image as `images/hero-original.webp`.
+- Added Hero image cache-busting and updated the portal version/build identifiers.
+
 ## Operational reliability update — 2026-07-25
 
 - Added retry and timeout handling to the official Taoyuan flight-gate snapshot workflow.

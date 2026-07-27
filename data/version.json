@@ -1,7 +1,7 @@
 {
-  "version": "8.2.14",
-  "build": "20260727-1736",
+  "version": "8.2.15",
+  "build": "20260727-1750",
   "date": "2026-07-27",
   "workerVersion": "2.8.28",
-  "label": "Right-align flown badge"
+  "label": "Clean Hero image typography"
 }
