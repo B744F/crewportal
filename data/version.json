@@ -1,7 +1,7 @@
 {
-  "version": "8.2.5",
-  "build": "20260727-0755",
+  "version": "8.2.8",
+  "build": "20260727-1411",
   "date": "2026-07-27",
-  "workerVersion": "2.8.23",
-  "label": "Use 未定 for all unpublished gate or stand states"
+  "workerVersion": "2.8.26",
+  "label": "Retry official ADIP and merge official gate sources"
 }

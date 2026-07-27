@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.23 (Crew Portal v8.2.5)
+ * Version 2.8.26 (Crew Portal v8.2.8)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.5';
-const WORKER_VERSION = '2.8.23';
+const PORTAL_VERSION = 'v8.2.8';
+const WORKER_VERSION = '2.8.26';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -232,6 +232,28 @@ function mergeLiveFlightRows(liveRows, continuitySourceRows) {
   return merged;
 }
 
+function mergeOfficialFlightRows(sources) {
+  const merged = [];
+  const byKey = new Map();
+  for (const source of sources) {
+    for (const row of Array.isArray(source.rows) ? source.rows : []) {
+      const key = flightRowKey(row);
+      const existing = byKey.get(key);
+      if (!existing) {
+        const copy = { ...row };
+        merged.push(copy);
+        byKey.set(key, copy);
+        continue;
+      }
+      // Keep the ADIP row as the base, but fill blanks from TDX.
+      for (const field of ['gate', 'estimatedDate', 'estimatedTime', 'status', 'terminal', 'airlineName', 'destination']) {
+        if (!existing[field] && row[field]) existing[field] = row[field];
+      }
+    }
+  }
+  return merged;
+}
+
 function filterAmbiguousTdxRows(liveRows, routeBaselineRows) {
   const baseline = new Map();
   for (const row of Array.isArray(routeBaselineRows) ? routeBaselineRows : []) {
@@ -259,19 +281,18 @@ async function loadLiveAdipFlights(continuitySourceRows = []) {
     try {
       const response = await fetchUpstream(TPE_OFFICIAL_FLIGHT_SOURCE, {
         headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
-        cf: { cacheTtl: 30, cacheEverything: true }
+        cf: { cacheTtl: 0, cacheEverything: false }
       });
       if (!response.ok) throw new Error(`Taoyuan official ADIP source failed (${response.status})`);
       const rows = normalizeOfficialCsvRows(parseCsv(await response.text()));
       if (rows.length < 100 || !rows.some(row => row.gate)) throw new Error('Taoyuan official ADIP source returned insufficient flight data');
-      const mergedRows = mergeLiveFlightRows(rows, continuitySourceRows);
       return {
         version: WORKER_VERSION,
         loadedAt: Date.now(),
         fetchedAt: Date.now(),
         source: 'Taoyuan Airport ADIP official real-time flight data',
-        continuityRows: mergedRows.length - rows.length,
-        rows: mergedRows
+        continuityRows: 0,
+        rows
       };
     } catch (error) {
       lastError = error;
@@ -286,7 +307,6 @@ async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
   const payload = await response.json();
   const fetchedAt = Date.parse(payload.fetchedAtUtc);
   const liveRows = filterAmbiguousTdxRows(normalizeWorkerTdxRows(payload.rows || []), continuitySourceRows);
-  const rows = mergeLiveFlightRows(liveRows, continuitySourceRows);
   if (!response.ok || !Number.isFinite(fetchedAt) || liveRows.length < 10 || !liveRows.some(row => row.gate)) {
     throw new Error(payload.error || 'TDX Airport FIDS returned insufficient gate data');
   }
@@ -295,6 +315,30 @@ async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
     loadedAt: Date.now(),
     fetchedAt,
     source: 'TDX official Airport FIDS live fallback with same-day continuity',
+    continuityRows: 0,
+    rows: liveRows
+  };
+}
+
+async function loadCombinedLiveFlights(env, ctx, continuitySourceRows = []) {
+  const results = await Promise.allSettled([
+    loadLiveAdipFlights(continuitySourceRows),
+    loadLiveTdxFlights(env, ctx, continuitySourceRows)
+  ]);
+  const sources = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+  if (!sources.length) {
+    const errors = results.filter(result => result.status === 'rejected')
+      .map(result => String(result.reason?.message || result.reason))
+      .join('; ');
+    throw new Error(errors || 'Official live flight sources unavailable');
+  }
+  const liveRows = mergeOfficialFlightRows(sources);
+  const rows = mergeLiveFlightRows(liveRows, continuitySourceRows);
+  return {
+    version: WORKER_VERSION,
+    loadedAt: Date.now(),
+    fetchedAt: Math.max(...sources.map(source => source.fetchedAt).filter(Number.isFinite)),
+    source: sources.map(source => source.source).join(' + '),
     continuityRows: rows.length - liveRows.length,
     rows
   };
@@ -333,8 +377,10 @@ async function loadAirportFlights(env, ctx, query = null) {
   const snapshotAgeSeconds = Math.max(0, Math.floor((Date.now() - airportFlightCache.fetchedAt) / 1000));
   if (snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
     const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
-    const hasRequestedContinuity = query && continuityRows.some(row => row.airline === query.airline && row.number === query.number);
-    if (hasRequestedContinuity) {
+    const hasRequestedCompletedContinuity = query && continuityRows.some(row =>
+      row.airline === query.airline && row.number === query.number && isCompletedFlightRow(row)
+    );
+    if (hasRequestedCompletedContinuity) {
       return {
         ...airportFlightCache,
         loadedAt: Date.now(),
@@ -344,26 +390,21 @@ async function loadAirportFlights(env, ctx, query = null) {
       };
     }
     try {
-      airportFlightCache = await loadLiveAdipFlights(airportFlightCache.rows);
+      airportFlightCache = await loadCombinedLiveFlights(env, ctx, airportFlightCache.rows);
       return airportFlightCache;
-    } catch (adipError) {
-      try {
-        airportFlightCache = await loadLiveTdxFlights(env, ctx, airportFlightCache.rows);
-        return airportFlightCache;
-      } catch (tdxError) {
-        const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
-        if (continuityRows.length) {
-          return {
-            version: WORKER_VERSION,
-            loadedAt: Date.now(),
-            fetchedAt: airportFlightCache.fetchedAt,
-            source: 'Official live data unavailable; same-day continuity snapshot',
-            continuityRows: continuityRows.length,
-            rows: continuityRows
-          };
-        }
-        throw new Error(`Official live flight data unavailable: ADIP ${adipError?.message || adipError}; TDX ${tdxError?.message || tdxError}`);
+    } catch (liveError) {
+      const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
+      if (continuityRows.length) {
+        return {
+          version: WORKER_VERSION,
+          loadedAt: Date.now(),
+          fetchedAt: airportFlightCache.fetchedAt,
+          source: 'Official live data unavailable; same-day continuity snapshot',
+          continuityRows: continuityRows.length,
+          rows: continuityRows
+        };
       }
+      throw new Error(`Official live flight data unavailable: ${liveError?.message || liveError}`);
     }
   }
   return airportFlightCache;
@@ -375,7 +416,7 @@ async function handleFlightGateSource(request) {
     try {
       const response = await fetchUpstream(TPE_OFFICIAL_FLIGHT_SOURCE, {
         headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
-        cf: { cacheTtl: 60, cacheEverything: true }
+        cf: { cacheTtl: 0, cacheEverything: false }
       });
       if (!response.ok) throw new Error(`Taoyuan official source failed (${response.status})`);
       const text = await response.text();

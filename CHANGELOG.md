@@ -260,8 +260,16 @@
 - Bumped portal version to v8.1.7, frontend build to 20260726-026, and Worker version to 2.8.15.
 
 # Use 未定 for unpublished gate or stand — 2026-07-27
-- Bumped portal version to v8.2.5, frontend build to 20260727-0755, and Worker version to 2.8.23.
+- Bumped portal version to v8.2.7, frontend build to 20260727-1405, and Worker version to 2.8.25.
 - Replaced all pending empty gate/stand labels, including delayed-data states, with `未定`; departed or cancelled flights remain `無資料`.
+- Merged ADIP and TDX official live flight rows by schedule so a gate published by either source is retained.
+- Pending flights no longer bypass live refresh merely because they already exist in the continuity snapshot.
+- Disabled Cloudflare subrequest caching for the ADIP fetch path so the official feed is requested directly.
+
+## Official source retry and dual-source refresh — 2026-07-27
+- Bumped portal version to v8.2.8, frontend build to 20260727-1411, and Worker version to 2.8.26.
+- Retry each official ADIP route twice with a 10-second connection timeout and 25-second response timeout before using TDX fallback.
+- Keep ADIP and TDX official rows merged by flight schedule whenever both sources are available.
 
 # Preserve pending same-day flights during live-source fallback — 2026-07-27
 - Bumped portal version to v8.2.3, frontend build to 20260727-0732, and Worker version to 2.8.21.

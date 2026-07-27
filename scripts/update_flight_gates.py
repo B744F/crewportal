@@ -19,8 +19,12 @@ FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/fligh
 TDX_FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/flight-gate-tdx-source"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "flight-gates.json"
 TAIPEI = ZoneInfo("Asia/Taipei")
-FETCH_ATTEMPTS = 1
-FETCH_TIMEOUT_SECONDS = 15
+# The public ADIP endpoint can be slow during the morning peak.  Retry each
+# official route before falling back so a transient edge timeout does not
+# publish a lower-quality TDX-only snapshot.
+FETCH_ATTEMPTS = 2
+FETCH_TIMEOUT_SECONDS = 25
+FETCH_CONNECT_TIMEOUT_SECONDS = 10
 
 
 def value(row: dict[str, str], key: str) -> str:
@@ -51,6 +55,7 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
                 result = subprocess.run(
                     [
                         "curl", "--fail", "--silent", "--show-error", "--location", "--ipv4",
+                        "--connect-timeout", str(FETCH_CONNECT_TIMEOUT_SECONDS),
                         "--max-time", str(FETCH_TIMEOUT_SECONDS),
                         "--header", "Accept: text/csv,*/*",
                         "--header", "User-Agent: CrewPortal-FlightGate/1.0",
@@ -58,7 +63,7 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
                         source_url,
                     ],
                     capture_output=True,
-                    timeout=FETCH_TIMEOUT_SECONDS + 5,
+                    timeout=FETCH_TIMEOUT_SECONDS + FETCH_CONNECT_TIMEOUT_SECONDS + 5,
                     check=True,
                 )
                 body = result.stdout.decode("utf-8-sig")
@@ -80,13 +85,14 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
         result = subprocess.run(
             [
                 "curl", "--fail", "--silent", "--show-error", "--location", "--ipv4",
+                "--connect-timeout", str(FETCH_CONNECT_TIMEOUT_SECONDS),
                 "--max-time", str(FETCH_TIMEOUT_SECONDS),
                 "--header", "Accept: application/json",
                 "--header", "User-Agent: CrewPortal-FlightGate/1.0",
                 TDX_FALLBACK_SOURCE_URL,
             ],
             capture_output=True,
-            timeout=FETCH_TIMEOUT_SECONDS + 5,
+                timeout=FETCH_TIMEOUT_SECONDS + FETCH_CONNECT_TIMEOUT_SECONDS + 5,
             check=True,
         )
         payload = json.loads(result.stdout.decode("utf-8"))
