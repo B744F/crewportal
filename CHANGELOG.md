@@ -293,6 +293,10 @@
 - Departed passenger and cargo flights now hide terminal and gate/stand values and show a red-background, white-text `已飛` badge.
 - The status line remains the English `DEPARTED` label for foreign crew.
 
+## Right-align flown badge — 2026-07-27
+- Bumped portal version to v8.2.14 and frontend build to 20260727-1736.
+- Right-aligned the red `已飛` badge for both passenger gates and cargo stands.
+
 # Preserve pending same-day flights during live-source fallback — 2026-07-27
 - Bumped portal version to v8.2.3, frontend build to 20260727-0732, and Worker version to 2.8.21.
 - Preserved current same-day scheduled flights from the validated official snapshot when the live TDX source omits pending rows, while retaining live rows as the authoritative values when present.

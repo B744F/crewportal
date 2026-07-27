@@ -1,7 +1,7 @@
 {
-  "version": "8.2.13",
-  "build": "20260727-1711",
+  "version": "8.2.14",
+  "build": "20260727-1736",
   "date": "2026-07-27",
   "workerVersion": "2.8.28",
-  "label": "Hide terminal and replace gate or stand with flown badge"
+  "label": "Right-align flown badge"
 }
