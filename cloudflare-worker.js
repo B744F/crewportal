@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.26 (Crew Portal v8.2.8)
+ * Version 2.8.27 (Crew Portal v8.2.9)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.8';
-const WORKER_VERSION = '2.8.26';
+const PORTAL_VERSION = 'v8.2.9';
+const WORKER_VERSION = '2.8.27';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -378,7 +378,7 @@ async function loadAirportFlights(env, ctx, query = null) {
   if (snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
     const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
     const hasRequestedCompletedContinuity = query && continuityRows.some(row =>
-      row.airline === query.airline && row.number === query.number && isCompletedFlightRow(row)
+      row.airline === query.airline && row.number === query.number && isCompletedFlightRow(row) && Boolean(row.gate || row.stand)
     );
     if (hasRequestedCompletedContinuity) {
       return {

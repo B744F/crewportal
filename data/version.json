@@ -1,7 +1,7 @@
 {
-  "version": "8.2.8",
-  "build": "20260727-1411",
+  "version": "8.2.9",
+  "build": "20260727-1419",
   "date": "2026-07-27",
-  "workerVersion": "2.8.26",
-  "label": "Retry official ADIP and merge official gate sources"
+  "workerVersion": "2.8.27",
+  "label": "Retry official sources when completed gate data is missing"
 }
