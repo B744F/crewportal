@@ -1,7 +1,7 @@
 {
-  "version": "8.2.10",
-  "build": "20260727-1424",
+  "version": "8.2.11",
+  "build": "20260727-1654",
   "date": "2026-07-27",
   "workerVersion": "2.8.28",
-  "label": "Preserve confirmed gates across official-source fallback"
+  "label": "Use English departed status and flown cargo badge"
 }

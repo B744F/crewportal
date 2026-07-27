@@ -279,6 +279,11 @@
 - Bumped portal version to v8.2.10, frontend build to 20260727-1424, and Worker version to 2.8.28.
 - The scheduled updater now carries forward previously confirmed ADIP gate/status values when a later run must fall back to TDX.
 
+## English departed status and flown cargo badge — 2026-07-27
+- Bumped portal version to v8.2.11 and frontend build to 20260727-1654.
+- Normalized departed flight status to `DEPARTED` without the Chinese status text.
+- Replaced the cargo stand number with a red-background, white-text `DEPARTED` badge after departure.
+
 # Preserve pending same-day flights during live-source fallback — 2026-07-27
 - Bumped portal version to v8.2.3, frontend build to 20260727-0732, and Worker version to 2.8.21.
 - Preserved current same-day scheduled flights from the validated official snapshot when the live TDX source omits pending rows, while retaining live rows as the authoritative values when present.
