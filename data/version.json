@@ -1,7 +1,7 @@
 {
-  "version": "8.2.9",
-  "build": "20260727-1419",
+  "version": "8.2.10",
+  "build": "20260727-1424",
   "date": "2026-07-27",
-  "workerVersion": "2.8.27",
-  "label": "Retry official sources when completed gate data is missing"
+  "workerVersion": "2.8.28",
+  "label": "Preserve confirmed gates across official-source fallback"
 }

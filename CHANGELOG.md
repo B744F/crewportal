@@ -275,6 +275,10 @@
 - Bumped portal version to v8.2.9, frontend build to 20260727-1419, and Worker version to 2.8.27.
 - A completed flight with a blank gate or stand no longer short-circuits to an expired snapshot; it requests the official sources again.
 
+## Preserve confirmed gates across fallback — 2026-07-27
+- Bumped portal version to v8.2.10, frontend build to 20260727-1424, and Worker version to 2.8.28.
+- The scheduled updater now carries forward previously confirmed ADIP gate/status values when a later run must fall back to TDX.
+
 # Preserve pending same-day flights during live-source fallback — 2026-07-27
 - Bumped portal version to v8.2.3, frontend build to 20260727-0732, and Worker version to 2.8.21.
 - Preserved current same-day scheduled flights from the validated official snapshot when the live TDX source omits pending rows, while retaining live rows as the authoritative values when present.

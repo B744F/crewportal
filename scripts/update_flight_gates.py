@@ -287,10 +287,15 @@ def main() -> None:
     )
     continuity_base_rows = previous.get("continuityBaseRows") or previous.get("rows") or []
     if fetch_route == "tdx-official" and previous.get("rows"):
+        # Preserve gates/statuses already confirmed by a prior ADIP run even
+        # when the next runner can reach only TDX.  The route base alone is
+        # not enough because a TDX fallback snapshot intentionally has blank
+        # gate fields for some flights.
         previous_rows = [
-            row for row in previous_route_base_rows
+            row for row in [*previous_route_base_rows, *continuity_base_rows]
             if today.isoformat() <= row.get("date", "") <= last_date.isoformat()
         ]
+        previous_rows, _ = deduplicate_schedule_rows(previous_rows)
         output_rows = route_filter_tdx_rows(output_rows, previous_rows)
         output_rows, continuity_rows = continuity_merge(output_rows, previous_rows)
         today_rows = [row for row in output_rows if row["date"] == today.isoformat()]
