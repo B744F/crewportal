@@ -1,5 +1,5 @@
 (function(){
-  const VERSION="6.6.1";
+  const VERSION="6.6.2";
   const OFFICIAL_PROXY="https://arinc-proxy.201505-login.workers.dev/";
   const RAW_ARINC="https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
   const LOCAL_ARINC="data/arinc.json";
@@ -14,6 +14,7 @@
     alaskaSecondary:document.getElementById("arincAlaskaSecondary"),
     guamPrimary:document.getElementById("arincGuamPrimary"),
     guamSecondary:document.getElementById("arincGuamSecondary"),
+    updatedAt:document.getElementById("arincUpdatedAt"),
     status:document.getElementById("arincStatus")
   };
 
@@ -117,15 +118,15 @@
   }
 
   function formatMeta(data){
+    return [formatValidFrom(data),formatUpdateUtc(data)].filter(Boolean).join("｜");
+  }
+
+  function formatUpdateUtc(data){
     const fetched=dateOrNull(data?.fetchedAtUtc);
-    const parts=[];
-    parts.push(formatValidFrom(data));
-    if(fetched){
-      const hours=String(fetched.getUTCHours()).padStart(2,"0");
-      const minutes=String(fetched.getUTCMinutes()).padStart(2,"0");
-      parts.push(`Update ${hours}${minutes}Z`);
-    }
-    return parts.join("｜");
+    if(!fetched)return "Update --";
+    const hours=String(fetched.getUTCHours()).padStart(2,"0");
+    const minutes=String(fetched.getUTCMinutes()).padStart(2,"0");
+    return `Update ${hours}${minutes}Z`;
   }
 
   function freshness(data){
@@ -133,7 +134,8 @@
   }
 
   function apply(data){
-    setText(els.validFrom,formatMeta(data),false);
+    setText(els.validFrom,formatValidFrom(data),false);
+    setText(els.updatedAt,`｜ ${formatUpdateUtc(data)}`,false);
     setText(els.naPrimary,data?.northAmericaAsia?.primary,true);
     setText(els.naSecondary,data?.northAmericaAsia?.secondary,true);
     setText(els.alaskaPrimary,data?.alaskaNorthPacific?.primary,true);
