@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.15";
-  const BUILD = "20260727-1750";
+  const VERSION = "8.2.16";
+  const BUILD = "20260728-1045";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -173,13 +173,18 @@
     const renderFlightRow=(match,cargo=false,freshness="fresh")=>{const departed=flightHasDeparted(match),arrived=flightHasArrived(match),rawStatus=String(match.status||""),status=departed?"DEPARTED":rawStatus,position=departed?"":(cargo?match.stand:match.gate),emptyLabel=departed?"已飛":cargo?"無資料":(rawStatus.includes("取消")||arrived?"無資料":"未定"),displayDate=match.estimatedDate||match.date,displayTime=match.estimatedTime||match.time,timeChanged=match.estimatedTime&&match.estimatedTime!==match.time,statusMarkup=status?` · <em class="${departed?"aircraft-gate-status-flown":""}">${escapeHtml(status)}</em>`:"",timeMarkup=timeChanged?" · 預計":"",aircraftMarkup=cargo&&match.aircraftType?` · ${escapeHtml(match.aircraftType)}`:"",terminalMarkup=departed?"":cargo?"":`<span class="aircraft-gate-terminal ${terminalClass(match.terminal)}">${escapeHtml(terminalCode(match.terminal))}</span>`,positionClass=position?"":"is-empty",flownClass=departed?" is-flown":"",rowClass=departed?" flown":"";return `<div class="aircraft-gate-row${cargo?" cargo":""}${rowClass}"><div><b>${escapeHtml(directionLabel(match.direction))}</b><span>${escapeHtml(displayDate)} ${escapeHtml(displayTime)}${timeMarkup}${aircraftMarkup}${statusMarkup}</span></div><div class="aircraft-gate-value">${terminalMarkup}<strong class="${positionClass}${flownClass}">${escapeHtml(position||emptyLabel)}</strong></div></div>`};
     const setGateStatus=(text,level="")=>{gateStatus.textContent=text;gateStatus.className=level;gateStatus.style.display="block"};
     let lookupSequence=0;
+    const lookupMatches=result=>{
+      const response=result?.response,data=result?.data||{};
+      return response?.ok&&data.ok?(data.matches||[]).filter(match=>match.date===todayTaipei()):[];
+    };
     const renderGateLookup=(gateResultData,cargoResultData)=>{
-      const response=gateResultData.response,data=gateResultData.data||{},cargoResponse=cargoResultData.response,cargoData=cargoResultData.data||{};
+      const response=gateResultData?.response,data=gateResultData?.data||{},cargoResponse=cargoResultData?.response,cargoData=cargoResultData?.data||{};
       const matches=response?.ok&&data.ok?(data.matches||[]).filter(match=>match.date===todayTaipei()):[];
       const cargoMatches=cargoResponse?.ok&&cargoData.ok?(cargoData.matches||[]).filter(match=>match.date===todayTaipei()):[];
-      if(!matches.length&&!cargoMatches.length&&!response?.ok){
+      const allSourcesFailed=Boolean(gateResultData&&cargoResultData&&!response?.ok&&!cargoResponse?.ok);
+      if(!matches.length&&!cargoMatches.length&&allSourcesFailed){
         if(data.errorCode==="LIVE_FLIGHT_DATA_UNAVAILABLE")throw new Error("桃園機場官方即時資料暫時無法取得，未使用過期快照，請稍後重試。");
-        throw new Error(data.error||"查詢失敗");
+        throw new Error(data.error||cargoData.error||"查詢失敗");
       }
       const freshness=data.freshness||"fresh";
       if(!matches.length&&!cargoMatches.length){setGateStatus("找不到今日的官方航班或貨機坪資料。","error");return}
@@ -201,18 +206,35 @@
       }
       setGateStatus("正在查詢桃園機場航班與貨機坪資料…");gateResult.style.display="none";
       try{
-        const gatePromise=fetch(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,{cache:"no-store"}).then(async response=>({response,data:await response.json()})).catch(()=>({response:null,data:null}));
-        const cargoResultData=await fetch(`${CARGO_STAND_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,{cache:"no-store"}).then(async response=>({response,data:await response.json()})).catch(()=>({response:null,data:null}));
-        if(requestId!==lookupSequence)return;
-        const cargoResponse=cargoResultData.response,cargoData=cargoResultData.data||{},cargoMatches=cargoResponse?.ok&&cargoData.ok?(cargoData.matches||[]).filter(match=>match.date===todayTaipei()):[];
-        if(cargoMatches.length){
-          renderGateLookup({response:null,data:null},cargoResultData);
-          gatePromise.then(gateResultData=>{if(requestId!==lookupSequence)return;try{const gateMatches=gateResultData.response?.ok&&gateResultData.data?.ok?(gateResultData.data.matches||[]).filter(match=>match.date===todayTaipei()):[];if(gateMatches.length)renderGateLookup(gateResultData,cargoResultData)}catch(_e){}});
-          return;
-        }
-        const gateResultData=await gatePromise;
-        if(requestId!==lookupSequence)return;
-        renderGateLookup(gateResultData,cargoResultData);
+        const fetchFlightLookup=async(url,label)=>{
+          const controller=new AbortController();
+          const timeout=setTimeout(()=>controller.abort(),12_000);
+          try{
+            const response=await fetch(url,{cache:"no-store",signal:controller.signal});
+            let data=null;
+            try{data=await response.json()}catch(_e){data={error:`${label} 回應格式錯誤`}}
+            return {response,data};
+          }catch(error){
+            return {response:null,data:{error:error?.name==="AbortError"?`${label} 查詢逾時，請稍後再試`:`${label} 暫時無法取得`}};
+          }finally{clearTimeout(timeout)}
+        };
+        let gateResultData=null,cargoResultData=null;
+        const renderAvailable=()=>{
+          if(requestId!==lookupSequence)return;
+          if(lookupMatches(gateResultData).length||lookupMatches(cargoResultData).length){
+            try{renderGateLookup(gateResultData,cargoResultData)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
+            return;
+          }
+          if(gateResultData&&cargoResultData){
+            try{renderGateLookup(gateResultData,cargoResultData)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
+          }
+        };
+        const gatePromise=fetchFlightLookup(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,"航班資料");
+        const cargoPromise=fetchFlightLookup(`${CARGO_STAND_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,"貨機坪資料");
+        await Promise.allSettled([
+          gatePromise.then(result=>{gateResultData=result;renderAvailable()}),
+          cargoPromise.then(result=>{cargoResultData=result;renderAvailable()})
+        ]);
       }catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error");gateResult.style.display="none"}
     });
   }

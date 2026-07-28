@@ -24,7 +24,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;background-ima
 .header-time{display:flex;align-items:center;gap:11px;border-left:1px solid rgba(255,255,255,.18);padding-left:20px;color:#eef6ff;white-space:nowrap}
 .clock-icon{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.35);display:grid;place-items:center;color:#b9dcff}
 .time-lines{font-size:13px;line-height:1.55;color:#dceaff}
-.hero{min-height:760px;padding-top:84px;background-image:linear-gradient(90deg,rgba(1,7,15,.48) 0%,rgba(1,7,15,.30) 36%,rgba(1,7,15,.08) 66%,rgba(1,7,15,.02) 100%),linear-gradient(180deg,rgba(2,8,16,0),rgba(2,8,16,.28) 94%),url("../images/hero.webp?v=20260727-1750");background-size:cover;background-position:center top;position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.10)}
+.hero{min-height:760px;padding-top:84px;background-image:linear-gradient(90deg,rgba(1,7,15,.48) 0%,rgba(1,7,15,.30) 36%,rgba(1,7,15,.08) 66%,rgba(1,7,15,.02) 100%),linear-gradient(180deg,rgba(2,8,16,0),rgba(2,8,16,.28) 94%),url("../images/hero.webp?v=20260728-1045");background-size:cover;background-position:center top;position:relative;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.10)}
 .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 44% 6%,rgba(104,189,255,.10),transparent 42%),linear-gradient(180deg,transparent 70%,rgba(3,9,20,.55) 100%);pointer-events:none}
 .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr;align-content:start;min-height:676px;padding:92px 0 34px}
 .hero-copy{max-width:720px}

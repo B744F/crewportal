@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.28 (Crew Portal v8.2.10)
+ * Version 2.8.29 (Crew Portal v8.2.16)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.10';
-const WORKER_VERSION = '2.8.28';
+const PORTAL_VERSION = 'v8.2.16';
+const WORKER_VERSION = '2.8.29';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -40,6 +40,7 @@ const ALLOWED_ORIGINS = new Set([
 let tokenCache = { token: '', expiresAt: 0 };
 const tdxTimetableCache = new Map();
 let airportFlightCache = { version: '', loadedAt: 0, fetchedAt: 0, source: '', continuityRows: 0, rows: null };
+let airportFlightRefreshPromise = null;
 let tdxAirportFidsCache = { loadedAt: 0, rows: null };
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
 function tdxAirportFidsCacheKey(bucketOffset = 0) {
@@ -344,6 +345,19 @@ async function loadCombinedLiveFlights(env, ctx, continuitySourceRows = []) {
   };
 }
 
+function scheduleAirportFlightRefresh(env, ctx, continuitySourceRows) {
+  if (airportFlightRefreshPromise) return airportFlightRefreshPromise;
+  airportFlightRefreshPromise = loadCombinedLiveFlights(env, ctx, continuitySourceRows)
+    .then(source => {
+      airportFlightCache = source;
+      return source;
+    })
+    .catch(() => null)
+    .finally(() => { airportFlightRefreshPromise = null; });
+  ctx?.waitUntil(airportFlightRefreshPromise);
+  return airportFlightRefreshPromise;
+}
+
 async function loadAirportFlights(env, ctx, query = null) {
   if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) return airportFlightCache;
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
@@ -389,23 +403,12 @@ async function loadAirportFlights(env, ctx, query = null) {
         rows: continuityRows
       };
     }
-    try {
-      airportFlightCache = await loadCombinedLiveFlights(env, ctx, airportFlightCache.rows);
-      return airportFlightCache;
-    } catch (liveError) {
-      const continuityRows = sameDayContinuityRows(airportFlightCache.rows);
-      if (continuityRows.length) {
-        return {
-          version: WORKER_VERSION,
-          loadedAt: Date.now(),
-          fetchedAt: airportFlightCache.fetchedAt,
-          source: 'Official live data unavailable; same-day continuity snapshot',
-          continuityRows: continuityRows.length,
-          rows: continuityRows
-        };
-      }
-      throw new Error(`Official live flight data unavailable: ${liveError?.message || liveError}`);
-    }
+    scheduleAirportFlightRefresh(env, ctx, airportFlightCache.rows);
+    return {
+      ...airportFlightCache,
+      source: `${airportFlightCache.source || 'Official flight snapshot'}; live refresh pending`,
+      continuityRows: continuityRows.length
+    };
   }
   return airportFlightCache;
 }

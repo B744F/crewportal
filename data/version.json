@@ -1,7 +1,7 @@
 {
-  "version": "8.2.15",
-  "build": "20260727-1750",
-  "date": "2026-07-27",
-  "workerVersion": "2.8.28",
-  "label": "Clean Hero image typography"
+  "version": "8.2.16",
+  "build": "20260728-1045",
+  "date": "2026-07-28",
+  "workerVersion": "2.8.29",
+  "label": "Non-blocking flight lookup and live refresh"
 }
