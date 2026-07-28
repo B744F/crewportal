@@ -1,6 +1,6 @@
 {
-  "version": "8.2.22",
-  "build": "20260728-1641",
+  "version": "8.2.23",
+  "build": "20260728-1649",
   "date": "2026-07-28",
   "workerVersion": "2.8.31",
   "label": "Parallel ADIP multi-route flight lookup"
