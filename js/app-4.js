@@ -1,12 +1,12 @@
 (function(){
-  const VERSION = "8.2.18";
-  const BUILD = "20260728-1102";
+  const VERSION = "8.2.19";
+  const BUILD = "20260728-1522";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
   const CARGO_STAND_API="https://flightdeck-api.201505-login.workers.dev/api/cargo-stand";
   const PARKING_INTERVAL=5*60*1000;
-  const ARINC_INTERVAL=15*60*1000;
+  const ARINC_INTERVAL=5*60*1000;
   const PARKING_CACHE_KEY="crewportal-combined-parking-last-good";
   const $=id=>document.getElementById(id);
   const state={parking:null,airportParking:null,arinc:null,parkingHttp:"--",airportParkingHttp:"--",arincHttp:"--",parkingSource:"--",airportParkingSource:"--",arincRoute:"--"};
@@ -43,8 +43,18 @@
     catch(e){state.airportParkingHttp=e.message;try{const r=await fetchJson("data/airport-parking.json");state.airportParking=r.data;state.airportParkingHttp=`${r.status} OK`;state.airportParkingSource=r.data.sourceType||"GitHub Pages"}catch(e2){const cached=cachedParking()?.airport;state.airportParking=cached||null;state.airportParkingSource=cached?"Browser cache":"Unavailable"}}
   }
   async function loadArinc(){
-    try{const r=await fetchJson(RAW_BASE+"arinc.json");state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=r.data.route||"Unknown"}
+    const latest=window.__crewportalArincLatest;
+    if(latest?.data){state.arinc=latest.data;state.arincHttp="200 OK";state.arincRoute=latest.source==="official"?"Official page via proxy":latest.source;return}
+    try{const r=await fetchJson(RAW_BASE+"arinc.json");state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=r.data.route||"GitHub raw"}
     catch(e){state.arincHttp=e.message;try{const r=await fetchJson("data/arinc.json");state.arinc=r.data;state.arincHttp=`${r.status} OK`;state.arincRoute=(r.data.route||"Unknown")+" (fallback)"}catch(e2){state.arinc=null;state.arincRoute="Unavailable"}}
+  }
+
+  function applyLiveArinc(detail){
+    if(!detail?.data)return;
+    state.arinc=detail.data;
+    state.arincHttp="200 OK";
+    state.arincRoute=detail.source==="official"?"Official page via proxy":detail.source||"Browser cache";
+    render();
   }
   async function loadVersion(){
     try{
@@ -244,6 +254,6 @@
     if($("diagVersion"))$("diagVersion").textContent=`v${VERSION} · ${BUILD}`;
   }
   async function refresh(){await Promise.allSettled([loadParking(),loadAirportParking(),loadArinc(),loadVersion()]);render();updateVisibleVersion()}
-  applyPortalLabels();installAircraftTracking();updateVisibleVersion();refresh();setInterval(refresh,60000);
+  applyPortalLabels();installAircraftTracking();window.addEventListener("crewportal:arinc-updated",event=>applyLiveArinc(event.detail));updateVisibleVersion();refresh();setInterval(refresh,60000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});window.addEventListener("focus",refresh);
 })();
