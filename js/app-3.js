@@ -1,5 +1,5 @@
 (function(){
-  const VERSION="6.6.0";
+  const VERSION="6.6.1";
   const OFFICIAL_PROXY="https://arinc-proxy.201505-login.workers.dev/";
   const RAW_ARINC="https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
   const LOCAL_ARINC="data/arinc.json";
@@ -104,13 +104,6 @@
     };
   }
 
-  function fmt(date,timeZone){
-    return new Intl.DateTimeFormat("zh-TW",{
-      timeZone,year:"numeric",month:"2-digit",day:"2-digit",
-      hour:"2-digit",minute:"2-digit",hour12:false
-    }).format(date);
-  }
-
   function formatValidFrom(data){
     if(data?.validFrom)return String(data.validFrom).trim();
     const valid=dateOrNull(data?.validFromUtc);
@@ -124,11 +117,14 @@
   }
 
   function formatMeta(data){
-    const valid=dateOrNull(data?.validFromUtc);
     const fetched=dateOrNull(data?.fetchedAtUtc);
     const parts=[];
     parts.push(formatValidFrom(data));
-    if(fetched)parts.push(`檢查 ${fmt(fetched,"Asia/Taipei")} 台灣`);
+    if(fetched){
+      const hours=String(fetched.getUTCHours()).padStart(2,"0");
+      const minutes=String(fetched.getUTCMinutes()).padStart(2,"0");
+      parts.push(`Update ${hours}${minutes}Z`);
+    }
     return parts.join("｜");
   }
 
