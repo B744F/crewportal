@@ -1,7 +1,7 @@
 (function(){
   const CREW_JSON = "data/parking.json";
   const AIRPORT_JSON = "data/airport-parking.json";
-  const REFRESH_MS = 15000;
+  const REFRESH_MS = 60 * 1000;
   const STALE_AFTER_MS = 10 * 60 * 1000;
   const STORAGE_KEY = "crewportal-combined-parking-last-good";
 
