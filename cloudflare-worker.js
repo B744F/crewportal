@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.29 (Crew Portal v8.2.16)
+ * Version 2.8.31 (Crew Portal v8.2.18)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.16';
-const WORKER_VERSION = '2.8.29';
+const PORTAL_VERSION = 'v8.2.18';
+const WORKER_VERSION = '2.8.31';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -20,6 +20,7 @@ const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
 const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
+const TPE_OFFICIAL_FLIGHT_IPS = ['60.251.215.156', '60.251.184.156'];
 const TPE_GOSS_CARGO_SOURCE = 'https://www.tpegoss.com/api/db/gates/schedule';
 const RCTP_CARGO_STAND_MIN = 501;
 const RCTP_CARGO_STAND_MAX = 525;
@@ -280,12 +281,7 @@ async function loadLiveAdipFlights(continuitySourceRows = []) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const response = await fetchUpstream(TPE_OFFICIAL_FLIGHT_SOURCE, {
-        headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
-        cf: { cacheTtl: 0, cacheEverything: false }
-      });
-      if (!response.ok) throw new Error(`Taoyuan official ADIP source failed (${response.status})`);
-      const rows = normalizeOfficialCsvRows(parseCsv(await response.text()));
+      const rows = normalizeOfficialCsvRows(parseCsv(await fetchOfficialAdipCsv()));
       if (rows.length < 100 || !rows.some(row => row.gate)) throw new Error('Taoyuan official ADIP source returned insufficient flight data');
       return {
         version: WORKER_VERSION,
@@ -301,6 +297,37 @@ async function loadLiveAdipFlights(continuitySourceRows = []) {
     }
   }
   throw lastError;
+}
+
+async function fetchOfficialAdipCsv() {
+  const targets = [
+    { url: TPE_OFFICIAL_FLIGHT_SOURCE, cf: {} },
+    ...TPE_OFFICIAL_FLIGHT_IPS.map(ip => ({
+      url: TPE_OFFICIAL_FLIGHT_SOURCE,
+      cf: { resolveOverride: ip }
+    })),
+    ...TPE_OFFICIAL_FLIGHT_IPS.map(ip => ({
+      url: `https://${ip}/dataset/2025102001?format=csv`,
+      headers: { Host: 'odp.taoyuan-airport.com' },
+      cf: {}
+    }))
+  ];
+  const attempts = targets.map(async target => {
+      const response = await fetchUpstream(target.url, {
+        headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0', ...(target.headers || {}) },
+        cf: { cacheTtl: 0, cacheEverything: false, ...target.cf }
+      });
+      if (!response.ok) throw new Error(`Taoyuan official ADIP source failed (${response.status})`);
+      const text = await response.text();
+      if (text.length < 10_000 || !text.includes('機門')) throw new Error('Taoyuan official source returned invalid CSV');
+      return text;
+  });
+  try {
+    return await Promise.any(attempts);
+  } catch (error) {
+    const reasons = error?.errors?.map(item => String(item?.message || item)).filter(Boolean) || [];
+    throw new Error(reasons.join('; ') || 'Taoyuan official ADIP source unavailable');
+  }
 }
 
 async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
@@ -417,13 +444,7 @@ async function handleFlightGateSource(request) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const response = await fetchUpstream(TPE_OFFICIAL_FLIGHT_SOURCE, {
-        headers: { 'Accept': 'text/csv,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
-        cf: { cacheTtl: 0, cacheEverything: false }
-      });
-      if (!response.ok) throw new Error(`Taoyuan official source failed (${response.status})`);
-      const text = await response.text();
-      if (text.length < 10_000 || !text.includes('機門')) throw new Error('Taoyuan official source returned invalid CSV');
+      const text = await fetchOfficialAdipCsv();
       const headers = new Headers(corsHeaders(request));
       headers.set('Content-Type', 'text/csv; charset=utf-8');
       headers.set('Cache-Control', 'public, max-age=30, s-maxage=60');

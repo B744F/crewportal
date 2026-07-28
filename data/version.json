@@ -1,7 +1,7 @@
 {
-  "version": "8.2.16",
-  "build": "20260728-1045",
+  "version": "8.2.18",
+  "build": "20260728-1102",
   "date": "2026-07-28",
-  "workerVersion": "2.8.29",
-  "label": "Non-blocking flight lookup and live refresh"
+  "workerVersion": "2.8.31",
+  "label": "Parallel ADIP multi-route flight lookup"
 }
