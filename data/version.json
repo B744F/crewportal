@@ -1,7 +1,7 @@
 {
-  "version": "8.2.23",
-  "build": "20260728-1649",
-  "date": "2026-07-28",
-  "workerVersion": "2.8.31",
-  "label": "Parallel ADIP multi-route flight lookup"
+  "version": "8.2.25",
+  "build": "20260729-1719",
+  "date": "2026-07-29",
+  "workerVersion": "2.8.33",
+  "label": "Disable stale flight-query edge caching"
 }

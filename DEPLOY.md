@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.15 部署
+# FlightDeck Crew Portal v8.2.25 部署
 
 ## 部署內容
 
@@ -13,13 +13,13 @@
 
 ```json
 {
-  "portalVersion": "v8.2.15",
-  "workerVersion": "2.8.28",
+  "portalVersion": "v8.2.25",
+  "workerVersion": "2.8.33",
   "timetableParser": "structured-official"
 }
 ```
 
-航班登機門查詢使用 `/api/flight-gate?flight=CI100`，資料由 GitHub Actions 每 5 分鐘擷取桃園機場 ADIP 官方即時航班資料並更新快照；當快照超過 10 分鐘時，Cloudflare Worker 會直接抓取 TDX 官方 Airport FIDS 即時資料，並只補回同日已完成航班的官方連續資料。即時來源無法取得時不會回傳整份過期快照，僅保留可辨識的同日歷史航班，避免顯示錯誤的未來航班狀態。
+航班登機門查詢使用 `/api/flight-gate?flight=CI100`。GitHub 快照是容錯備援；快照超過 10 分鐘時，Cloudflare Worker 會先回傳 TDX 官方 Airport FIDS 即時資料，再於背景合併較慢的 ADIP 官方資料。即時來源的航班號會保留完整數字，不會將 CI602 誤解析為 CI2；同日已確認的登機門也不會因即時來源短暫空值而退回「未定」。
 
 貨機坪查詢使用 `/api/cargo-stand?flight=5X61`，由 Worker 取得 TPE GOSS 公開地面作業資料，只接受今日且落在 RCTP 貨機坪 501–525 的停機位；前端在 RCTP GATE INFO 中將貨機坪與客機登機門分開顯示。
 

@@ -330,11 +330,11 @@ def main() -> None:
     today_departure_rows = [row for row in today_rows if row["direction"] == "D"]
 
     output_rows.sort(key=lambda row: (row["date"], row["time"], row["flight"]))
-    fetched_at = (
-        previous.get("fetchedAtUtc")
-        if previous.get("rows") == output_rows
-        else datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    )
+    # A successful upstream fetch is a fresh observation even when the row
+    # values are unchanged.  Reusing the previous timestamp made a healthy
+    # refresh look stale for hours and caused the Worker to serve the wrong
+    # TDX continuity snapshot.
+    fetched_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     is_tdx = fetch_route == "tdx-official"
     official_route_base_rows = previous_route_base_rows if is_tdx and previous_route_base_rows else output_rows
     payload = {

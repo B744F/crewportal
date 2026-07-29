@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.31 (Crew Portal v8.2.18)
+ * Version 2.8.33 (Crew Portal v8.2.25)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.18';
-const WORKER_VERSION = '2.8.31';
+const PORTAL_VERSION = 'v8.2.25';
+const WORKER_VERSION = '2.8.33';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -223,12 +223,20 @@ function sameDayContinuityRows(rows) {
 
 function mergeLiveFlightRows(liveRows, continuitySourceRows) {
   const merged = [...liveRows];
-  const seen = new Set(merged.map(flightRowKey));
+  const byKey = new Map(merged.map(row => [flightRowKey(row), row]));
   for (const row of sameDayContinuityRows(continuitySourceRows)) {
     const key = flightRowKey(row);
-    if (!seen.has(key)) {
+    const existing = byKey.get(key);
+    if (existing) {
+      // A live source wins when it has a value.  A previously confirmed gate,
+      // status, or estimate fills a transient blank from TDX instead of
+      // regressing a completed flight back to "未定".
+      for (const field of ['gate', 'estimatedDate', 'estimatedTime', 'status', 'terminal', 'airlineName', 'destination']) {
+        if (!existing[field] && row[field]) existing[field] = row[field];
+      }
+    } else {
       merged.push(row);
-      seen.add(key);
+      byKey.set(key, row);
     }
   }
   return merged;
@@ -338,38 +346,50 @@ async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
   if (!response.ok || !Number.isFinite(fetchedAt) || liveRows.length < 10 || !liveRows.some(row => row.gate)) {
     throw new Error(payload.error || 'TDX Airport FIDS returned insufficient gate data');
   }
+  const rows = mergeLiveFlightRows(liveRows, continuitySourceRows);
   return {
     version: WORKER_VERSION,
     loadedAt: Date.now(),
     fetchedAt,
     source: 'TDX official Airport FIDS live fallback with same-day continuity',
-    continuityRows: 0,
-    rows: liveRows
+    continuityRows: rows.length - liveRows.length,
+    rows
   };
 }
 
 async function loadCombinedLiveFlights(env, ctx, continuitySourceRows = []) {
-  const results = await Promise.allSettled([
-    loadLiveAdipFlights(continuitySourceRows),
-    loadLiveTdxFlights(env, ctx, continuitySourceRows)
-  ]);
-  const sources = results.filter(result => result.status === 'fulfilled').map(result => result.value);
-  if (!sources.length) {
-    const errors = results.filter(result => result.status === 'rejected')
-      .map(result => String(result.reason?.message || result.reason))
-      .join('; ');
-    throw new Error(errors || 'Official live flight sources unavailable');
+  const adipPromise = loadLiveAdipFlights(continuitySourceRows);
+  const tdxPromise = loadLiveTdxFlights(env, ctx, continuitySourceRows);
+  let first;
+  try {
+    // TDX is the reliable low-latency live path.  Return the first valid
+    // official source so a stale GitHub snapshot never blocks a lookup while
+    // the slower ADIP route is still being attempted in the background.
+    first = await Promise.any([adipPromise, tdxPromise]);
+  } catch (error) {
+    const reasons = error?.errors?.map(item => String(item?.message || item)).filter(Boolean) || [];
+    throw new Error(reasons.join('; ') || 'Official live flight sources unavailable');
   }
-  const liveRows = mergeOfficialFlightRows(sources);
-  const rows = mergeLiveFlightRows(liveRows, continuitySourceRows);
-  return {
-    version: WORKER_VERSION,
-    loadedAt: Date.now(),
-    fetchedAt: Math.max(...sources.map(source => source.fetchedAt).filter(Number.isFinite)),
-    source: sources.map(source => source.source).join(' + '),
-    continuityRows: rows.length - liveRows.length,
-    rows
-  };
+
+  airportFlightCache = first;
+  const mergePromise = Promise.allSettled([adipPromise, tdxPromise]).then(results => {
+    const sources = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+    if (!sources.length) return null;
+    const liveRows = mergeOfficialFlightRows(sources);
+    const rows = mergeLiveFlightRows(liveRows, continuitySourceRows);
+    const merged = {
+      version: WORKER_VERSION,
+      loadedAt: Date.now(),
+      fetchedAt: Math.max(...sources.map(source => source.fetchedAt).filter(Number.isFinite)),
+      source: sources.map(source => source.source).join(' + '),
+      continuityRows: rows.length - liveRows.length,
+      rows
+    };
+    airportFlightCache = merged;
+    return merged;
+  });
+  ctx?.waitUntil(mergePromise);
+  return first;
 }
 
 function scheduleAirportFlightRefresh(env, ctx, continuitySourceRows) {
@@ -386,7 +406,14 @@ function scheduleAirportFlightRefresh(env, ctx, continuitySourceRows) {
 }
 
 async function loadAirportFlights(env, ctx, query = null) {
-  if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) return airportFlightCache;
+  if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) {
+    const snapshotAgeSeconds = Math.max(0, Math.floor((Date.now() - airportFlightCache.fetchedAt) / 1000));
+    if (airportFlightRefreshPromise && snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
+      const refreshed = await airportFlightRefreshPromise;
+      if (refreshed) return refreshed;
+    }
+    return airportFlightCache;
+  }
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
   sourceUrl.searchParams.set('v', `${WORKER_VERSION}-${Date.now()}`);
   let payload;
@@ -430,7 +457,8 @@ async function loadAirportFlights(env, ctx, query = null) {
         rows: continuityRows
       };
     }
-    scheduleAirportFlightRefresh(env, ctx, airportFlightCache.rows);
+    const refreshed = await scheduleAirportFlightRefresh(env, ctx, airportFlightCache.rows);
+    if (refreshed) return refreshed;
     return {
       ...airportFlightCache,
       source: `${airportFlightCache.source || 'Official flight snapshot'}; live refresh pending`,
@@ -545,8 +573,11 @@ function tdxTimePart(value) {
 function tdxFlightNumber(row) {
   const raw = String(row.FlightNumber ?? row.FlightNo ?? '').replace(/\s+/g, '').toUpperCase();
   const airline = String(row.AirlineID ?? row.AirlineCode ?? '').trim().toUpperCase();
-  const match = raw.match(/^(?:[A-Z0-9]{2,3})?(\d{1,4}[A-Z]?)$/);
-  return { airline, number: match ? match[1] : raw };
+  const withoutAirline = airline && raw.startsWith(airline) ? raw.slice(airline.length) : raw;
+  const numeric = withoutAirline.match(/^\d{1,4}[A-Z]?$/);
+  const prefixed = raw.match(/^[A-Z]{2,3}(\d{1,4}[A-Z]?)$/);
+  const number = numeric?.[0] || prefixed?.[1] || withoutAirline;
+  return { airline, number: number.replace(/^0+(?=\d)/, '') };
 }
 
 function normalizeTdxAirportRows(rows, direction) {
@@ -1118,7 +1149,7 @@ async function handleFlightGate(request, env, ctx) {
       dataAgeSeconds: freshness.ageSeconds,
       warning: freshness.warning,
       matches
-    }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
+    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } });
   } catch (error) {
     const errorText = String(error?.message || error);
     const liveUnavailable = errorText.startsWith('Official live flight data unavailable:');
