@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.25";
-  const BUILD = "20260729-1719";
+  const VERSION = "8.2.26";
+  const BUILD = "20260730-0903";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -199,9 +199,14 @@
       const freshness=data.freshness||"fresh";
       if(!matches.length&&!cargoMatches.length){setGateStatus("找不到今日的官方航班或貨機坪資料。","error");return}
       gateStatus.textContent="";gateStatus.className="";gateStatus.style.display="none";
-      const allRoutes=[...new Set([...matches,...cargoMatches].map(match=>match.route).filter(Boolean))].join(" · ")||"--/--";
-      const fetchedAt=parseUtc(cargoMatches.length&&!matches.length?cargoData.fetchedAt:(data.fetchedAt||cargoData.fetchedAt)),fetchedClock=fetchedAt?clock(fetchedAt):"--:--:--",queryLabel=data.query||cargoData.query||"--",headerLabel=matches.length&&cargoMatches.length?"登機門／貨機坪":matches.length?"登機門":"貨機坪";
-      const passengerRows=matches.map(match=>renderFlightRow(match,false,freshness)).join("");
+      const cargoScheduleKeys=new Set(cargoMatches.map(match=>[match.flight,match.direction,match.date,match.time].join("|")));
+      // A cargo flight is present in both official FIDS and TPE GOSS.  The
+      // cargo-stand row is authoritative for its parking position, so do not
+      // render the duplicate passenger row with a misleading empty gate.
+      const passengerMatches=matches.filter(match=>!cargoScheduleKeys.has([match.flight,match.direction,match.date,match.time].join("|")));
+      const allRoutes=[...new Set([...passengerMatches,...cargoMatches].map(match=>match.route).filter(Boolean))].join(" · ")||"--/--";
+      const fetchedAt=parseUtc(cargoMatches.length&&!passengerMatches.length?cargoData.fetchedAt:(data.fetchedAt||cargoData.fetchedAt)),fetchedClock=fetchedAt?clock(fetchedAt):"--:--:--",queryLabel=data.query||cargoData.query||"--",headerLabel=passengerMatches.length&&cargoMatches.length?"登機門／貨機坪":passengerMatches.length?"登機門":"貨機坪";
+      const passengerRows=passengerMatches.map(match=>renderFlightRow(match,false,freshness)).join("");
       const cargoRows=cargoMatches.length?`<div class="aircraft-cargo-block">${cargoMatches.map(match=>renderFlightRow(match,true,"fresh")).join("")}</div>`:"";
       gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(queryLabel)} ${headerLabel}</strong><span class="aircraft-gate-route-inline">${escapeHtml(allRoutes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${passengerRows}${cargoRows}`;
       gateResult.style.display="block";

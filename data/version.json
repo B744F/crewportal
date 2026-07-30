@@ -1,7 +1,7 @@
 {
-  "version": "8.2.25",
-  "build": "20260729-1719",
-  "date": "2026-07-29",
-  "workerVersion": "2.8.33",
-  "label": "Disable stale flight-query edge caching"
+  "version": "8.2.26",
+  "build": "20260730-0903",
+  "date": "2026-07-30",
+  "workerVersion": "2.8.34",
+  "label": "Prefer cargo stands over duplicate passenger rows"
 }
