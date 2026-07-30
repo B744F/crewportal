@@ -1,3 +1,8 @@
+## v8.2.29 — 2026-07-30
+
+- Fixed missing regional arrival gate values being rendered as `undefined`.
+- Displays `無資料` when an arrived flight has no official boarding-gate value.
+
 ## v8.2.28 — 2026-07-30
 
 - Added an airport selector to airport gate lookup with RCTP as the default.

@@ -1,7 +1,7 @@
 {
-  "version": "8.2.28",
-  "build": "20260730-1528",
+  "version": "8.2.29",
+  "build": "20260730-1619",
   "date": "2026-07-30",
-  "workerVersion": "2.8.35",
-  "label": "Add multi-airport gate lookup"
+  "workerVersion": "2.8.36",
+  "label": "Fix missing arrival gate display"
 }
