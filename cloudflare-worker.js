@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.34 (Crew Portal v8.2.26)
+ * Version 2.8.35 (Crew Portal v8.2.28)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.26';
-const WORKER_VERSION = '2.8.34';
+const PORTAL_VERSION = 'v8.2.28';
+const WORKER_VERSION = '2.8.35';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -30,6 +30,32 @@ const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/proto
 const TDX_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TYMC';
 const TDX_LIVEBOARD_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC';
 const TDX_AIRPORT_FIDS_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Airport';
+const GATE_AIRPORTS = {
+  RCTP: { icao: 'RCTP', iata: 'TPE', name: '桃園國際機場' },
+  RCSS: { icao: 'RCSS', iata: 'TSA', name: '臺北松山機場' },
+  RCMQ: { icao: 'RCMQ', iata: 'RMQ', name: '臺中國際機場' },
+  RCKH: { icao: 'RCKH', iata: 'KHH', name: '高雄國際機場' }
+};
+const REGIONAL_GATE_SOURCES = {
+  RCSS: [
+    { direction: 'D', url: 'https://www.tsa.gov.tw/api/publicDataArea/GetFormaterData?id=42879f51-f47f-4d26-8b2b-5535c652cbde' },
+    { direction: 'A', url: 'https://www.tsa.gov.tw/api/publicDataArea/GetFormaterData?id=7dc1379a-9485-4491-866d-fc4f9590ffcf' },
+    { direction: 'D', url: 'https://www.tsa.gov.tw/api/publicDataArea/GetFormaterData?id=c0f7d5b4-ba73-46d2-8485-6595c64c4e17' },
+    { direction: 'A', url: 'https://www.tsa.gov.tw/api/publicDataArea/GetFormaterData?id=3057d52f-7a71-49e1-a0d4-87ffa3449a6a' }
+  ],
+  RCMQ: [
+    { direction: 'D', url: 'https://www.tca.gov.tw/?act=fids&code=airflytab&Flyline=1&FlyIO=1' },
+    { direction: 'A', url: 'https://www.tca.gov.tw/?act=fids&code=airflytab&Flyline=1&FlyIO=2' },
+    { direction: 'D', url: 'https://www.tca.gov.tw/?act=fids&code=airflytab&Flyline=2&FlyIO=1' },
+    { direction: 'A', url: 'https://www.tca.gov.tw/?act=fids&code=airflytab&Flyline=2&FlyIO=2' }
+  ],
+  RCKH: [
+    { direction: 'D', url: 'https://www.kia.gov.tw/Announce/NewsArea/InstantSchedule_INTDEP.json' },
+    { direction: 'D', url: 'https://www.kia.gov.tw/Announce/NewsArea/InstantSchedule_DOMDEP.json' },
+    { direction: 'A', url: 'https://www.kia.gov.tw/Announce/NewsArea/InstantSchedule_INTARR.json' },
+    { direction: 'A', url: 'https://www.kia.gov.tw/Announce/NewsArea/InstantSchedule_DOMARR.json' }
+  ]
+};
 const ALLOWED_ORIGINS = new Set([
   'https://b744f.github.io',
   'http://localhost:8000',
@@ -43,6 +69,7 @@ const tdxTimetableCache = new Map();
 let airportFlightCache = { version: '', loadedAt: 0, fetchedAt: 0, source: '', continuityRows: 0, rows: null };
 let airportFlightRefreshPromise = null;
 let tdxAirportFidsCache = { loadedAt: 0, rows: null };
+const regionalAirportFlightCache = new Map();
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
 function tdxAirportFidsCacheKey(bucketOffset = 0) {
   const bucket = Math.floor(Date.now() / (TDX_FIDS_CACHE_BUCKET_SECONDS * 1000)) + bucketOffset;
@@ -88,6 +115,115 @@ function normalizeFlightQuery(value) {
   const suffix = /[A-Z]$/.test(rawNumber) ? rawNumber.slice(-1) : '';
   const digits = rawNumber.slice(0, rawNumber.length - suffix.length).replace(/^0+(?=\d)/, '');
   return { airline, number: `${digits}${suffix}` };
+}
+
+function normalizeGateAirport(value) {
+  const airport = String(value || 'RCTP').trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(GATE_AIRPORTS, airport) ? airport : null;
+}
+
+function regionalPayloadRows(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.Data)) return payload.Data;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.rows)) return payload.rows;
+  if (Array.isArray(payload?.result)) return payload.result;
+  return [];
+}
+
+function regionalDate(value, today) {
+  const text = String(value || '').trim();
+  if (/^\d{8}$/.test(text)) return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+  const monthDay = text.match(/^(\d{2})(\d{2})$/);
+  if (monthDay) return `${today.slice(0, 4)}-${monthDay[1]}-${monthDay[2]}`;
+  return text.match(/^\d{4}-\d{2}-\d{2}$/)?.[0] || '';
+}
+
+function regionalTime(value) {
+  const text = String(value || '').trim();
+  const colon = text.match(/^(\d{1,2}):(\d{2})/);
+  if (colon) return `${colon[1].padStart(2, '0')}:${colon[2]}`;
+  const compact = text.match(/^(\d{2})(\d{2})$/);
+  return compact ? `${compact[1]}:${compact[2]}` : '';
+}
+
+function regionalFlightIdentity(rawAirline, rawNumber) {
+  const airline = String(rawAirline || '').trim().toUpperCase();
+  const flightNumber = String(rawNumber || '').trim().toUpperCase().replace(/[\s-]/g, '');
+  const embedded = /^[A-Z]/.test(flightNumber) && flightNumber.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/);
+  const code = embedded ? embedded[1] : airline;
+  const number = embedded ? embedded[2] : flightNumber.replace(/^0+(?=\d)/, '');
+  return { airline: code, number, flight: `${code}${number}` };
+}
+
+function normalizeRegionalFlightRow(raw, source, airport, today) {
+  const isTsa = airport === 'RCSS';
+  const isTca = airport === 'RCMQ';
+  const direction = isTsa
+    ? String(raw.AirFlyIO || '') === '2' ? 'A' : 'D'
+    : isTca
+      ? String(raw.airFlyIO || '') === '2' ? 'A' : 'D'
+      : source.direction;
+  const date = regionalDate(isTsa ? raw.AirFlyDate : isTca ? raw.airFlyDate : today, today);
+  const time = regionalTime(direction === 'D'
+    ? (isTsa ? raw.ExpectDepartureTime : isTca ? raw.expectDepartureTime : raw.expectTime)
+    : (isTsa ? raw.ExpectArrivalTime : isTca ? raw.expectArrivalTime : raw.expectTime));
+  const estimatedTime = regionalTime(direction === 'D'
+    ? (isTsa ? raw.RealDepartureTime : isTca ? raw.realDepartureTime : raw.realTime)
+    : (isTsa ? raw.RealArrivalTime : isTca ? raw.realArrivalTime : raw.realTime));
+  const identity = regionalFlightIdentity(
+    isTsa ? raw.AirLineIATA : isTca ? raw.AirLineIATA : raw.airLineCode,
+    isTsa ? raw.AirLineNum : isTca ? raw.airLineNum : raw.airLineNum
+  );
+  const airportCode = String(direction === 'D'
+    ? (isTsa ? raw.GoalAirportCode : isTca ? raw.goalAirportCode : raw.goalAirportCode)
+    : (isTsa ? raw.UpAirportCode : isTca ? raw.upAirportCode : raw.upAirportCode) || '').trim().toUpperCase();
+  const destination = String(direction === 'D'
+    ? (isTsa ? raw.GoalAirportName : isTca ? raw.goalAirportName : raw.goalAirportName)
+    : (isTsa ? raw.UpAirportName : isTca ? raw.upAirportName : raw.upAirportName) || '').trim();
+  return {
+    flight: identity.flight,
+    airline: identity.airline,
+    airlineName: String(isTsa ? raw.AirLineName : isTca ? raw.airLineName : raw.airLineName || '').trim(),
+    number: identity.number,
+    terminal: '',
+    direction,
+    date,
+    time,
+    estimatedDate: estimatedTime ? date : '',
+    estimatedTime,
+    gate: String(isTsa ? raw.AirBoardingGate : isTca ? raw.airBoardingGate : raw.airBoardingGate || '').trim(),
+    airportCode,
+    destination,
+    status: String(isTsa ? raw.AirFlyStatus : isTca ? raw.airFlyStatus : raw.airFlyStatus || '').trim()
+  };
+}
+
+async function loadRegionalAirportFlights(airport) {
+  const cached = regionalAirportFlightCache.get(airport);
+  if (cached && Date.now() - cached.loadedAt < 30_000) return cached;
+  const sources = REGIONAL_GATE_SOURCES[airport] || [];
+  const results = await Promise.allSettled(sources.map(source => fetchUpstream(source.url, {
+    headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
+    cf: { cacheTtl: 15, cacheEverything: true }
+  }).then(async response => {
+    if (!response.ok) throw new Error(`${airport} official flight source failed (${response.status})`);
+    return { source, payload: await response.json() };
+  })));
+  const rows = results.flatMap(result => result.status === 'fulfilled'
+    ? regionalPayloadRows(result.value.payload).map(raw => normalizeRegionalFlightRow(raw, result.value.source, airport, taipeiNow().date))
+    : []
+  ).filter(row => row.flight && row.date && row.time);
+  if (!rows.length) throw new Error(`${GATE_AIRPORTS[airport].name}官方即時航班資料暫時無法取得`);
+  const source = {
+    version: WORKER_VERSION,
+    loadedAt: Date.now(),
+    fetchedAt: Date.now(),
+    source: `${GATE_AIRPORTS[airport].name}官方即時航班資料`,
+    rows
+  };
+  regionalAirportFlightCache.set(airport, source);
+  return source;
 }
 
 function normalizeCargoFlightIdentity(value) {
@@ -1111,12 +1247,17 @@ async function handleParking(request) {
 
 async function handleFlightGate(request, env, ctx) {
   const url = new URL(request.url);
+  const airport = normalizeGateAirport(url.searchParams.get('airport'));
+  if (!airport) return json(request, { ok: false, error: 'Invalid airport. Use RCTP, RCSS, RCMQ, or RCKH.' }, { status: 400 });
   const query = normalizeFlightQuery(url.searchParams.get('flight'));
   if (!query) return json(request, { ok: false, error: 'Invalid flight number. Use CI100 or 100.' }, { status: 400 });
 
   try {
     const now = taipeiNow();
-    const source = await loadAirportFlights(env, ctx, query);
+    const source = airport === 'RCTP'
+      ? await loadAirportFlights(env, ctx, query)
+      : await loadRegionalAirportFlights(airport);
+    const airportInfo = GATE_AIRPORTS[airport];
     const freshness = flightFreshness(source.fetchedAt);
     const matches = source.rows
       .filter(row => row.date === now.date)
@@ -1135,13 +1276,15 @@ async function handleFlightGate(request, env, ctx) {
         estimatedTime: row.estimatedTime,
         gate: row.gate,
         airportCode: row.airportCode,
-        route: row.direction === 'D' ? `TPE/${row.airportCode}` : `${row.airportCode}/TPE`,
+        route: row.direction === 'D' ? `${airportInfo.iata}/${row.airportCode}` : `${row.airportCode}/${airportInfo.iata}`,
         destination: row.destination,
         status: row.status
       }));
 
     return json(request, {
       ok: true,
+      airport,
+      airportName: airportInfo.name,
       query: `${query.airline}${query.number}`,
       fetchedAt: new Date(source.fetchedAt).toISOString(),
       source: source.source || 'Taoyuan Airport ADIP official real-time flight data',
@@ -1155,8 +1298,10 @@ async function handleFlightGate(request, env, ctx) {
     const liveUnavailable = errorText.startsWith('Official live flight data unavailable:');
     return json(request, {
       ok: false,
+      airport,
+      airportName: GATE_AIRPORTS[airport].name,
       query: url.searchParams.get('flight') || '',
-      source: 'Taoyuan Airport ADIP official real-time flight data',
+      source: GATE_AIRPORTS[airport].name + ' official real-time flight data',
       errorCode: liveUnavailable ? 'LIVE_FLIGHT_DATA_UNAVAILABLE' : 'FLIGHT_GATE_QUERY_FAILED',
       error: errorText
     }, { status: liveUnavailable ? 503 : 502, headers: { 'Cache-Control': 'no-store' } });

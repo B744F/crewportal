@@ -1,3 +1,9 @@
+## v8.2.28 — 2026-07-30
+
+- Added an airport selector to airport gate lookup with RCTP as the default.
+- Added official real-time gate lookup support for RCSS, RCMQ, and RCKH.
+- Kept the gate input hint as `Callsign or Flight No.` with a medium-sized font.
+
 ## v8.2.27 — 2026-07-30
 
 - Updated the RCTP GATE INFO input placeholder to `Callsign or Flight No.` with a medium-sized hint font.

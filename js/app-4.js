@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.27";
-  const BUILD = "20260730-1355";
+  const VERSION = "8.2.28";
+  const BUILD = "20260730-1528";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -133,6 +133,9 @@
       .aircraft-gate-divider{height:1px;background:rgba(255,255,255,.12);margin:10px 0 8px}
       .aircraft-gate-title{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:14px;font-weight:900;letter-spacing:.04em;color:#eef7ff}
       .aircraft-gate-title span:first-child{color:#86d4ff;font-size:16px}
+      .aircraft-gate-airport{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:9px;margin-bottom:7px;color:#9fb7ca;font-size:11px;font-weight:800}
+      #aircraftGateAirport{width:100%;height:30px;border:1px solid rgba(105,189,255,.35);border-radius:7px;background:rgba(0,5,12,.44);color:#eef7ff;font-size:12px;font-weight:800;padding:0 9px;outline:0}
+      #aircraftGateAirport:focus{border-color:rgba(105,189,255,.78);box-shadow:0 0 0 2px rgba(105,189,255,.12)}
       .aircraft-gate-form{display:grid;grid-template-columns:1fr 108px;align-items:center;border:1px solid rgba(105,189,255,.35);background:rgba(0,5,12,.30);border-radius:10px;overflow:hidden;height:39px}
       #aircraftGateInput{height:100%;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:15px;font-weight:750;padding:0 16px;text-transform:uppercase;letter-spacing:.06em}
       #aircraftGateInput::placeholder{color:rgba(238,247,255,.48);font-size:14px;font-weight:700;letter-spacing:.03em;text-transform:none}
@@ -151,10 +154,10 @@
     `;
     document.head.appendChild(style);
     const wrap=document.createElement("div");
-    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div><div class="aircraft-gate-divider"></div><div class="aircraft-gate-title"><span>◈</span><span>RCTP GATE INFO</span></div><form class="aircraft-gate-form" id="aircraftGateForm"><input id="aircraftGateInput" aria-label="Flight number for Taoyuan Airport gate lookup" autocomplete="off" maxlength="12" placeholder="Callsign or Flight No." type="text"><button class="aircraft-gate-button" type="submit">GATE ›</button></form><div id="aircraftGateStatus"></div><div id="aircraftGateResult" class="aircraft-gate-result"></div>`;
+    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div><div class="aircraft-gate-divider"></div><div class="aircraft-gate-title"><span>◈</span><span>AIRPORT GATE INFO</span></div><div class="aircraft-gate-airport"><label for="aircraftGateAirport">Airport 機場</label><select id="aircraftGateAirport" aria-label="Select airport for gate lookup"><option value="RCTP">RCTP 桃園國際機場</option><option value="RCSS">RCSS 臺北松山機場</option><option value="RCMQ">RCMQ 臺中國際機場</option><option value="RCKH">RCKH 高雄國際機場</option></select></div><form class="aircraft-gate-form" id="aircraftGateForm"><input id="aircraftGateInput" aria-label="Flight number for airport gate lookup" autocomplete="off" maxlength="12" placeholder="Callsign or Flight No." type="text"><button class="aircraft-gate-button" type="submit">GATE ›</button></form><div id="aircraftGateStatus"></div><div id="aircraftGateResult" class="aircraft-gate-result"></div>`;
     atisPanel.appendChild(wrap);
     const trackForm=$("aircraftTrackForm"),trackInput=$("aircraftTrackInput"),trackStatus=$("aircraftTrackStatus");
-    const gateForm=$("aircraftGateForm"),gateInput=$("aircraftGateInput"),gateStatus=$("aircraftGateStatus"),gateResult=$("aircraftGateResult");
+    const gateForm=$("aircraftGateForm"),gateAirport=$("aircraftGateAirport"),gateInput=$("aircraftGateInput"),gateStatus=$("aircraftGateStatus"),gateResult=$("aircraftGateResult");
     trackInput.addEventListener("input",()=>{trackInput.value=trackInput.value.toUpperCase().replace(/[^A-Z0-9-]/g,"").slice(0,12);trackStatus.style.display="none"});
     trackForm.addEventListener("submit",e=>{
       e.preventDefault();const value=trackInput.value.trim().toUpperCase();
@@ -193,7 +196,7 @@
       const cargoMatches=cargoResponse?.ok&&cargoData.ok?(cargoData.matches||[]).filter(match=>match.date===todayTaipei()):[];
       const allSourcesFailed=Boolean(gateResultData&&cargoResultData&&!response?.ok&&!cargoResponse?.ok);
       if(!matches.length&&!cargoMatches.length&&allSourcesFailed){
-        if(data.errorCode==="LIVE_FLIGHT_DATA_UNAVAILABLE")throw new Error("桃園機場官方即時資料暫時無法取得，未使用過期快照，請稍後重試。");
+        if(data.errorCode==="LIVE_FLIGHT_DATA_UNAVAILABLE")throw new Error("機場官方即時資料暫時無法取得，未使用過期快照，請稍後重試。");
         throw new Error(data.error||cargoData.error||"查詢失敗");
       }
       const freshness=data.freshness||"fresh";
@@ -211,6 +214,7 @@
       gateResult.innerHTML=`<div class="aircraft-gate-result-head"><strong>${escapeHtml(queryLabel)} ${headerLabel}</strong><span class="aircraft-gate-route-inline">${escapeHtml(allRoutes)}</span><small>資料 ${escapeHtml(fetchedClock)} 更新</small></div>${passengerRows}${cargoRows}`;
       gateResult.style.display="block";
     };
+    gateAirport.addEventListener("change",()=>{gateStatus.style.display="none";gateResult.style.display="none"});
     gateInput.addEventListener("input",()=>{gateInput.value=gateInput.value.toUpperCase().replace(/[^A-Z0-9 -]/g,"").slice(0,12);gateStatus.style.display="none"});
     gateForm.addEventListener("submit",async e=>{
       e.preventDefault();
@@ -219,7 +223,8 @@
       if(!/^(?:[A-Z0-9]{2,3}\s*-?\s*)?\d{1,4}[A-Z]?$/.test(value)){
         setGateStatus("請輸入航班號碼，例如 CI100、5X61 或 4位數航班","error");gateResult.style.display="none";gateInput.focus();return;
       }
-      setGateStatus("正在查詢桃園機場航班與貨機坪資料…");gateResult.style.display="none";
+      const airport=gateAirport.value;
+      setGateStatus(`正在查詢${gateAirport.options[gateAirport.selectedIndex].textContent}航班資料…`);gateResult.style.display="none";
       try{
         const fetchFlightLookup=async(url,label)=>{
           const controller=new AbortController();
@@ -244,8 +249,8 @@
             try{renderGateLookup(gateResultData,cargoResultData)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
           }
         };
-        const gatePromise=fetchFlightLookup(`${FLIGHT_GATE_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,"航班資料");
-        const cargoPromise=fetchFlightLookup(`${CARGO_STAND_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,"貨機坪資料");
+        const gatePromise=fetchFlightLookup(`${FLIGHT_GATE_API}?airport=${encodeURIComponent(airport)}&flight=${encodeURIComponent(value)}&v=${Date.now()}`,"航班資料");
+        const cargoPromise=airport==="RCTP"?fetchFlightLookup(`${CARGO_STAND_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,"貨機坪資料"):Promise.resolve({response:{ok:true},data:{ok:true,matches:[]}});
         await Promise.allSettled([
           gatePromise.then(result=>{gateResultData=result;renderAvailable()}),
           cargoPromise.then(result=>{cargoResultData=result;renderAvailable()})
