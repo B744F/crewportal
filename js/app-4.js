@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.26";
-  const BUILD = "20260730-0903";
+  const VERSION = "8.2.27";
+  const BUILD = "20260730-1355";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -135,7 +135,7 @@
       .aircraft-gate-title span:first-child{color:#86d4ff;font-size:16px}
       .aircraft-gate-form{display:grid;grid-template-columns:1fr 108px;align-items:center;border:1px solid rgba(105,189,255,.35);background:rgba(0,5,12,.30);border-radius:10px;overflow:hidden;height:39px}
       #aircraftGateInput{height:100%;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:15px;font-weight:750;padding:0 16px;text-transform:uppercase;letter-spacing:.06em}
-      #aircraftGateInput::placeholder{color:rgba(238,247,255,.48);font-weight:700;letter-spacing:.03em;text-transform:none}
+      #aircraftGateInput::placeholder{color:rgba(238,247,255,.48);font-size:14px;font-weight:700;letter-spacing:.03em;text-transform:none}
       .aircraft-gate-button{height:100%;border:1px solid rgba(105,189,255,.50);border-right:0;border-top:0;border-bottom:0;background:linear-gradient(180deg,rgba(52,137,190,.88),rgba(22,75,116,.88));color:#eff9ff;font-size:13px;font-weight:1000;letter-spacing:.06em;cursor:pointer}
       .aircraft-gate-button:hover{filter:brightness(1.12)}#aircraftGateStatus{display:none;margin-top:7px;font-size:12px;color:#b9d8ed}#aircraftGateStatus.warning{color:#ffd27a}#aircraftGateStatus.error{color:#ffc8c8}
       .aircraft-gate-result{display:none;margin-top:8px;border:1px solid rgba(105,189,255,.25);border-radius:9px;overflow:hidden;background:rgba(0,8,16,.24)}
@@ -151,7 +151,7 @@
     `;
     document.head.appendChild(style);
     const wrap=document.createElement("div");
-    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div><div class="aircraft-gate-divider"></div><div class="aircraft-gate-title"><span>◈</span><span>RCTP GATE INFO</span></div><form class="aircraft-gate-form" id="aircraftGateForm"><input id="aircraftGateInput" aria-label="Flight number for Taoyuan Airport gate lookup" autocomplete="off" maxlength="12" placeholder="CI100 / 4 digits" type="text"><button class="aircraft-gate-button" type="submit">GATE ›</button></form><div id="aircraftGateStatus"></div><div id="aircraftGateResult" class="aircraft-gate-result"></div>`;
+    wrap.innerHTML=`<div class="aircraft-track-divider"></div><div class="aircraft-track-title"><span>⌖</span><span>AIRCRAFT TRACKING</span></div><form class="aircraft-track-form" id="aircraftTrackForm"><input id="aircraftTrackInput" aria-label="Call Sign or aircraft registration number" autocomplete="off" maxlength="12" placeholder="CALL SIGN / REG No." type="text"><button class="aircraft-track-button" type="submit">TRACK ›</button></form><div id="aircraftTrackStatus"></div><div class="aircraft-gate-divider"></div><div class="aircraft-gate-title"><span>◈</span><span>RCTP GATE INFO</span></div><form class="aircraft-gate-form" id="aircraftGateForm"><input id="aircraftGateInput" aria-label="Flight number for Taoyuan Airport gate lookup" autocomplete="off" maxlength="12" placeholder="Callsign or Flight No." type="text"><button class="aircraft-gate-button" type="submit">GATE ›</button></form><div id="aircraftGateStatus"></div><div id="aircraftGateResult" class="aircraft-gate-result"></div>`;
     atisPanel.appendChild(wrap);
     const trackForm=$("aircraftTrackForm"),trackInput=$("aircraftTrackInput"),trackStatus=$("aircraftTrackStatus");
     const gateForm=$("aircraftGateForm"),gateInput=$("aircraftGateInput"),gateStatus=$("aircraftGateStatus"),gateResult=$("aircraftGateResult");

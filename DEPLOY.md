@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.26 部署
+# FlightDeck Crew Portal v8.2.27 部署
 
 ## 部署內容
 

@@ -1,3 +1,7 @@
+## v8.2.27 — 2026-07-30
+
+- Updated the RCTP GATE INFO input placeholder to `Callsign or Flight No.` with a medium-sized hint font.
+
 ## v8.2.15 — 2026-07-27
 
 - Removed the embedded lower Hero title, subtitle, logo, and value icons to reduce visual interference.
