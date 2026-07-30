@@ -1,7 +1,7 @@
 {
-  "version": "8.2.35",
-  "build": "20260730-1739",
+  "version": "8.2.36",
+  "build": "20260730-1741",
   "date": "2026-07-30",
-  "workerVersion": "2.8.40",
-  "label": "Verify TDX Songshan arrival gate data"
+  "workerVersion": "2.8.41",
+  "label": "Clarify unpublished arrival gates"
 }

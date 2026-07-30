@@ -1,3 +1,7 @@
+## v8.2.36 — 2026-07-30
+
+- Clarified blank arrival-gate results as `官方未公布` when official airport and TDX feeds provide no gate.
+
 ## v8.2.35 — 2026-07-30
 
 - Added a TDX regional gate-source diagnostic and relaxed the Songshan gate merge to tolerate schedule-time differences.
