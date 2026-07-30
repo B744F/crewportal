@@ -127,6 +127,7 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .app-card img{width:56px;height:56px;object-fit:contain;border-radius:14px;padding:8px;background:rgba(255,255,255,.92);margin-bottom:6px;box-shadow:0 10px 20px rgba(0,0,0,.24)}
 .app-card strong{font-size:13px;line-height:1.2}
 .app-card span{font-size:11px;line-height:1.2;color:#b9c8da;margin-top:3px}
+.download-card strong{font-size:12px;max-width:100%;}
 .footer{border-top:1px solid rgba(255,255,255,.12);padding:28px 0 36px;color:#aebbd0;background:rgba(0,0,0,.12)}
 .footer .shell{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
 .footer b{color:#d9e9ff}
