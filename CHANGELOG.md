@@ -1,3 +1,7 @@
+## v8.2.35 — 2026-07-30
+
+- Added a TDX regional gate-source diagnostic and relaxed the Songshan gate merge to tolerate schedule-time differences.
+
 ## v8.2.34 — 2026-07-30
 
 - Added TDX Airport FIDS as an official fallback to enrich Songshan arrival gates when the airport JSON leaves the gate blank.

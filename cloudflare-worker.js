@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.39 (Crew Portal v8.2.34)
+ * Version 2.8.40 (Crew Portal v8.2.35)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.34';
-const WORKER_VERSION = '2.8.39';
+const PORTAL_VERSION = 'v8.2.35';
+const WORKER_VERSION = '2.8.40';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -242,6 +242,10 @@ function regionalFlightKey(row) {
   return [row.flight, row.direction, row.date, row.time].join('|');
 }
 
+function regionalFlightDayKey(row) {
+  return [row.flight, row.direction, row.date].join('|');
+}
+
 async function loadRegionalAirportFlights(airport, env) {
   const cached = regionalAirportFlightCache.get(airport);
   if (cached && Date.now() - cached.loadedAt < 30_000) return cached;
@@ -260,7 +264,8 @@ async function loadRegionalAirportFlights(airport, env) {
   if (!rows.length) throw new Error(`${GATE_AIRPORTS[airport].name}官方即時航班資料暫時無法取得`);
   const tdxRows = await loadRegionalTdxRows(airport, env);
   const tdxGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightKey(row), row.gate]));
-  const mergedRows = rows.map(row => ({ ...row, gate: tdxGates.get(regionalFlightKey(row)) || row.gate }));
+  const tdxDayGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightDayKey(row), row.gate]));
+  const mergedRows = rows.map(row => ({ ...row, gate: tdxGates.get(regionalFlightKey(row)) || tdxDayGates.get(regionalFlightDayKey(row)) || row.gate }));
   const source = {
     version: WORKER_VERSION,
     loadedAt: Date.now(),
@@ -813,6 +818,18 @@ async function fetchTdxAirportFids(token, direction, airportCode = 'TPE') {
 }
 
 async function handleFlightGateTdxSource(request, env, ctx) {
+  const requestedAirport = normalizeGateAirport(new URL(request.url).searchParams.get('airport'));
+  if (requestedAirport && requestedAirport !== 'RCTP') {
+    const rows = await loadRegionalTdxRows(requestedAirport, env);
+    return json(request, {
+      ok: true,
+      airport: requestedAirport,
+      source: 'TDX official Airport FIDS real-time flight data',
+      fetchedAtUtc: new Date().toISOString(),
+      gateRows: rows.filter(row => row.gate).length,
+      rows
+    }, { headers: { 'Cache-Control': 'no-store' } });
+  }
   try {
     const cacheKey = tdxAirportFidsCacheKey();
     const edgeCached = await caches.default.match(cacheKey);

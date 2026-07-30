@@ -1,7 +1,7 @@
 {
-  "version": "8.2.34",
-  "build": "20260730-1736",
+  "version": "8.2.35",
+  "build": "20260730-1739",
   "date": "2026-07-30",
-  "workerVersion": "2.8.39",
-  "label": "Add TDX Songshan arrival gate fallback"
+  "workerVersion": "2.8.40",
+  "label": "Verify TDX Songshan arrival gate data"
 }
