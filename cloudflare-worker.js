@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.41 (Crew Portal v8.2.36)
+ * Version 2.8.42 (Crew Portal v8.2.37)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.36';
-const WORKER_VERSION = '2.8.41';
+const PORTAL_VERSION = 'v8.2.37';
+const WORKER_VERSION = '2.8.42';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -182,6 +182,7 @@ function normalizeRegionalFlightRow(raw, source, airport, today) {
   const destination = String(direction === 'D'
     ? (isTsa ? raw.GoalAirportName : isTca ? raw.goalAirportName : raw.goalAirportName)
     : (isTsa ? raw.UpAirportName : isTca ? raw.upAirportName : raw.upAirportName) || '').trim();
+  const gate = String((isTsa ? raw.AirBoardingGate : raw.airBoardingGate) || '').trim();
   return {
     flight: identity.flight,
     airline: identity.airline,
@@ -193,7 +194,8 @@ function normalizeRegionalFlightRow(raw, source, airport, today) {
     time,
     estimatedDate: estimatedTime ? date : '',
     estimatedTime,
-    gate: String((isTsa ? raw.AirBoardingGate : raw.airBoardingGate) || '').trim(),
+    gate,
+    gateSource: gate ? 'airport-official' : '',
     airportCode,
     destination,
     status: String(isTsa ? raw.AirFlyStatus : isTca ? raw.airFlyStatus : raw.airFlyStatus || '').trim()
@@ -213,6 +215,7 @@ function normalizeRegionalTdxRows(rows) {
     estimatedDate: row.estimatedDate || row['預計日期'],
     estimatedTime: row.estimatedTime || row['預計時間'],
     gate: row.gate || row['機門'],
+    gateSource: row.gate || row['機門'] ? 'tdx-official' : '',
     airportCode: row.airportCode || row['往來地點'],
     destination: row.destination || row['往來地點中文'] || row['往來地點'],
     status: row.status || row['航班動態中文'] || row['備註'] || ''
@@ -246,6 +249,40 @@ function regionalFlightDayKey(row) {
   return [row.flight, row.direction, row.date].join('|');
 }
 
+function regionalMinutes(value) {
+  const match = String(value || '').match(/^(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function inferRegionalArrivalGates(rows) {
+  const departures = rows.filter(row => row.direction === 'D' && row.gate && row.date && row.time);
+  return rows.map(row => {
+    if (row.direction !== 'A' || row.gate || !row.date || !row.airline || !row.airportCode) return row;
+    const arrivalMinutes = regionalMinutes(row.estimatedTime || row.time);
+    if (arrivalMinutes === null) return row;
+    const candidates = departures.map(departure => {
+      if (departure.date !== row.date || departure.airline !== row.airline || departure.airportCode !== row.airportCode) return null;
+      const departureMinutes = regionalMinutes(departure.time);
+      if (departureMinutes === null || departureMinutes <= arrivalMinutes) return null;
+      const turnaroundMinutes = departureMinutes - arrivalMinutes;
+      if (turnaroundMinutes < 20 || turnaroundMinutes > 180 || /取消|cancel/i.test(departure.status || '')) return null;
+      return { departure, turnaroundMinutes };
+    }).filter(Boolean).sort((a, b) => a.turnaroundMinutes - b.turnaroundMinutes);
+    if (!candidates.length) return row;
+    const nearestMinutes = candidates[0].turnaroundMinutes;
+    const nearest = candidates.filter(candidate => candidate.turnaroundMinutes <= nearestMinutes + 15);
+    const gates = [...new Set(nearest.map(candidate => candidate.departure.gate))];
+    if (gates.length !== 1) return row;
+    return {
+      ...row,
+      gate: gates[0],
+      gateSource: 'inferred-turnaround',
+      gateBasisFlight: nearest[0].departure.flight
+    };
+  });
+}
+
 async function loadRegionalAirportFlights(airport, env) {
   const cached = regionalAirportFlightCache.get(airport);
   if (cached && Date.now() - cached.loadedAt < 30_000) return cached;
@@ -263,9 +300,14 @@ async function loadRegionalAirportFlights(airport, env) {
   ).filter(row => row.flight && row.date && row.time);
   if (!rows.length) throw new Error(`${GATE_AIRPORTS[airport].name}官方即時航班資料暫時無法取得`);
   const tdxRows = await loadRegionalTdxRows(airport, env);
-  const tdxGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightKey(row), row.gate]));
-  const tdxDayGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightDayKey(row), row.gate]));
-  const mergedRows = rows.map(row => ({ ...row, gate: tdxGates.get(regionalFlightKey(row)) || tdxDayGates.get(regionalFlightDayKey(row)) || row.gate }));
+  const tdxGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightKey(row), row]));
+  const tdxDayGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightDayKey(row), row]));
+  const mergedRows = inferRegionalArrivalGates(rows.map(row => {
+    const tdxRow = tdxGates.get(regionalFlightKey(row)) || tdxDayGates.get(regionalFlightDayKey(row));
+    return tdxRow?.gate
+      ? { ...row, gate: tdxRow.gate, gateSource: 'tdx-official' }
+      : row;
+  }));
   const source = {
     version: WORKER_VERSION,
     loadedAt: Date.now(),
@@ -1338,6 +1380,8 @@ async function handleFlightGate(request, env, ctx) {
         estimatedDate: row.estimatedDate,
         estimatedTime: row.estimatedTime,
         gate: row.gate,
+        gateSource: row.gateSource || '',
+        gateBasisFlight: row.gateBasisFlight || '',
         airportCode: row.airportCode,
         route: row.direction === 'D' ? `${airportInfo.iata}/${row.airportCode}` : `${row.airportCode}/${airportInfo.iata}`,
         destination: row.destination,

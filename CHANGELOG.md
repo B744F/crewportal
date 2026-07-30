@@ -1,3 +1,7 @@
+## v8.2.37 — 2026-07-30
+
+- Added a conservative Songshan arrival-gate inference using the official next-turnaround departure gate; the UI labels inferred values as `推定` and leaves ambiguous arrivals unpublished.
+
 ## v8.2.36 — 2026-07-30
 
 - Clarified blank arrival-gate results as `官方未公布` when official airport and TDX feeds provide no gate.

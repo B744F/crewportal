@@ -1,7 +1,7 @@
 {
-  "version": "8.2.36",
-  "build": "20260730-1741",
+  "version": "8.2.37",
+  "build": "20260730-1757",
   "date": "2026-07-30",
-  "workerVersion": "2.8.41",
-  "label": "Clarify unpublished arrival gates"
+  "workerVersion": "2.8.42",
+  "label": "Infer Songshan turnaround arrival gates"
 }
