@@ -1,3 +1,7 @@
+## v8.2.30 — 2026-07-30
+
+- Treats every arrival with a blank official gate as `無資料`, including delayed arrivals.
+
 ## v8.2.29 — 2026-07-30
 
 - Fixed missing regional arrival gate values being rendered as `undefined`.
