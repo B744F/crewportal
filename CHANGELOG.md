@@ -1,3 +1,7 @@
+## v8.2.38 — 2026-07-30
+
+- Shortened the blank arrival-gate label from `官方未公布` to `未公布`.
+
 ## v8.2.37 — 2026-07-30
 
 - Added a conservative Songshan arrival-gate inference using the official next-turnaround departure gate; the UI labels inferred values as `推定` and leaves ambiguous arrivals unpublished.
