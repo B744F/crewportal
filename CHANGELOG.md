@@ -1,3 +1,8 @@
+## v8.2.33 — 2026-07-30
+
+- Renamed `AIRPORT GATE INFO` to `GATE INFO`.
+- Moved the airport selector onto the gate-info title row and removed `Airport 機場`.
+
 ## v8.2.30 — 2026-07-30
 
 - Treats every arrival with a blank official gate as `無資料`, including delayed arrivals.

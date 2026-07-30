@@ -1,7 +1,7 @@
 {
-  "version": "8.2.32",
-  "build": "20260730-1701",
+  "version": "8.2.33",
+  "build": "20260730-1712",
   "date": "2026-07-30",
-  "workerVersion": "2.8.37",
-  "label": "Rename PSX navigation data button"
+  "workerVersion": "2.8.38",
+  "label": "Compact airport gate selector"
 }
