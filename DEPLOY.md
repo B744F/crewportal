@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.33 部署
+# FlightDeck Crew Portal v8.2.34 部署
 
 ## 部署內容
 
@@ -13,13 +13,13 @@
 
 ```json
 {
-  "portalVersion": "v8.2.33",
-  "workerVersion": "2.8.38",
+  "portalVersion": "v8.2.34",
+  "workerVersion": "2.8.39",
   "timetableParser": "structured-official"
 }
 ```
 
-航班登機門查詢使用 `/api/flight-gate?airport=RCTP&flight=CI100`，支援 RCTP、RCSS、RCMQ、RCKH；RCTP 維持原有 ADIP／TDX 官方來源，其他機場使用各機場官方即時航班 JSON。即時來源的航班號會保留完整數字，不會將 CI602 誤解析為 CI2；同日已確認的登機門也不會因即時來源短暫空值而退回「未定」。
+航班登機門查詢使用 `/api/flight-gate?airport=RCTP&flight=CI100`，支援 RCTP、RCSS、RCMQ、RCKH；RCTP 維持原有 ADIP／TDX 官方來源，其他機場使用各機場官方即時航班 JSON，RCSS 另以 TDX Airport FIDS 增補抵達登機門。即時來源的航班號會保留完整數字，不會將 CI602 誤解析為 CI2；同日已確認的登機門也不會因即時來源短暫空值而退回「未定」。
 
 貨機坪查詢使用 `/api/cargo-stand?flight=5X61`，由 Worker 取得 TPE GOSS 公開地面作業資料，只接受今日且落在 RCTP 貨機坪 501–525 的停機位；前端在 RCTP GATE INFO 中將貨機坪與客機登機門分開顯示。
 

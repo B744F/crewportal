@@ -1,3 +1,7 @@
+## v8.2.34 — 2026-07-30
+
+- Added TDX Airport FIDS as an official fallback to enrich Songshan arrival gates when the airport JSON leaves the gate blank.
+
 ## v8.2.33 — 2026-07-30
 
 - Renamed `AIRPORT GATE INFO` to `GATE INFO`.

@@ -1,7 +1,7 @@
 {
-  "version": "8.2.33",
-  "build": "20260730-1712",
+  "version": "8.2.34",
+  "build": "20260730-1736",
   "date": "2026-07-30",
-  "workerVersion": "2.8.38",
-  "label": "Compact airport gate selector"
+  "workerVersion": "2.8.39",
+  "label": "Add TDX Songshan arrival gate fallback"
 }

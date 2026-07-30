@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.38 (Crew Portal v8.2.33)
+ * Version 2.8.39 (Crew Portal v8.2.34)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -11,8 +11,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.33';
-const WORKER_VERSION = '2.8.38';
+const PORTAL_VERSION = 'v8.2.34';
+const WORKER_VERSION = '2.8.39';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -70,6 +70,7 @@ let airportFlightCache = { version: '', loadedAt: 0, fetchedAt: 0, source: '', c
 let airportFlightRefreshPromise = null;
 let tdxAirportFidsCache = { loadedAt: 0, rows: null };
 const regionalAirportFlightCache = new Map();
+const regionalTdxAirportCache = new Map();
 const TDX_EDGE_CACHE_ORIGIN = 'https://flightdeck-tdx-cache.invalid';
 function tdxAirportFidsCacheKey(bucketOffset = 0) {
   const bucket = Math.floor(Date.now() / (TDX_FIDS_CACHE_BUCKET_SECONDS * 1000)) + bucketOffset;
@@ -199,7 +200,49 @@ function normalizeRegionalFlightRow(raw, source, airport, today) {
   };
 }
 
-async function loadRegionalAirportFlights(airport) {
+function normalizeRegionalTdxRows(rows) {
+  return rows.map(row => ({
+    flight: row.flight || `${row['航空公司代碼']}${row['班次']}`,
+    airline: row.airline || row['航空公司代碼'],
+    airlineName: row.airlineName || row['航空公司中文'] || '',
+    number: row.number || row['班次'],
+    terminal: row.terminal || row['航廈'] || '',
+    direction: row.direction || row['方向'],
+    date: row.date || row['表訂日期'],
+    time: row.time || row['表訂時間'],
+    estimatedDate: row.estimatedDate || row['預計日期'],
+    estimatedTime: row.estimatedTime || row['預計時間'],
+    gate: row.gate || row['機門'],
+    airportCode: row.airportCode || row['往來地點'],
+    destination: row.destination || row['往來地點中文'] || row['往來地點'],
+    status: row.status || row['航班動態中文'] || row['備註'] || ''
+  }));
+}
+
+async function loadRegionalTdxRows(airport, env) {
+  if (airport !== 'RCSS' || !env?.TDX_CLIENT_ID || !env?.TDX_CLIENT_SECRET) return [];
+  const cached = regionalTdxAirportCache.get(airport);
+  if (cached && Date.now() - cached.loadedAt < 30_000) return cached.rows;
+  try {
+    const token = await getTdxToken(env);
+    if (!token) return [];
+    const [departures, arrivals] = await Promise.all([
+      fetchTdxAirportFids(token, 'D', 'TSA'),
+      fetchTdxAirportFids(token, 'A', 'TSA')
+    ]);
+    const rows = [...normalizeRegionalTdxRows(departures), ...normalizeRegionalTdxRows(arrivals)];
+    regionalTdxAirportCache.set(airport, { loadedAt: Date.now(), rows });
+    return rows;
+  } catch (_error) {
+    return [];
+  }
+}
+
+function regionalFlightKey(row) {
+  return [row.flight, row.direction, row.date, row.time].join('|');
+}
+
+async function loadRegionalAirportFlights(airport, env) {
   const cached = regionalAirportFlightCache.get(airport);
   if (cached && Date.now() - cached.loadedAt < 30_000) return cached;
   const sources = REGIONAL_GATE_SOURCES[airport] || [];
@@ -215,12 +258,15 @@ async function loadRegionalAirportFlights(airport) {
     : []
   ).filter(row => row.flight && row.date && row.time);
   if (!rows.length) throw new Error(`${GATE_AIRPORTS[airport].name}官方即時航班資料暫時無法取得`);
+  const tdxRows = await loadRegionalTdxRows(airport, env);
+  const tdxGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightKey(row), row.gate]));
+  const mergedRows = rows.map(row => ({ ...row, gate: tdxGates.get(regionalFlightKey(row)) || row.gate }));
   const source = {
     version: WORKER_VERSION,
     loadedAt: Date.now(),
     fetchedAt: Date.now(),
     source: `${GATE_AIRPORTS[airport].name}官方即時航班資料`,
-    rows
+    rows: mergedRows
   };
   regionalAirportFlightCache.set(airport, source);
   return source;
@@ -745,11 +791,11 @@ function normalizeTdxAirportRows(rows, direction) {
   }).filter(row => row['航空公司代碼'] && row['班次'] && row['表訂日期'] && row['表訂時間']);
 }
 
-async function fetchTdxAirportFids(token, direction) {
+async function fetchTdxAirportFids(token, direction, airportCode = 'TPE') {
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      const response = await fetchUpstream(`${TDX_AIRPORT_FIDS_ROOT}/${direction === 'D' ? 'Departure' : 'Arrival'}/TPE?$format=JSON`, {
+      const response = await fetchUpstream(`${TDX_AIRPORT_FIDS_ROOT}/${direction === 'D' ? 'Departure' : 'Arrival'}/${airportCode}?$format=JSON`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
         cf: { cacheTtl: 30, cacheEverything: true }
       });
@@ -1256,7 +1302,7 @@ async function handleFlightGate(request, env, ctx) {
     const now = taipeiNow();
     const source = airport === 'RCTP'
       ? await loadAirportFlights(env, ctx, query)
-      : await loadRegionalAirportFlights(airport);
+      : await loadRegionalAirportFlights(airport, env);
     const airportInfo = GATE_AIRPORTS[airport];
     const freshness = flightFreshness(source.fetchedAt);
     const matches = source.rows
