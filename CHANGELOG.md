@@ -1,3 +1,9 @@
+## v8.2.40 — 2026-07-31
+
+- Replaced the CAMC medical-center button artwork with the supplied image.
+- Removed the Pacific HF and China Airlines campus parking buttons.
+- Reused the Mega Bank internet-banking artwork for the Mega Bank ATM button.
+
 ## v8.2.39 — 2026-07-31
 
 - Combined System Status and Advanced Diagnostics into one collapsible section that is collapsed by default.

@@ -1,7 +1,7 @@
 {
-  "version": "8.2.39",
-  "build": "20260731-1128",
+  "version": "8.2.40",
+  "build": "20260731-1142",
   "date": "2026-07-31",
   "workerVersion": "2.8.43",
-  "label": "Collapse System Status by default"
+  "label": "Refresh portal utility buttons"
 }
