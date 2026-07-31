@@ -1,3 +1,7 @@
+## v8.2.43 — 2026-07-31
+
+- Corrected the app-script cache-busting and used an ASCII asset path for the supplied Boshiamy artwork.
+
 ## v8.2.42 — 2026-07-31
 
 - Replaced the Live ATC and Bopomofo button artwork with the supplied images.
