@@ -1,3 +1,7 @@
+## v8.2.41 — 2026-07-31
+
+- Enlarged Quick Access and category-button artwork without changing button dimensions.
+
 ## v8.2.40 — 2026-07-31
 
 - Replaced the CAMC medical-center button artwork with the supplied image.
