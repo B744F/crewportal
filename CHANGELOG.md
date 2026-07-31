@@ -1,3 +1,7 @@
+## v8.2.39 — 2026-07-31
+
+- Combined System Status and Advanced Diagnostics into one collapsible section that is collapsed by default.
+
 ## v8.2.38 — 2026-07-30
 
 - Shortened the blank arrival-gate label from `官方未公布` to `未公布`.

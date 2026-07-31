@@ -1,7 +1,7 @@
 {
-  "version": "8.2.38",
-  "build": "20260730-1817",
-  "date": "2026-07-30",
+  "version": "8.2.39",
+  "build": "20260731-1128",
+  "date": "2026-07-31",
   "workerVersion": "2.8.43",
-  "label": "Shorten unpublished arrival label"
+  "label": "Collapse System Status by default"
 }
