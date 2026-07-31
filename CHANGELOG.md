@@ -1,3 +1,7 @@
+## v8.2.42 — 2026-07-31
+
+- Replaced the Live ATC and Bopomofo button artwork with the supplied images.
+
 ## v8.2.41 — 2026-07-31
 
 - Enlarged Quick Access and category-button artwork without changing button dimensions.

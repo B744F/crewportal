@@ -1,7 +1,7 @@
 {
-  "version": "8.2.41",
-  "build": "20260731-1157",
+  "version": "8.2.42",
+  "build": "20260731-1214",
   "date": "2026-07-31",
   "workerVersion": "2.8.43",
-  "label": "Enlarge button artwork without resizing buttons"
+  "label": "Use supplied Live ATC and Boshiamy artwork"
 }
