@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.43";
-  const BUILD = "20260731-1217";
+  const VERSION = "8.2.44";
+  const BUILD = "20260801-0851";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";

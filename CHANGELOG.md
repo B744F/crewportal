@@ -1,3 +1,9 @@
+## v8.2.44 — 2026-08-01
+
+- 修正 Airport MRT 車站資料載入競態：同一車站刷新請求不再重疊。
+- TDX／Worker 暫時性錯誤加入自動重試，改善 A22 老街溪站偶發顯示空白。
+- 同步 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.43 — 2026-07-31
 
 - Corrected the app-script cache-busting and used an ASCII asset path for the supplied Boshiamy artwork.

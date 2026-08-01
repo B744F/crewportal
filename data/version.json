@@ -1,7 +1,7 @@
 {
-  "version": "8.2.43",
-  "build": "20260731-1217",
-  "date": "2026-07-31",
-  "workerVersion": "2.8.43",
+  "version": "8.2.44",
+  "build": "20260801-0851",
+  "date": "2026-08-01",
+  "workerVersion": "2.8.44",
   "label": "Use supplied Live ATC and Boshiamy artwork"
 }

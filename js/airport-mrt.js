@@ -10,6 +10,9 @@
 
   let stations=[];
   let requestController=null;
+  let refreshPromise=null;
+  let refreshSerial=0;
+  const RETRY_DELAYS=[500,1200];
 
   function taipeiParts(date=new Date()){
     const parts=new Intl.DateTimeFormat("en-CA",{timeZone:TAIPEI_TZ,hour12:false,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}).formatToParts(date);
@@ -65,31 +68,62 @@
     els.status.textContent="Official timetable unavailable · 請查詢桃捷官方資料";
     els.status.className="mrt-status mrt-status-unavailable";
   }
-  async function refresh(){
-    const station=currentStation();
-    if(!station)return;
-    els.link.href=`https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-${station.code === "A14A" ? "A14a" : station.code}`;
-    if(station.comingSoon){renderUnavailable(station);return}
-    if(requestController)requestController.abort();
-    requestController=new AbortController();
-    try{
-      const response=await fetch(`${API_URL}?station=${encodeURIComponent(station.code)}&t=${Math.floor(Date.now()/30000)}`,{cache:"no-store",signal:requestController.signal});
-      if(!response.ok)throw new Error(`HTTP ${response.status}`);
-      const data=await response.json();
-      if(data.mode!=="timetable"||!data.trains)throw new Error(data.error||"Timetable unavailable");
-      renderTimetable(data);
-    }catch(err){
-      if(err.name==="AbortError")return;
-      console.warn("Airport MRT timetable unavailable",err);
-      renderUnavailable(station);
+  function waitForRetry(delay,signal){
+    return new Promise((resolve,reject)=>{
+      const onAbort=()=>{clearTimeout(timer);const error=new Error("Aborted");error.name="AbortError";reject(error)};
+      const timer=setTimeout(()=>{signal.removeEventListener("abort",onAbort);resolve()},delay);
+      if(signal.aborted)onAbort();else signal.addEventListener("abort",onAbort,{once:true});
+    });
+  }
+  async function fetchTimetable(station,signal){
+    const url=`${API_URL}?station=${encodeURIComponent(station.code)}&t=${Math.floor(Date.now()/30000)}`;
+    for(let attempt=0;;attempt++){
+      try{
+        const response=await fetch(url,{cache:"no-store",signal});
+        if(!response.ok)throw new Error(`HTTP ${response.status}`);
+        const data=await response.json();
+        if(data.mode!=="timetable"||!data.trains)throw new Error(data.error||"Timetable unavailable");
+        return data;
+      }catch(err){
+        if(err.name==="AbortError"||attempt>=RETRY_DELAYS.length)throw err;
+        await waitForRetry(RETRY_DELAYS[attempt],signal);
+      }
     }
+  }
+  function refresh(options={}){
+    const station=currentStation();
+    if(!station)return Promise.resolve();
+    if(refreshPromise&&!options.restart)return refreshPromise;
+    els.link.href=`https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-${station.code === "A14A" ? "A14a" : station.code}`;
+    if(requestController)requestController.abort();
+    const controller=new AbortController();
+    requestController=controller;
+    const serial=++refreshSerial;
+    refreshPromise=(async()=>{
+      try{
+        if(station.comingSoon){renderUnavailable(station);return}
+        const data=await fetchTimetable(station,controller.signal);
+        if(serial!==refreshSerial||controller.signal.aborted)return;
+        renderTimetable(data);
+      }catch(err){
+        if(err.name==="AbortError"||serial!==refreshSerial)return;
+        console.warn("Airport MRT timetable unavailable",err);
+        renderUnavailable(station);
+      }finally{
+        if(serial===refreshSerial){
+          refreshPromise=null;
+          if(requestController===controller)requestController=null;
+        }
+      }
+    })();
+    return refreshPromise;
   }
   function populate(data){
     stations=data.stations||[];
     els.select.innerHTML=stations.map(s=>`<option value="${s.code}">${s.code} ${s.zh} · ${s.en}</option>`).join("");
     let saved="A13";try{saved=localStorage.getItem(STORAGE_KEY)||data.defaultStation||"A13"}catch(_e){}
     if(stations.some(s=>s.code===saved))els.select.value=saved;
-    els.select.addEventListener("change",()=>{try{localStorage.setItem(STORAGE_KEY,els.select.value)}catch(_e){}refresh()});
+    els.select.addEventListener("change",()=>{try{localStorage.setItem(STORAGE_KEY,els.select.value)}catch(_e){}refresh({restart:true})});
     refresh();
     const delay=60000-(Date.now()%60000)+250;
     setTimeout(()=>{refresh();setInterval(refresh,60000)},delay);
