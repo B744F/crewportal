@@ -13,6 +13,32 @@ from bs4 import BeautifulSoup
 WORKER_URL = "https://arinc-proxy.201505-login.workers.dev/"
 SOURCE_URL = "https://radio.arinc.net/pacific/"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "arinc.json"
+MONTHS = {
+    "jan": 1,
+    "january": 1,
+    "feb": 2,
+    "february": 2,
+    "mar": 3,
+    "march": 3,
+    "apr": 4,
+    "april": 4,
+    "may": 5,
+    "jun": 6,
+    "june": 6,
+    "jul": 7,
+    "july": 7,
+    "aug": 8,
+    "august": 8,
+    "sep": 9,
+    "sept": 9,
+    "september": 9,
+    "oct": 10,
+    "october": 10,
+    "nov": 11,
+    "november": 11,
+    "dec": 12,
+    "december": 12,
+}
 
 
 def norm(value: str) -> str:
@@ -77,8 +103,7 @@ def valid_time(html: str) -> tuple[str | None, str | None]:
     )
 
     patterns = (
-        r"Valid\s+from\s+([A-Za-z]+\s+\d{1,2},\s+\d{4},\s+\d{4}Z)",
-        r"Effective\s+from\s+([A-Za-z]+\s+\d{1,2},\s+\d{4},\s+\d{4}Z)",
+        r"(?:Valid|Effective)\s+from\s+([A-Za-z]{3,9}\.?\s+\d{1,2},\s+\d{4},\s+\d{4}Z)",
     )
 
     for pattern in patterns:
@@ -88,16 +113,25 @@ def valid_time(html: str) -> tuple[str | None, str | None]:
 
         raw = re.sub(r"\s+", " ", match.group(1)).strip()
 
-        try:
-            parsed = datetime.strptime(raw, "%B %d, %Y, %H%MZ").replace(
-                tzinfo=timezone.utc
+        parts = re.fullmatch(
+            r"([A-Za-z]{3,9})\.?\s+(\d{1,2}),\s+(\d{4}),\s+(\d{2})(\d{2})Z",
+            raw,
+        )
+        month = MONTHS.get(parts.group(1).lower()) if parts else None
+        if month is not None:
+            parsed = datetime(
+                int(parts.group(3)),
+                month,
+                int(parts.group(2)),
+                int(parts.group(4)),
+                int(parts.group(5)),
+                tzinfo=timezone.utc,
             )
             return (
                 raw,
                 parsed.isoformat(timespec="seconds").replace("+00:00", "Z"),
             )
-        except ValueError:
-            return raw, None
+        return raw, None
 
     return None, None
 

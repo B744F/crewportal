@@ -1,5 +1,5 @@
 (function(){
-  const VERSION="6.6.2";
+  const VERSION="6.6.3";
   const OFFICIAL_PROXY="https://arinc-proxy.201505-login.workers.dev/";
   const RAW_ARINC="https://raw.githubusercontent.com/B744F/crewportal/main/data/arinc.json";
   const LOCAL_ARINC="data/arinc.json";
@@ -62,12 +62,14 @@
   }
 
   function parseValidFrom(text){
-    const match=String(text||"").match(/Valid\s+from\s+([A-Za-z]+\s+\d{1,2},\s+\d{4},\s+\d{4}Z)/i);
+    const match=String(text||"").match(/(?:Valid|Effective)\s+from\s+([A-Za-z]{3,9}\.?\s+\d{1,2},\s+\d{4},\s+\d{4}Z)/i);
     if(!match)return {raw:null,utc:null};
-    const parts=match[1].match(/^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4}),\s+(\d{2})(\d{2})Z$/);
+    const parts=match[1].match(/^([A-Za-z]{3,9})\.?\s+(\d{1,2}),\s+(\d{4}),\s+(\d{2})(\d{2})Z$/);
     if(!parts)return {raw:match[1],utc:null};
-    const months={January:0,February:1,March:2,April:3,May:4,June:5,July:6,August:7,September:8,October:9,November:10,December:11};
-    const timestamp=Date.UTC(Number(parts[3]),months[parts[1]],Number(parts[2]),Number(parts[4]),Number(parts[5]));
+    const months={jan:0,january:0,feb:1,february:1,mar:2,march:2,apr:3,april:3,may:4,jun:5,june:5,jul:6,july:6,aug:7,august:7,sep:8,sept:8,september:8,oct:9,october:9,nov:10,november:10,dec:11,december:11};
+    const month=months[parts[1].toLowerCase()];
+    if(month===undefined)return {raw:match[1],utc:null};
+    const timestamp=Date.UTC(Number(parts[3]),month,Number(parts[2]),Number(parts[4]),Number(parts[5]));
     return {raw:match[1],utc:Number.isFinite(timestamp)?new Date(timestamp).toISOString():null};
   }
 
