@@ -430,3 +430,7 @@
 - Renamed the Pacific HF table header from `區域` to `Region`.
 - Removed the VHF `用途／頻率` header row for a cleaner compact panel.
 - Bumped frontend build to 20260726-012.
+
+## v8.2.46 — 2026-08-03
+
+- 修正貨機查詢在貨機坪資料尚未回來前先顯示「未定」的短暫畫面，改為兩個資料來源完成後再渲染結果。

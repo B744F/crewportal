@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.45";
-  const BUILD = "20260801-1850";
+  const VERSION = "8.2.46";
+  const BUILD = "20260803-1928";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -240,14 +240,8 @@
         };
         let gateResultData=null,cargoResultData=null;
         const renderAvailable=()=>{
-          if(requestId!==lookupSequence)return;
-          if(lookupMatches(gateResultData).length||lookupMatches(cargoResultData).length){
-            try{renderGateLookup(gateResultData,cargoResultData)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
-            return;
-          }
-          if(gateResultData&&cargoResultData){
-            try{renderGateLookup(gateResultData,cargoResultData)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
-          }
+          if(requestId!==lookupSequence||!gateResultData||!cargoResultData)return;
+          try{renderGateLookup(gateResultData,cargoResultData)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
         };
         const gatePromise=fetchFlightLookup(`${FLIGHT_GATE_API}?airport=${encodeURIComponent(airport)}&flight=${encodeURIComponent(value)}&v=${Date.now()}`,"航班資料");
         const cargoPromise=airport==="RCTP"?fetchFlightLookup(`${CARGO_STAND_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,"貨機坪資料"):Promise.resolve({response:{ok:true},data:{ok:true,matches:[]}});
