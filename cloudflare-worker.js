@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.51 (Crew Portal v8.2.51)
+ * Version 2.8.52 (Crew Portal v8.2.52)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,8 +12,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.51';
-const WORKER_VERSION = '2.8.51';
+const PORTAL_VERSION = 'v8.2.52';
+const WORKER_VERSION = '2.8.52';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -299,15 +299,10 @@ async function loadRegionalAirportFlights(airport, env) {
     : []
   ).filter(row => row.flight && row.date && row.time);
   if (!rows.length) throw new Error(`${GATE_AIRPORTS[airport].name}官方即時航班資料暫時無法取得`);
-  const tdxRows = await loadRegionalTdxRows(airport, env);
-  const tdxGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightKey(row), row]));
-  const tdxDayGates = new Map(tdxRows.filter(row => row.gate).map(row => [regionalFlightDayKey(row), row]));
-  const mergedRows = inferRegionalArrivalGates(rows.map(row => {
-    const tdxRow = tdxGates.get(regionalFlightKey(row)) || tdxDayGates.get(regionalFlightDayKey(row));
-    return tdxRow?.gate
-      ? { ...row, gate: tdxRow.gate, gateSource: 'tdx-official' }
-      : row;
-  }));
+    // Keep the public regional lookup on the airport's official feed. TDX
+    // Airport FIDS is intentionally not queried per user; its scheduled
+    // fallback remains available through /api/flight-gate-tdx-source.
+    const mergedRows = inferRegionalArrivalGates(rows);
   const source = {
     version: WORKER_VERSION,
     loadedAt: Date.now(),
@@ -588,37 +583,17 @@ async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
 
 async function loadCombinedLiveFlights(env, ctx, continuitySourceRows = []) {
   const adipPromise = loadLiveAdipFlights(continuitySourceRows);
-  const tdxPromise = loadLiveTdxFlights(env, ctx, continuitySourceRows);
-  let first;
   try {
-    // TDX is the reliable low-latency live path.  Return the first valid
-    // official source so a stale GitHub snapshot never blocks a lookup while
-    // the slower ADIP route is still being attempted in the background.
-    first = await Promise.any([adipPromise, tdxPromise]);
+    // Keep user-triggered refreshes on the official ADIP source. TDX FIDS
+    // remains a scheduled fallback only, so public traffic cannot multiply
+    // TDX calls when the snapshot is stale.
+    const first = await adipPromise;
+    airportFlightCache = first;
+    return first;
   } catch (error) {
     const reasons = error?.errors?.map(item => String(item?.message || item)).filter(Boolean) || [];
     throw new Error(reasons.join('; ') || 'Official live flight sources unavailable');
   }
-
-  airportFlightCache = first;
-  const mergePromise = Promise.allSettled([adipPromise, tdxPromise]).then(results => {
-    const sources = results.filter(result => result.status === 'fulfilled').map(result => result.value);
-    if (!sources.length) return null;
-    const liveRows = mergeOfficialFlightRows(sources);
-    const rows = mergeLiveFlightRows(liveRows, continuitySourceRows);
-    const merged = {
-      version: WORKER_VERSION,
-      loadedAt: Date.now(),
-      fetchedAt: Math.max(...sources.map(source => source.fetchedAt).filter(Number.isFinite)),
-      source: sources.map(source => source.source).join(' + '),
-      continuityRows: rows.length - liveRows.length,
-      rows
-    };
-    airportFlightCache = merged;
-    return merged;
-  });
-  ctx?.waitUntil(mergePromise);
-  return first;
 }
 
 function scheduleAirportFlightRefresh(env, ctx, continuitySourceRows) {

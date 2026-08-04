@@ -1,3 +1,9 @@
+## v8.2.52 — 2026-08-04
+
+- 移除公開航班查詢路徑中的 TDX Airport FIDS 呼叫，RCSS 改只使用機場官方資料與既有推定邏輯。
+- RCTP 使用者觸發的即時更新改只使用官方 ADIP；TDX Airport FIDS 僅保留給排程備援，避免使用者數增加時放大 API 點數消耗。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.51 — 2026-08-04
 
 - 桃園機場停車改用機場官方 `thirdparty/park` API，依 PTYA 編號解析 P1、P2，並將 P4 兩筆官方資料正確加總。
