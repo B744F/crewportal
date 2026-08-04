@@ -1,7 +1,7 @@
 {
-  "version": "8.2.58",
-  "build": "20260804-1412",
+  "version": "8.2.59",
+  "build": "20260804-1430",
   "date": "2026-08-04",
-  "workerVersion": "2.8.58",
-  "label": "Official airport parking source and disabled MRT LiveBoard quota usage"
+  "workerVersion": "2.8.59",
+  "label": "Optimized aircraft Hero slideshow with 15-second crossfade rotation"
 }
