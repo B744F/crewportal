@@ -1,7 +1,7 @@
 {
-  "version": "8.2.61",
-  "build": "20260804-1502",
+  "version": "8.2.62",
+  "build": "20260804-1509",
   "date": "2026-08-04",
-  "workerVersion": "2.8.61",
-  "label": "Reduced desktop Hero panel footprint without changing panel transparency"
+  "workerVersion": "2.8.62",
+  "label": "Moved desktop Hero panels below the main aircraft view without changing transparency"
 }
