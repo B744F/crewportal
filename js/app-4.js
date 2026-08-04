@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.53";
-  const BUILD = "20260804-1304";
+  const VERSION = "8.2.54";
+  const BUILD = "20260804-1311";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -199,8 +199,9 @@
       const response=gateResultData?.response,data=gateResultData?.data||{},cargoResponse=cargoResultData?.response,cargoData=cargoResultData?.data||{};
       const matches=response?.ok&&data.ok?(data.matches||[]):[];
       const cargoMatches=cargoResponse?.ok&&cargoData.ok?(cargoData.matches||[]):[];
-      const allSourcesFailed=Boolean(gateResultData&&cargoResultData&&!response?.ok&&!cargoResponse?.ok);
-      if(!matches.length&&!cargoMatches.length&&allSourcesFailed){
+      const gateFailed=Boolean(gateResultData&&(!response?.ok||!data.ok));
+      const cargoFailed=Boolean(cargoResultData&&(!cargoResponse?.ok||!cargoData.ok));
+      if(!matches.length&&!cargoMatches.length&&(gateFailed||cargoFailed)){
         if(data.errorCode==="LIVE_FLIGHT_DATA_UNAVAILABLE")throw new Error("機場官方即時資料暫時無法取得，未使用過期快照，請稍後重試。");
         throw new Error(data.error||cargoData.error||"查詢失敗");
       }
@@ -233,7 +234,7 @@
       try{
         const fetchFlightLookup=async(url,label)=>{
           const controller=new AbortController();
-          const timeout=setTimeout(()=>controller.abort(),12_000);
+          const timeout=setTimeout(()=>controller.abort(),30_000);
           try{
             const response=await fetch(url,{cache:"no-store",signal:controller.signal});
             let data=null;

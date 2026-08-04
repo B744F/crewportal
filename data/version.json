@@ -1,7 +1,7 @@
 {
-  "version": "8.2.53",
-  "build": "20260804-1304",
+  "version": "8.2.54",
+  "build": "20260804-1311",
   "date": "2026-08-04",
-  "workerVersion": "2.8.53",
+  "workerVersion": "2.8.54",
   "label": "Official airport parking source and disabled MRT LiveBoard quota usage"
 }
