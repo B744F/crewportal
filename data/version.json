@@ -1,7 +1,7 @@
 {
-  "version": "8.2.60",
-  "build": "20260804-1449",
+  "version": "8.2.61",
+  "build": "20260804-1502",
   "date": "2026-08-04",
-  "workerVersion": "2.8.60",
-  "label": "Fixed narrow-screen Hero framing to preserve the complete 16:9 aircraft artwork"
+  "workerVersion": "2.8.61",
+  "label": "Reduced desktop Hero panel footprint without changing panel transparency"
 }
