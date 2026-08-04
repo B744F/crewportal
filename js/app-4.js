@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.52";
-  const BUILD = "20260804-1328";
+  const VERSION = "8.2.53";
+  const BUILD = "20260804-1304";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -190,12 +190,15 @@
     let lookupSequence=0;
     const lookupMatches=result=>{
       const response=result?.response,data=result?.data||{};
-      return response?.ok&&data.ok?(data.matches||[]).filter(match=>match.date===todayTaipei()):[];
+      // The Worker already restricts both endpoints to today's records. Do
+      // not repeat that comparison here because browser locale formatting can
+      // differ from the API's ISO date format and hide valid matches.
+      return response?.ok&&data.ok?(data.matches||[]):[];
     };
     const renderGateLookup=(gateResultData,cargoResultData)=>{
       const response=gateResultData?.response,data=gateResultData?.data||{},cargoResponse=cargoResultData?.response,cargoData=cargoResultData?.data||{};
-      const matches=response?.ok&&data.ok?(data.matches||[]).filter(match=>match.date===todayTaipei()):[];
-      const cargoMatches=cargoResponse?.ok&&cargoData.ok?(cargoData.matches||[]).filter(match=>match.date===todayTaipei()):[];
+      const matches=response?.ok&&data.ok?(data.matches||[]):[];
+      const cargoMatches=cargoResponse?.ok&&cargoData.ok?(cargoData.matches||[]):[];
       const allSourcesFailed=Boolean(gateResultData&&cargoResultData&&!response?.ok&&!cargoResponse?.ok);
       if(!matches.length&&!cargoMatches.length&&allSourcesFailed){
         if(data.errorCode==="LIVE_FLIGHT_DATA_UNAVAILABLE")throw new Error("機場官方即時資料暫時無法取得，未使用過期快照，請稍後重試。");
