@@ -3,11 +3,11 @@
   "source": "https://www.taoyuan-airport.com/api/api/thirdparty/park",
   "sourceType": "official-json",
   "contentType": "application/json; charset=utf-8",
-  "updatedAt": "2026-08-05 03:25:27",
-  "fetchedAt": "2026-08-05 03:25:27",
-  "P1": 402,
+  "updatedAt": "2026-08-05 03:30:32",
+  "fetchedAt": "2026-08-05 03:30:32",
+  "P1": 400,
   "P2": 515,
-  "P4": 1443,
+  "P4": 1429,
   "P3": null,
   "P3Available": false
 }
