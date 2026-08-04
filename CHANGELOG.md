@@ -1,3 +1,9 @@
+## v8.2.51 — 2026-08-04
+
+- 桃園機場停車改用機場官方 `thirdparty/park` API，依 PTYA 編號解析 P1、P2，並將 P4 兩筆官方資料正確加總。
+- 移除 Airport MRT TDX LiveBoard 呼叫，保留 TDX `StationTimeTable` 與官方 XML 備援，降低 API 點數消耗。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.45 — 2026-08-01
 
 - 修正 Pacific HF 官網使用縮寫月份（例如 `Aug.`）時，`Valid from` 無法解析而顯示 `--` 的問題。

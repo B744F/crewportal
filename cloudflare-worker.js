@@ -1,18 +1,19 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.50 (Crew Portal v8.2.50)
+ * Version 2.8.51 (Crew Portal v8.2.51)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
- * Secondary source: TDX TYMC LiveBoard (optional live status)
+ * TDX LiveBoard is intentionally disabled because the timetable is the
+ * official data rendered by the portal and LiveBoard caused avoidable quota use.
  *
- * Required secrets for live status:
+ * Required secrets for TDX timetable and Airport FIDS fallback:
  *   TDX_CLIENT_ID
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.50';
-const WORKER_VERSION = '2.8.50';
+const PORTAL_VERSION = 'v8.2.51';
+const WORKER_VERSION = '2.8.51';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -28,7 +29,6 @@ const TYM_OPEN_DATA_XML = 'https://opendata.tycg.gov.tw/api/dataset/8e6201c2-196
 const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-';
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
 const TDX_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TYMC';
-const TDX_LIVEBOARD_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC';
 const TDX_AIRPORT_FIDS_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Airport';
 const GATE_AIRPORTS = {
   RCTP: { icao: 'RCTP', iata: 'TPE', name: '桃園國際機場' },
@@ -1269,36 +1269,6 @@ async function getTdxToken(env) {
   return tokenCache.token;
 }
 
-async function requestLiveStatus(station, env) {
-  try {
-    const token = await getTdxToken(env);
-    if (!token) return null;
-    const filter = encodeURIComponent(`StationID eq '${station}'`);
-    const urls = [
-      `${TDX_LIVEBOARD_ROOT}/Station/${encodeURIComponent(station)}?$format=JSON`,
-      `${TDX_LIVEBOARD_ROOT}?$filter=${filter}&$format=JSON`
-    ];
-    for (const url of urls) {
-      const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }, cf: { cacheTtl: 20, cacheEverything: true } });
-      if (!response.ok) continue;
-      const payload = await response.json();
-      const rows = Array.isArray(payload) ? payload : payload.LiveBoards || payload.value || payload.data || [];
-      const live = [];
-      for (const row of rows) {
-        const direction = trainDirection(row);
-        if (!direction) continue;
-        const type = trainType(row);
-        if (!type) continue;
-        const seconds = Number(row.EstimateTime ?? row.EstimateTimeSec ?? row.CountDown ?? row.Countdown);
-        if (!Number.isFinite(seconds) || seconds < 0) continue;
-        live.push({ direction, type, seconds });
-      }
-      if (live.length) return live;
-    }
-  } catch (_) {}
-  return null;
-}
-
 async function handleMrt(request, env, ctx) {
   const url = new URL(request.url);
   const station = String(url.searchParams.get('station') || 'A13').toUpperCase();
@@ -1315,7 +1285,7 @@ async function handleMrt(request, env, ctx) {
   }
 
   try {
-    const [timetable, live] = await Promise.all([requestOfficialTimetable(station, env, ctx), requestLiveStatus(station, env)]);
+    const timetable = await requestOfficialTimetable(station, env, ctx);
     const payload = {
       ok: true,
       mode: 'timetable',
@@ -1323,9 +1293,9 @@ async function handleMrt(request, env, ctx) {
       source: 'Official structured timetable',
       sourceType: 'structured-official',
       timetableParser: 'structured-official',
-      liveSource: live ? 'TDX LiveBoard' : null,
+      liveSource: null,
       fetchedAt: new Date().toISOString(),
-      live,
+      live: null,
       ...timetable
     };
     if (!debug) { delete payload.sourceRows; delete payload.sourceRecords; }
@@ -1434,7 +1404,8 @@ export default {
       timetableParser: 'structured-official',
       cargoStandSource: 'TPE GOSS public ground-operations data',
       cargoStandRange: '501-525',
-      tdxLiveConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
+      tdxCredentialsConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
+      liveBoardEnabled: false,
       timestamp: new Date().toISOString()
     });
     return json(request, { ok: false, error: 'Not found' }, { status: 404 });
