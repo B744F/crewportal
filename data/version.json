@@ -1,7 +1,7 @@
 {
-  "version": "8.2.59",
-  "build": "20260804-1430",
+  "version": "8.2.60",
+  "build": "20260804-1449",
   "date": "2026-08-04",
-  "workerVersion": "2.8.59",
-  "label": "Optimized aircraft Hero slideshow with 15-second crossfade rotation"
+  "workerVersion": "2.8.60",
+  "label": "Fixed narrow-screen Hero framing to preserve the complete 16:9 aircraft artwork"
 }

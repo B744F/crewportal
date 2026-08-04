@@ -1,11 +1,11 @@
-# FlightDeck Crew Portal v8.2.59
+# FlightDeck Crew Portal v8.2.60
 
 正式版 FlightDeck Crew Portal。Airport MRT 優先使用 TDX `StationTimeTable` 官方結構化時刻表，桃園市政府 XML 作官方備援，解析 `StationID`、`Direction`、`DestinationStationID` 與 `TrainType`；TDX LiveBoard 已停用，不會產生估算或虛構班次。
 
 ## 版本
 
-- Portal Version：v8.2.59
-- Worker Version：2.8.59
+- Portal Version：v8.2.60
+- Worker Version：2.8.60
 - Timetable Parser：`structured-official`
 
 ## 本版重點
