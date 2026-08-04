@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.55";
-  const BUILD = "20260804-1331";
+  const VERSION = "8.2.56";
+  const BUILD = "20260804-1338";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -249,7 +249,8 @@
           if(requestId!==lookupSequence)return;
           const gateMatches=gateResultData?.response?.ok&&gateResultData.data?.ok?(gateResultData.data.matches||[]):[];
           const cargoMatches=cargoResultData?.response?.ok&&cargoResultData.data?.ok?(cargoResultData.data.matches||[]):[];
-          if(gateMatches.length||cargoMatches.length){
+          const gateHasKnownPosition=gateMatches.some(match=>String(match.gate||"").trim()||flightHasDeparted(match));
+          if(cargoMatches.length||gateHasKnownPosition){
             const emptyGate={response:{ok:true},data:{ok:true,matches:[],query:value}};
             const emptyCargo={response:{ok:true},data:{ok:true,matches:[],query:value}};
             try{renderGateLookup(gateResultData||emptyGate,cargoResultData||emptyCargo)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
