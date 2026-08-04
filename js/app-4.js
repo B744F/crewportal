@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.54";
-  const BUILD = "20260804-1311";
+  const VERSION = "8.2.55";
+  const BUILD = "20260804-1331";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -246,9 +246,19 @@
         };
         let gateResultData=null,cargoResultData=null;
         const renderAvailable=()=>{
-          if(requestId!==lookupSequence||!gateResultData||!cargoResultData)return;
+          if(requestId!==lookupSequence)return;
+          const gateMatches=gateResultData?.response?.ok&&gateResultData.data?.ok?(gateResultData.data.matches||[]):[];
+          const cargoMatches=cargoResultData?.response?.ok&&cargoResultData.data?.ok?(cargoResultData.data.matches||[]):[];
+          if(gateMatches.length||cargoMatches.length){
+            const emptyGate={response:{ok:true},data:{ok:true,matches:[],query:value}};
+            const emptyCargo={response:{ok:true},data:{ok:true,matches:[],query:value}};
+            try{renderGateLookup(gateResultData||emptyGate,cargoResultData||emptyCargo)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
+            return;
+          }
+          if(!gateResultData||!cargoResultData)return;
           try{renderGateLookup(gateResultData,cargoResultData)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
         };
+        setTimeout(()=>{if(requestId===lookupSequence&&gateResult.style.display==="none")setGateStatus("官方資料回應較慢，仍在查詢中…")},3_000);
         const gatePromise=fetchFlightLookup(`${FLIGHT_GATE_API}?airport=${encodeURIComponent(airport)}&flight=${encodeURIComponent(value)}&v=${Date.now()}`,"航班資料");
         const cargoPromise=airport==="RCTP"?fetchFlightLookup(`${CARGO_STAND_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,"貨機坪資料"):Promise.resolve({response:{ok:true},data:{ok:true,matches:[]}});
         await Promise.allSettled([

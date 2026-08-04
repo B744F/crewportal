@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.54 (Crew Portal v8.2.54)
+ * Version 2.8.55 (Crew Portal v8.2.55)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,8 +12,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.54';
-const WORKER_VERSION = '2.8.54';
+const PORTAL_VERSION = 'v8.2.55';
+const WORKER_VERSION = '2.8.55';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -611,11 +611,6 @@ function scheduleAirportFlightRefresh(env, ctx, continuitySourceRows) {
 
 async function loadAirportFlights(env, ctx, query = null) {
   if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) {
-    const snapshotAgeSeconds = Math.max(0, Math.floor((Date.now() - airportFlightCache.fetchedAt) / 1000));
-    if (airportFlightRefreshPromise && snapshotAgeSeconds > LIVE_FLIGHT_REFRESH_AGE_SECONDS) {
-      const refreshed = await airportFlightRefreshPromise;
-      if (refreshed) return refreshed;
-    }
     return airportFlightCache;
   }
   const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
@@ -661,10 +656,13 @@ async function loadAirportFlights(env, ctx, query = null) {
         rows: continuityRows
       };
     }
-    const refreshed = await scheduleAirportFlightRefresh(env, ctx, airportFlightCache.rows);
-    if (refreshed) return refreshed;
+    // Do not make a user wait for a slow official refresh. Return the
+    // available official snapshot immediately and refresh it in the
+    // background for the next request.
+    scheduleAirportFlightRefresh(env, ctx, airportFlightCache.rows);
     return {
       ...airportFlightCache,
+      loadedAt: Date.now(),
       source: `${airportFlightCache.source || 'Official flight snapshot'}; live refresh pending`,
       continuityRows: continuityRows.length
     };
