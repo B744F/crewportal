@@ -1,11 +1,11 @@
-# FlightDeck Crew Portal v8.2.56
+# FlightDeck Crew Portal v8.2.57
 
 正式版 FlightDeck Crew Portal。Airport MRT 優先使用 TDX `StationTimeTable` 官方結構化時刻表，桃園市政府 XML 作官方備援，解析 `StationID`、`Direction`、`DestinationStationID` 與 `TrainType`；TDX LiveBoard 已停用，不會產生估算或虛構班次。
 
 ## 版本
 
-- Portal Version：v8.2.56
-- Worker Version：2.8.56
+- Portal Version：v8.2.57
+- Worker Version：2.8.57
 - Timetable Parser：`structured-official`
 
 ## 本版重點
@@ -20,6 +20,7 @@
 - 登機門查詢延長官方資料等待時間，並將航班資料逾時正確顯示為暫時無法取得，不再誤報為查無航班。
 - 登機門與貨機坪查詢改為先顯示已完成的來源結果，官方即時更新於背景執行，避免慢來源阻塞畫面。
 - 貨機查詢在貨機坪資料完成前，不再先顯示客機來源的「未定」中間狀態。
+- 不存在航班或官方來源逾時時，查詢會在總時限後明確結束，不會無限停留在查詢中。
 
 ## 部署
 

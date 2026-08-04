@@ -1,6 +1,6 @@
 (function(){
-  const VERSION = "8.2.56";
-  const BUILD = "20260804-1338";
+  const VERSION = "8.2.57";
+  const BUILD = "20260804-1349";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
   const FLIGHT_GATE_API="https://flightdeck-api.201505-login.workers.dev/api/flight-gate";
@@ -260,6 +260,11 @@
           try{renderGateLookup(gateResultData,cargoResultData)}catch(error){setGateStatus(`查詢失敗：${error.message||"請稍後再試"}`,"error")}
         };
         setTimeout(()=>{if(requestId===lookupSequence&&gateResult.style.display==="none")setGateStatus("官方資料回應較慢，仍在查詢中…")},3_000);
+        setTimeout(()=>{
+          if(requestId!==lookupSequence||gateResult.style.display!=="none")return;
+          const pendingLabels=[!gateResultData?"航班": "",!cargoResultData?"貨機坪":""].filter(Boolean).join("、");
+          setGateStatus(pendingLabels?`${pendingLabels}官方資料逾時，請稍後重試。`:"找不到今日的官方航班或貨機坪資料。","error");
+        },12_000);
         const gatePromise=fetchFlightLookup(`${FLIGHT_GATE_API}?airport=${encodeURIComponent(airport)}&flight=${encodeURIComponent(value)}&v=${Date.now()}`,"航班資料");
         const cargoPromise=airport==="RCTP"?fetchFlightLookup(`${CARGO_STAND_API}?flight=${encodeURIComponent(value)}&v=${Date.now()}`,"貨機坪資料"):Promise.resolve({response:{ok:true},data:{ok:true,matches:[]}});
         await Promise.allSettled([
