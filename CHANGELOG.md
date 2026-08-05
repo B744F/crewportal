@@ -1,3 +1,8 @@
+## v8.2.64 — 2026-08-05
+
+- QUICK ACCESS 順序調整為 `Google Gemini` 置頂、`PSX NAV DATA` 置底，其餘按鈕順序不變。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.63 — 2026-08-05
 
 - 將 `Google Gemini` 與 `PSX NAV DATA` 加入 QUICK ACCESS，並沿用既有連結與圖示。
