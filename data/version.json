@@ -1,7 +1,7 @@
 {
-  "version": "8.2.62",
-  "build": "20260804-1509",
-  "date": "2026-08-04",
-  "workerVersion": "2.8.62",
-  "label": "Moved desktop Hero panels below the main aircraft view without changing transparency"
+  "version": "8.2.63",
+  "build": "20260805-1020",
+  "date": "2026-08-05",
+  "workerVersion": "2.8.63",
+  "label": "Added Google Gemini and PSX NAV DATA to Quick Access"
 }

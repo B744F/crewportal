@@ -1,3 +1,8 @@
+## v8.2.63 — 2026-08-05
+
+- 將 `Google Gemini` 與 `PSX NAV DATA` 加入 QUICK ACCESS，並沿用既有連結與圖示。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.62 — 2026-08-04
 
 - 桌面寬螢幕將 Hero 面板整組下移，讓主視窗優先呈現完整飛機影像。
