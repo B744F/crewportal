@@ -1,3 +1,8 @@
+## v8.2.70 — 2026-08-07
+
+- 將 QUICK ACCESS 的 `Google Gemini` 移至 `ChatGPT` 後方，`PSX NAV DATA` 維持最後。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.69 — 2026-08-07
 
 - 保留所有圖示按鈕外框尺寸，將 QUICK ACCESS 與系統／工具卡片圖示的內距由 2px 調整為 1px。

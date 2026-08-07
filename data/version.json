@@ -1,7 +1,7 @@
 {
-  "version": "8.2.69",
-  "build": "20260807-1555",
+  "version": "8.2.70",
+  "build": "20260807-1817",
   "date": "2026-08-07",
-  "workerVersion": "2.8.69",
-  "label": "Moved Google Gemini first and PSX NAV DATA last in Quick Access"
+  "workerVersion": "2.8.70",
+  "label": "Moved Google Gemini after ChatGPT in Quick Access"
 }
