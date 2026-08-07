@@ -1,7 +1,7 @@
 {
-  "version": "8.2.64",
-  "build": "20260805-1047",
+  "version": "8.2.65",
+  "build": "20260807-1227",
   "date": "2026-08-05",
-  "workerVersion": "2.8.64",
+  "workerVersion": "2.8.65",
   "label": "Moved Google Gemini first and PSX NAV DATA last in Quick Access"
 }
