@@ -113,7 +113,7 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .quick-card:hover,.app-card:hover{transform:translateY(-5px);border-color:rgba(105,189,255,.68);box-shadow:0 22px 42px rgba(0,0,0,.38),0 0 0 1px rgba(105,189,255,.18)}
 .quick-card:hover::before,.app-card:hover::before{opacity:1}
 .quick-card{min-height:180px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:14px 12px}
-.quick-card img{width:68px;height:68px;object-fit:contain;margin:0 2px 12px;border-radius:17px;padding:6px;background:rgba(255,255,255,.92);box-shadow:0 12px 22px rgba(0,0,0,.28)}
+.quick-card img{width:68px;height:68px;object-fit:contain;margin:0 2px 12px;border-radius:17px;padding:10px;background:rgba(255,255,255,.92);box-shadow:0 12px 22px rgba(0,0,0,.28)}
 .quick-card strong{font-size:16px;letter-spacing:.02em}
 .quick-card span{font-size:14px;color:#d7e2ee;margin-top:5px}
 .quick-card em{width:30px;height:3px;border-radius:999px;background:var(--gold2);margin-top:10px;display:block}
@@ -127,7 +127,7 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .count{border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:6px 10px;color:#c8d6e7;font-size:12px;white-space:nowrap}
 .apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:9px}
 .app-card{min-height:112px;border-radius:10px;padding:8px 7px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.app-card img{width:48px;height:48px;object-fit:contain;border-radius:12px;padding:5px;background:rgba(255,255,255,.92);margin:0 2px 7px;box-shadow:0 10px 20px rgba(0,0,0,.24)}
+.app-card img{width:48px;height:48px;object-fit:contain;border-radius:12px;padding:10px;background:rgba(255,255,255,.92);margin:0 2px 7px;box-shadow:0 10px 20px rgba(0,0,0,.24)}
 .app-card strong{font-size:13px;line-height:1.2}
 .app-card span{font-size:11px;line-height:1.2;color:#b9c8da;margin-top:3px}
 .download-card strong{font-size:12px;max-width:100%;}
