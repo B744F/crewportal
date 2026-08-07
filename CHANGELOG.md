@@ -1,3 +1,8 @@
+## v8.2.68 — 2026-08-07
+
+- 保留所有圖示按鈕外框尺寸，將 QUICK ACCESS 與系統／工具卡片圖示的內距統一調整為 2px。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.64 — 2026-08-05
 
 - QUICK ACCESS 順序調整為 `Google Gemini` 置頂、`PSX NAV DATA` 置底，其餘按鈕順序不變。
