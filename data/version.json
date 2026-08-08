@@ -1,7 +1,7 @@
 {
-  "version": "8.2.71",
-  "build": "20260808-1532",
+  "version": "8.2.72",
+  "build": "20260808-1958",
   "date": "2026-08-08",
-  "workerVersion": "2.8.71",
-  "label": "Updated PSX NAV DATA to the current AIRAC effective date"
+  "workerVersion": "2.8.72",
+  "label": "Replaced Hero aircraft images and enabled 10-second crossfade rotation"
 }
