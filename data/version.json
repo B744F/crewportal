@@ -1,7 +1,7 @@
 {
-  "version": "8.2.72",
-  "build": "20260808-1958",
+  "version": "8.2.73",
+  "build": "20260808-2004",
   "date": "2026-08-08",
-  "workerVersion": "2.8.72",
-  "label": "Replaced Hero aircraft images and enabled 10-second crossfade rotation"
+  "workerVersion": "2.8.73",
+  "label": "Added A350 Hero image to the 10-second crossfade rotation"
 }
