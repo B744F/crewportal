@@ -1,7 +1,7 @@
 {
-  "version": "8.2.70",
-  "build": "20260807-1817",
-  "date": "2026-08-07",
-  "workerVersion": "2.8.70",
-  "label": "Moved Google Gemini after ChatGPT in Quick Access"
+  "version": "8.2.71",
+  "build": "20260808-1532",
+  "date": "2026-08-08",
+  "workerVersion": "2.8.71",
+  "label": "Updated PSX NAV DATA to the current AIRAC effective date"
 }

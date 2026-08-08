@@ -1,3 +1,8 @@
+## v8.2.71 — 2026-08-08
+
+- 將 QUICK ACCESS 與生活／工具區的 `PSX NAV DATA` 下方文字更新為目前 AIRAC 生效日 `Cycle Effective 06-Aug-26`。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.70 — 2026-08-07
 
 - 將 QUICK ACCESS 的 `Google Gemini` 移至 `ChatGPT` 後方，`PSX NAV DATA` 維持最後。
