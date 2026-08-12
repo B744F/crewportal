@@ -10,8 +10,8 @@
     "id": 5,
     "name": "TSA",
     "total_space": null,
-    "remaining_space": 179,
-    "updateTime": "2026-08-12 18:05:05"
+    "remaining_space": 177,
+    "updateTime": "2026-08-12 18:10:11"
   },
   {
     "id": 6,
@@ -25,6 +25,6 @@
     "name": "RD1 B",
     "total_space": null,
     "remaining_space": 11,
-    "updateTime": "2026-08-12 18:04:14"
+    "updateTime": "2026-08-12 18:10:19"
   }
 ]
