@@ -4,7 +4,7 @@
   "proxy": "https://arinc-proxy.201505-login.workers.dev/",
   "validFrom": "Aug. 15, 2026, 1100Z",
   "validFromUtc": "2026-08-15T11:00:00Z",
-  "fetchedAtUtc": "2026-08-15T11:48:17Z",
+  "fetchedAtUtc": "2026-08-15T11:59:01Z",
   "northAmericaAsia": {
     "primary": 8843,
     "secondary": 5574
