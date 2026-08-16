@@ -4,17 +4,17 @@
   "proxy": "https://arinc-proxy.201505-login.workers.dev/",
   "validFrom": "Aug. 16, 2026, 1400Z",
   "validFromUtc": "2026-08-16T14:00:00Z",
-  "fetchedAtUtc": "2026-08-16T14:01:38Z",
+  "fetchedAtUtc": "2026-08-16T14:30:52Z",
   "northAmericaAsia": {
     "primary": 8843,
     "secondary": 5574
   },
   "alaskaNorthPacific": {
     "primary": 6673,
-    "secondary": 5667
+    "secondary": 10048
   },
   "guamArea": {
-    "primary": 17904,
+    "primary": 8870,
     "secondary": 11384
   }
 }
