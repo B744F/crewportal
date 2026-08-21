@@ -3,13 +3,13 @@
   if(!stage)return;
 
   const slides=[
-    "images/hero.webp?v=20260808-2004",
-    "images/hero-a330-300.webp?v=20260808-2004",
-    "images/hero-b737-800.webp?v=20260808-2004",
-    "images/hero-b777-300er.webp?v=20260808-2004",
-    "images/hero-b787-10.webp?v=20260808-2004",
-    "images/hero-a321neo.webp?v=20260808-2004",
-    "images/hero-a350-1000.webp?v=20260808-2004"
+    "images/hero.webp?v=20260822-0319",
+    "images/hero-a330-300.webp?v=20260822-0319",
+    "images/hero-b737-800.webp?v=20260822-0319",
+    "images/hero-b777-300er.webp?v=20260822-0319",
+    "images/hero-b787-10.webp?v=20260822-0319",
+    "images/hero-a321neo.webp?v=20260822-0319",
+    "images/hero-a350-1000.webp?v=20260822-0319"
   ];
   const intervalMs=10_000;
   const fadeMs=2_200;

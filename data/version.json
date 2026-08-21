@@ -1,7 +1,7 @@
 {
-  "version": "8.2.73",
-  "build": "20260808-2004",
-  "date": "2026-08-08",
-  "workerVersion": "2.8.73",
-  "label": "Added A350 Hero image to the 10-second crossfade rotation"
+  "version": "8.2.74",
+  "build": "20260822-0319",
+  "date": "2026-08-22",
+  "workerVersion": "2.8.74",
+  "label": "Added the Kimi K3 AI tool button"
 }
