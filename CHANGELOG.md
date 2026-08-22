@@ -1,3 +1,8 @@
+## v8.2.75 — 2026-08-22
+
+- 在 Hero 右上角加入指向 Crew Portal 的高容錯 QR Code，搭配立體玻璃金屬卡片與響應式版面。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.74 — 2026-08-22
 
 - 在 AI 工具區塊新增 `Kimi K3` 按鈕，連結至 `https://www.chatday.ai/`。

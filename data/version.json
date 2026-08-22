@@ -1,7 +1,7 @@
 {
-  "version": "8.2.74",
-  "build": "20260822-0319",
+  "version": "8.2.75",
+  "build": "20260822-1256",
   "date": "2026-08-22",
-  "workerVersion": "2.8.74",
-  "label": "Added the Kimi K3 AI tool button"
+  "workerVersion": "2.8.75",
+  "label": "Added a shareable 3D QR Code to the Hero"
 }

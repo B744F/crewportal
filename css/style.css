@@ -231,8 +231,60 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
   transform:scale(1.035);
   filter:drop-shadow(0 18px 26px rgba(0,0,0,.52)) brightness(1.05);
 }
+.hero-qr-card{
+  position:absolute;
+  top:28px;
+  right:max(22px,calc((100vw - min(1440px,calc(100vw - 44px)))/2));
+  z-index:8;
+  width:clamp(132px,12vw,176px);
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  border:1px solid rgba(255,255,255,.24);
+  border-radius:18px;
+  background:linear-gradient(145deg,rgba(10,31,54,.86),rgba(2,11,24,.80));
+  box-shadow:0 20px 38px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.16),inset -8px -10px 22px rgba(0,0,0,.16);
+  backdrop-filter:blur(12px);
+  text-decoration:none;
+  transform:perspective(900px) rotateY(-4deg) translateZ(0);
+  animation:heroQrFloat 6.2s ease-in-out infinite;
+  transition:filter .3s ease,box-shadow .3s ease,transform .3s ease;
+}
+.hero-qr-card::before{
+  content:"";
+  position:absolute;
+  inset:1px 1px auto;
+  height:38%;
+  border-radius:17px 17px 45% 45%;
+  background:linear-gradient(180deg,rgba(255,255,255,.14),transparent);
+  pointer-events:none;
+}
+.hero-qr-card:hover{
+  filter:brightness(1.08);
+  box-shadow:0 24px 44px rgba(0,0,0,.48),0 0 24px rgba(216,178,93,.18),inset 0 1px 0 rgba(255,255,255,.20);
+  transform:perspective(900px) rotateY(0deg) translateY(-4px) translateZ(0);
+}
+.hero-qr-frame{
+  position:relative;
+  display:block;
+  padding:7px;
+  border:1px solid rgba(216,178,93,.72);
+  border-radius:11px;
+  background:#fff;
+  box-shadow:0 7px 15px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.25),inset 0 0 0 1px rgba(7,26,45,.12);
+}
+.hero-qr-code{display:block;width:100%;height:auto;shape-rendering:crispEdges}
+.hero-qr-label{display:flex;flex-direction:column;gap:2px;padding:0 2px;color:#f5f8fc;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.46)}
+.hero-qr-label strong{font-size:11px;line-height:1.15;letter-spacing:.02em}
+.hero-qr-label small{font-size:9px;line-height:1.2;color:#d8ba73;letter-spacing:.05em;text-transform:uppercase}
+.hero-qr-card:focus-visible{outline:2px solid #ffe09a;outline-offset:4px}
 .hero-copy{animation:heroContentIn .9s cubic-bezier(.22,.8,.22,1) both}
 .ops-row{animation:heroContentIn 1s .16s cubic-bezier(.22,.8,.22,1) both}
+@keyframes heroQrFloat{
+  0%,100%{transform:perspective(900px) rotateY(-4deg) translateY(0) translateZ(0)}
+  50%{transform:perspective(900px) rotateY(-2deg) translateY(-4px) translateZ(0)}
+}
 @keyframes heroLogoGlow{
   0%,100%{opacity:.52;transform:scale(.92)}
   50%{opacity:.96;transform:scale(1.10)}
@@ -255,14 +307,25 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
     left:18px;
     width:clamp(108px,26vw,145px);
   }
+  .hero-qr-card{
+    top:18px;
+    right:18px;
+    width:clamp(112px,22vw,148px);
+    padding:8px;
+    border-radius:15px;
+  }
   .hero-grid{padding-top:170px}
 }
 @media(max-width:520px){
   .hero-logo-link{top:14px;left:14px;width:112px}
+  .hero-qr-card{top:14px;right:14px;width:104px;padding:7px;border-radius:14px;gap:6px}
+  .hero-qr-frame{padding:5px;border-radius:9px}
+  .hero-qr-label strong{font-size:9px}
+  .hero-qr-label small{font-size:8px}
   .hero-grid{padding-top:148px}
 }
 @media(prefers-reduced-motion:reduce){
-  .hero-logo-link,.hero-logo-link::before,.hero-logo-link::after,.hero-copy,.ops-row{animation:none!important}
+  .hero-logo-link,.hero-logo-link::before,.hero-logo-link::after,.hero-qr-card,.hero-copy,.ops-row{animation:none!important}
 }
 
 /* v6.3 — System Status monitoring dashboard */
