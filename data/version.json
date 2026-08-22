@@ -1,7 +1,7 @@
 {
-  "version": "8.2.75",
-  "build": "20260822-1256",
+  "version": "8.2.76",
+  "build": "20260822-1305",
   "date": "2026-08-22",
-  "workerVersion": "2.8.75",
-  "label": "Added a shareable 3D QR Code to the Hero"
+  "workerVersion": "2.8.76",
+  "label": "Removed the Hero QR Code and Perplexity AI button"
 }

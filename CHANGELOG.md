@@ -1,3 +1,9 @@
+## v8.2.76 — 2026-08-22
+
+- 移除 Hero 右上角 QR Code 與對應資產。
+- 移除 AI 工具區塊的 Perplexity 按鈕。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.75 — 2026-08-22
 
 - 在 Hero 右上角加入指向 Crew Portal 的高容錯 QR Code，搭配立體玻璃金屬卡片與響應式版面。
