@@ -2,12 +2,12 @@
   "schemaVersion": 14,
   "source": "https://radio.arinc.net/pacific/",
   "proxy": "https://arinc-proxy.201505-login.workers.dev/",
-  "validFrom": "Aug. 26, 2026, 1841Z",
-  "validFromUtc": "2026-08-26T18:41:00Z",
-  "fetchedAtUtc": "2026-08-26T20:04:56Z",
+  "validFrom": "Aug. 26, 2026, 2112Z",
+  "validFromUtc": "2026-08-26T21:12:00Z",
+  "fetchedAtUtc": "2026-08-26T23:21:38Z",
   "northAmericaAsia": {
-    "primary": 11282,
-    "secondary": 13288
+    "primary": 13288,
+    "secondary": 11282
   },
   "alaskaNorthPacific": {
     "primary": 17946,
