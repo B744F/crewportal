@@ -1,3 +1,8 @@
+## v8.2.78 — 2026-08-27
+
+- 將 CAL 印章置於 China Airlines Crew Portal 兩行標題右側，印章高度與標題文字區塊對齊。
+- 新增透明背景印章資產，並同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.77 — 2026-08-27
 
 - 在 SYSTEM STATUS 新增 Visitor Geography 連結，另開頁面顯示各國旗幟、國家名稱、國家代碼、累計造訪次數與最後造訪時間。

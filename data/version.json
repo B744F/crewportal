@@ -1,7 +1,7 @@
 {
-  "version": "8.2.77",
-  "build": "20260827-1745",
+  "version": "8.2.78",
+  "build": "20260827-2040",
   "date": "2026-08-27",
-  "workerVersion": "2.8.77",
-  "label": "Added visitor geography statistics with country flags"
+  "workerVersion": "2.8.78",
+  "label": "Added CAL seal beside the Hero title"
 }
