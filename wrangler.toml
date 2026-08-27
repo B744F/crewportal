@@ -1,0 +1,8 @@
+name = "flightdeck-api"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-08-27"
+
+[[d1_databases]]
+binding = "CREWPORTAL_VISITOR_STATS"
+database_name = "crewportal-visitor-stats"
+database_id = "8623b519-e742-4daf-8db3-23f50156b62d"

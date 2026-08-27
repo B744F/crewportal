@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#030914">
+<title>Visitor Geography | FlightDeck Crew Portal</title>
+<link rel="stylesheet" href="css/style.css?v=20260827-1745">
+</head>
+<body class="visitor-page">
+<main class="visitor-main shell">
+  <a class="visitor-back" href="index.html">← Back to Crew Portal</a>
+  <section class="visitor-card" aria-labelledby="visitorTitle">
+    <p class="visitor-kicker">SYSTEM STATUS · VISITOR GEOGRAPHY</p>
+    <h1 id="visitorTitle">Visitor Countries</h1>
+    <p class="visitor-intro">顯示連入 Crew Portal 的國家與累計造訪次數。系統只保留國家層級統計，不儲存 IP 位址。</p>
+    <div class="visitor-summary" aria-label="Visitor summary">
+      <div><span>Total Visits</span><strong id="totalVisits">--</strong><small>總造訪次數</small></div>
+      <div><span>Countries</span><strong id="countryCount">--</strong><small>國家數</small></div>
+    </div>
+    <p id="visitorStatsStatus" class="visitor-stats-status" role="status">正在載入統計資料…</p>
+    <div class="visitor-table-wrap">
+      <table class="visitor-table">
+        <thead><tr><th scope="col">Country 國家</th><th scope="col">Code 代碼</th><th scope="col">Total Visits 累計</th><th scope="col">Last Visit 最後造訪</th></tr></thead>
+        <tbody id="visitorStatsBody"><tr><td colspan="4" class="visitor-empty">正在載入…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script src="js/visitor-stats.js?v=20260827-1745"></script>
+</body>
+</html>

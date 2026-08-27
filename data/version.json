@@ -1,7 +1,7 @@
 {
-  "version": "8.2.76",
-  "build": "20260822-1305",
-  "date": "2026-08-22",
-  "workerVersion": "2.8.76",
-  "label": "Removed the Hero QR Code and Perplexity AI button"
+  "version": "8.2.77",
+  "build": "20260827-1745",
+  "date": "2026-08-27",
+  "workerVersion": "2.8.77",
+  "label": "Added visitor geography statistics with country flags"
 }

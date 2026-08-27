@@ -1,11 +1,12 @@
-# FlightDeck Crew Portal v8.2.76 部署
+# FlightDeck Crew Portal v8.2.77 部署
 
 ## 部署內容
 
 1. 將 repository 的網站檔案部署至 GitHub Pages。
 2. 將 `cloudflare-worker.js` 部署至 `flightdeck-api` Worker。
-3. 保留 Cloudflare secrets：`TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`。
-4. 不要把 TDX secrets 寫入 repository 或前端 JavaScript。
+3. 綁定 Cloudflare D1 `crewportal-visitor-stats`（binding：`CREWPORTAL_VISITOR_STATS`），並套用 `migrations/0001_visitor_stats.sql`。
+4. 保留 Cloudflare secrets：`TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`。
+5. 不要把 TDX secrets 寫入 repository 或前端 JavaScript。
 
 ## 上線驗證
 
@@ -13,11 +14,13 @@
 
 ```json
 {
-  "portalVersion": "v8.2.76",
-  "workerVersion": "2.8.76",
+  "portalVersion": "v8.2.77",
+  "workerVersion": "2.8.77",
   "timetableParser": "structured-official"
 }
 ```
+
+訪客統計使用 `/api/visit` 記錄首頁造訪的國家層級計數，統計頁使用 `/api/visitor-stats`；不儲存 IP 位址。
 
 航班登機門查詢使用 `/api/flight-gate?airport=RCTP&flight=CI100`，支援 RCTP、RCSS、RCMQ、RCKH；公開查詢使用桃園機場 ADIP／快照與各機場官方即時資料，RCSS 不再由使用者查詢直接觸發 TDX Airport FIDS；TDX FIDS 僅保留給排程備援。若抵達機門未公布，會以同航空公司、同往返航線、抵達後短時間內唯一對應的官方出發機門標示為「推定」。即時來源的航班號會保留完整數字，不會將 CI602 誤解析為 CI2；同日已確認的登機門也不會因即時來源短暫空值而退回「未定」。
 

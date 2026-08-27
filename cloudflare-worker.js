@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.76 (Crew Portal v8.2.76)
+ * Version 2.8.77 (Crew Portal v8.2.77)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,8 +12,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.76';
-const WORKER_VERSION = '2.8.76';
+const PORTAL_VERSION = 'v8.2.77';
+const WORKER_VERSION = '2.8.77';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -82,7 +82,7 @@ function corsHeaders(request) {
   const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : 'https://b744f.github.io';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin'
@@ -1358,11 +1358,80 @@ async function handleFlightGate(request, env, ctx) {
   }
 }
 
+function visitorCountryCode(request) {
+  const country = String(request.cf?.country || '').trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(country) ? country : 'UN';
+}
+
+async function handleVisitorVisit(request, env) {
+  const database = env.CREWPORTAL_VISITOR_STATS;
+  if (!database) {
+    return json(request, { ok: false, error: 'Visitor statistics database is not configured' }, {
+      status: 503,
+      headers: { 'Cache-Control': 'no-store' }
+    });
+  }
+  const countryCode = visitorCountryCode(request);
+  const now = new Date().toISOString();
+  try {
+    await database.prepare(`
+      INSERT INTO visitor_country_counts (country_code, visit_count, last_seen_at)
+      VALUES (?1, 1, ?2)
+      ON CONFLICT(country_code) DO UPDATE SET
+        visit_count = visitor_country_counts.visit_count + 1,
+        last_seen_at = excluded.last_seen_at
+    `).bind(countryCode, now).run();
+    return json(request, { ok: true }, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+    });
+  } catch (error) {
+    return json(request, { ok: false, error: String(error?.message || error) }, {
+      status: 500,
+      headers: { 'Cache-Control': 'no-store' }
+    });
+  }
+}
+
+async function handleVisitorStats(request, env) {
+  const database = env.CREWPORTAL_VISITOR_STATS;
+  if (!database) {
+    return json(request, { ok: false, error: 'Visitor statistics database is not configured' }, {
+      status: 503,
+      headers: { 'Cache-Control': 'no-store' }
+    });
+  }
+  try {
+    const result = await database.prepare(`
+      SELECT country_code AS countryCode, visit_count AS visitCount, last_seen_at AS lastSeenAt
+      FROM visitor_country_counts
+      ORDER BY visit_count DESC, country_code ASC
+    `).all();
+    const countries = result.results || [];
+    const totalVisits = countries.reduce((sum, country) => sum + Number(country.visitCount || 0), 0);
+    return json(request, {
+      ok: true,
+      totalVisits,
+      countries,
+      generatedAt: new Date().toISOString()
+    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } });
+  } catch (error) {
+    return json(request, { ok: false, error: String(error?.message || error) }, {
+      status: 500,
+      headers: { 'Cache-Control': 'no-store' }
+    });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+    if (url.pathname === '/api/visit') {
+      if (request.method !== 'POST') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
+      return handleVisitorVisit(request, env);
+    }
     if (request.method !== 'GET') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
+    if (url.pathname === '/api/visitor-stats') return handleVisitorStats(request, env);
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
     if (url.pathname === '/api/flight-gate-source') return handleFlightGateSource(request);
     if (url.pathname === '/api/flight-gate-tdx-source') return handleFlightGateTdxSource(request, env, ctx);
@@ -1377,6 +1446,7 @@ export default {
       timetableParser: 'structured-official',
       cargoStandSource: 'TPE GOSS public ground-operations data',
       cargoStandRange: '501-525',
+      visitorStatsConfigured: Boolean(env.CREWPORTAL_VISITOR_STATS),
       tdxCredentialsConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
       liveBoardEnabled: false,
       timestamp: new Date().toISOString()

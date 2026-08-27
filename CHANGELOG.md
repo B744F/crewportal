@@ -1,3 +1,9 @@
+## v8.2.77 — 2026-08-27
+
+- 在 SYSTEM STATUS 新增 Visitor Geography 連結，另開頁面顯示各國旗幟、國家名稱、國家代碼、累計造訪次數與最後造訪時間。
+- 由 Cloudflare Worker 以國家層級資料記錄首頁造訪，使用 D1 原子累計，不儲存 IP 位址。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.76 — 2026-08-22
 
 - 移除 Hero 右上角 QR Code 與對應資產。
