@@ -1,3 +1,8 @@
+## v8.2.79 — 2026-08-27
+
+- 移除 Hero 標題旁的 CAL 印章與對應圖片資產。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.78 — 2026-08-27
 
 - 將 CAL 印章置於 China Airlines Crew Portal 兩行標題右側，印章高度與標題文字區塊對齊。
