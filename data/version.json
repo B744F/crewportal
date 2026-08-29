@@ -1,7 +1,7 @@
 {
-  "version": "8.2.79",
-  "build": "20260827-2053",
-  "date": "2026-08-27",
+  "version": "8.2.80",
+  "build": "20260829-0949",
+  "date": "2026-08-29",
   "workerVersion": "2.8.79",
-  "label": "Removed CAL seal from the Hero title"
+  "label": "Removed AI Flight Assistant button from the portal homepage"
 }
