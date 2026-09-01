@@ -9,43 +9,68 @@
 
   const panels={
     atis:{
-      title:"Airport ATIS｜機場自動情報服務",
-      purpose:"查詢指定機場最新的 ATIS 廣播，例如跑道、風向風速、能見度與 QNH 等資訊。",
-      steps:[
-        "在 ICAO 欄輸入 4 碼機場代碼，例如 RCTP（桃園）或 RJTT（東京羽田）。",
-        "按下 OPEN ATIS，即可開啟該機場的 ATIS 頁面。"
+      title:"Airport Operations｜機場作業工具",
+      sections:[
+        {
+          heading:"AIRPORT ATIS｜機場自動情報服務",
+          purpose:"查詢指定機場最新的 ATIS 廣播，例如跑道、風向風速、能見度與 QNH 等資訊。",
+          purposeEn:"View the latest ATIS broadcast for a selected airport, including runway, wind, visibility and QNH information.",
+          steps:[
+            "在 ICAO 欄輸入 4 碼機場代碼，例如 RCTP（桃園）或 RJTT（東京羽田）。",
+            "按下 OPEN ATIS，即可開啟該機場的 ATIS 頁面。"
+          ],
+          stepsEn:[
+            "Enter a 4-letter ICAO airport code, such as RCTP (Taoyuan) or RJTT (Tokyo Haneda).",
+            "Select OPEN ATIS to open the ATIS page for that airport."
+          ]
+        },
+        {
+          heading:"AIRCRAFT TRACKING｜航機追蹤",
+          purpose:"使用航班號或航空器註冊號，在 FlightRadar24 開啟航機追蹤頁面。",
+          purposeEn:"Open a FlightRadar24 tracking page using a flight number or aircraft registration number.",
+          steps:[
+            "輸入 Call Sign 或航空器註冊號，例如 CI100 或 B-18725。",
+            "按下 TRACK，即可開啟對應的航機或航班頁面。"
+          ],
+          stepsEn:[
+            "Enter a call sign or aircraft registration number, such as CI100 or B-18725.",
+            "Select TRACK to open the corresponding aircraft or flight page."
+          ]
+        },
+        {
+          heading:"GATE INFO｜登機門資訊",
+          purpose:"查詢指定機場今日航班的登機門、航廈或貨機坪資訊。",
+          purposeEn:"Check today's gate, terminal or cargo stand information for a selected airport.",
+          steps:[
+            "先選擇機場，再輸入 Callsign + Flight No.，例如 CI100 或 5X61。",
+            "按下 GATE，查看抵達／出發方向、航廈、登機門或貨機坪，以及資料更新時間。"
+          ],
+          stepsEn:[
+            "Select an airport, then enter Callsign + Flight No., such as CI100 or 5X61.",
+            "Select GATE to view arrival/departure direction, terminal, gate or cargo stand, and the data update time."
+          ]
+        }
       ],
-      note:"請以當地官方或公司發布的最新資料為準。"
-    },
-    parking:{
-      title:"Parking Information｜停車資訊",
-      purpose:"出勤或前往機場前，快速查看華航園區與桃園機場停車區的剩餘車位。",
-      steps:[
-        "BOT、RD1A、RD1B、TSA 是華航園區的停車區；P1、P2、P3、P4 是桃園機場停車區。",
-        "各區數字代表目前可用車位，更新時間與資料年齡會顯示在卡片內。",
-        "需要查看完整停車配置時，按右側的查看 ↗ 開啟停車頁面。"
-      ],
-      note:"顯示「尚未提供」不代表已滿位，請按查看 ↗ 以官方頁面為準。"
+      note:"資料由外部或官方來源提供；實際飛航與作業判斷請以公司程序及最新正式資料為準。"
     },
     mrt:{
       title:"Airport MRT｜桃園機場捷運",
-      purpose:"查詢指定車站往台北或往中壢的下一班普通車與直達車。",
-      steps:[
-        "在 Station 車站下拉選單選擇要查詢的車站。",
-        "查看 To Taipei（往台北）或 To Zhongli（往中壢）的時間。",
-        "Commuter 是普通車；Express 是直達車。需要完整時刻表時，按 Official timetable ↗。"
-      ],
+      sections:[{
+        heading:"AIRPORT MRT｜桃園機場捷運",
+        purpose:"查詢指定車站往台北或往中壢的下一班普通車與直達車。",
+        purposeEn:"Find the next Commuter and Express trains from a selected station toward Taipei or Zhongli.",
+        steps:[
+          "在 Station 車站下拉選單選擇要查詢的車站。",
+          "查看 To Taipei（往台北）或 To Zhongli（往中壢）的時間。",
+          "Commuter 是普通車；Express 是直達車。需要完整時刻表時，按 Official timetable ↗。"
+        ],
+        stepsEn:[
+          "Choose a station from the Station dropdown menu.",
+          "Check the times for To Taipei or To Zhongli.",
+          "Commuter means the regular train; Express means the express train. Select Official timetable ↗ for the full schedule."
+        ]
+      }],
       note:"班次時間依官方時刻表或即時資料顯示，請預留轉乘與步行時間。"
-    },
-    hf:{
-      title:"Pacific HF｜太平洋 HF 頻率",
-      purpose:"查閱太平洋航路不同區域的 HF 通訊頻率，以及延伸距離與地面使用的 VHF 頻率。",
-      steps:[
-        "先依航段位置辨識適用區域，例如 North America → Asia、Alaska / North Pacific 或 Guam Area。",
-        "PRIMARY 是主要頻率；SECONDARY 是備用頻率，實際選用請依公司程序與航段狀況。",
-        "下方 VHF 區列出 Extended Range 與各地 On-ground 頻率。"
-      ],
-      note:"本區供快速查閱；實際通訊請依公司程序、航路資料與當日官方資料。"
     }
   };
 
@@ -55,23 +80,37 @@
     title.textContent=panel.title;
     body.replaceChildren();
 
-    const purpose=document.createElement("p");
-    purpose.className="panel-help-purpose";
-    purpose.textContent=panel.purpose;
-    body.appendChild(purpose);
+    panel.sections.forEach(section=>{
+      const sectionTitle=document.createElement("h3");
+      sectionTitle.className="panel-help-section-title";
+      sectionTitle.textContent=section.heading;
+      body.appendChild(sectionTitle);
 
-    const stepsTitle=document.createElement("h3");
-    stepsTitle.textContent="使用方式 / Steps";
-    body.appendChild(stepsTitle);
+      const purpose=document.createElement("p");
+      purpose.className="panel-help-purpose";
+      purpose.textContent=section.purpose;
+      body.appendChild(purpose);
 
-    const steps=document.createElement("ol");
-    steps.className="panel-help-steps";
-    panel.steps.forEach(step=>{
-      const item=document.createElement("li");
-      item.textContent=step;
-      steps.appendChild(item);
+      const purposeEn=document.createElement("p");
+      purposeEn.className="panel-help-en";
+      purposeEn.textContent=section.purposeEn;
+      body.appendChild(purposeEn);
+
+      const steps=document.createElement("ol");
+      steps.className="panel-help-steps";
+      section.steps.forEach((step,index)=>{
+        const item=document.createElement("li");
+        const zh=document.createElement("span");
+        zh.textContent=step;
+        item.appendChild(zh);
+        const en=document.createElement("span");
+        en.className="panel-help-en";
+        en.textContent=section.stepsEn[index];
+        item.appendChild(en);
+        steps.appendChild(item);
+      });
+      body.appendChild(steps);
     });
-    body.appendChild(steps);
 
     const note=document.createElement("p");
     note.className="panel-help-note";
@@ -79,16 +118,16 @@
     body.appendChild(note);
   }
 
-  document.querySelectorAll("[data-help-panel]").forEach(trigger=>{
-    trigger.addEventListener("click",()=>{
-      const panel=panels[trigger.dataset.helpPanel];
-      if(!panel)return;
-      lastTrigger=trigger;
-      renderPanel(panel);
-      if(typeof dialog.showModal==="function")dialog.showModal();
-      else dialog.setAttribute("open","");
-      closeButton.focus();
-    });
+  document.addEventListener("click",event=>{
+    const trigger=event.target.closest?.("[data-help-panel]");
+    if(!trigger)return;
+    const panel=panels[trigger.dataset.helpPanel];
+    if(!panel)return;
+    lastTrigger=trigger;
+    renderPanel(panel);
+    if(typeof dialog.showModal==="function")dialog.showModal();
+    else dialog.setAttribute("open","");
+    closeButton.focus();
   });
 
   closeButton.addEventListener("click",()=>dialog.close());

@@ -1,3 +1,16 @@
+## v8.2.83 — 2026-09-01
+
+- 將 AIRPORT ATIS、AIRCRAFT TRACKING、GATE INFO 與 AIRPORT MRT 的說明補為完整中英文內容。
+- 將 GATE INFO 輸入提示更新為 `Callsign + Flight No.`。
+- 同步更新 Portal、Build 與靜態資產快取版本。
+
+## v8.2.82 — 2026-09-01
+
+- 移除 PARKING INFORMATION 與 PACIFIC HF 的說明入口。
+- 保留 AIRPORT ATIS 與 AIRPORT MRT 的說明視窗，並補齊 AIRCRAFT TRACKING 與 GATE INFO 的中英文說明。
+- 將 GATE INFO 輸入提示更新為 `Callsign + Flight No.`。
+- 同步更新 Portal、Build 與靜態資產快取版本。
+
 ## v8.2.81 — 2026-09-01
 
 - 在 Hero 下方四個資料區塊右上角新增圓形問號按鈕。
