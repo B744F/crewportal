@@ -1,3 +1,8 @@
+## v8.2.84 — 2026-09-01
+
+- 在 GATE INFO 說明補充：華航的班機僅輸入班號即可查詢，並附英文說明。
+- 同步更新 Portal、Build 與靜態資產快取版本。
+
 ## v8.2.83 — 2026-09-01
 
 - 將 AIRPORT ATIS、AIRCRAFT TRACKING、GATE INFO 與 AIRPORT MRT 的說明補為完整中英文內容。

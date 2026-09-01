@@ -43,10 +43,12 @@
           purposeEn:"Check today's gate, terminal or cargo stand information for a selected airport.",
           steps:[
             "先選擇機場，再輸入 Callsign + Flight No.，例如 CI100 或 5X61。",
+            "華航的班機僅輸入班號即可查詢。",
             "按下 GATE，查看抵達／出發方向、航廈、登機門或貨機坪，以及資料更新時間。"
           ],
           stepsEn:[
             "Select an airport, then enter Callsign + Flight No., such as CI100 or 5X61.",
+            "For China Airlines flights, enter the flight number only.",
             "Select GATE to view arrival/departure direction, terminal, gate or cargo stand, and the data update time."
           ]
         }

@@ -1,7 +1,7 @@
 {
-  "version": "8.2.83",
-  "build": "20260901-1343",
+  "version": "8.2.84",
+  "build": "20260901-1350",
   "date": "2026-09-01",
   "workerVersion": "2.8.79",
-  "label": "Added full bilingual explanations for Hero operation tools"
+  "label": "Clarified China Airlines flight number lookup guidance"
 }
