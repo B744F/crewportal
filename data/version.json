@@ -1,7 +1,7 @@
 {
-  "version": "8.2.80",
-  "build": "20260829-0949",
-  "date": "2026-08-29",
+  "version": "8.2.81",
+  "build": "20260901-1320",
+  "date": "2026-09-01",
   "workerVersion": "2.8.79",
-  "label": "Removed AI Flight Assistant button from the portal homepage"
+  "label": "Added bilingual help dialogs to Hero data panels"
 }

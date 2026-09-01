@@ -40,6 +40,10 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .atis-panel{padding:11px 16px}
 .panel-title{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:16px;font-weight:900;letter-spacing:.02em}
 .panel-title .pict{color:var(--gold2);font-size:19px}
+.panel-help-button,.panel-help-close{display:inline-grid;place-items:center;width:29px;height:29px;padding:0;border:1px solid rgba(216,178,93,.76);border-radius:50%;background:rgba(216,178,93,.13);color:var(--gold2);font:900 16px/1 Arial,sans-serif;cursor:pointer;transition:background .18s ease,color .18s ease,transform .18s ease;flex:0 0 auto}
+.panel-title .panel-help-button{margin-left:auto}
+.panel-help-button:hover,.panel-help-button:focus-visible,.panel-help-close:hover,.panel-help-close:focus-visible{background:var(--gold2);color:#07111d;transform:scale(1.06);outline:none}
+.panel-help-button:focus-visible,.panel-help-close:focus-visible{box-shadow:0 0 0 3px rgba(216,178,93,.28)}
 .atis-form{display:grid;grid-template-columns:68px 1fr 108px;align-items:center;border:1px solid rgba(255,255,255,.22);background:rgba(0,5,12,.20);border-radius:10px;overflow:hidden;height:39px}
 .icao-label{height:100%;display:grid;place-items:center;font-size:14px;font-weight:850;color:#f3f8ff;border-right:1px solid rgba(255,255,255,.18);letter-spacing:.06em}
 #atisInput{height:100%;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:16px;font-weight:700;padding:0 16px;text-transform:uppercase;letter-spacing:.08em}
@@ -327,6 +331,7 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .ops-row{grid-template-columns:minmax(300px,1fr) minmax(300px,.95fr) minmax(360px,1.08fr) minmax(330px,1fr);max-width:1540px;gap:16px}
 .mrt-panel{padding:0;min-width:0;color:#eef7ff}
 .mrt-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px 8px;border-bottom:1px solid rgba(255,255,255,.10)}
+.mrt-head-tools{display:flex;align-items:center;gap:10px}
 .mrt-title{display:flex;align-items:center;gap:9px;font-weight:950;letter-spacing:.045em;font-size:14px}
 .mrt-title>span:last-child{display:flex;flex-direction:column;line-height:1.05}.mrt-title small{margin-top:4px;font-size:10px;font-weight:750;letter-spacing:.04em;color:rgba(238,247,255,.64)}
 .mrt-mark{display:block;width:33px;height:27px;min-width:33px;object-fit:contain;object-position:center}
@@ -342,6 +347,20 @@ h1{margin:0;color:#f8fbff;font-size:clamp(42px,5.4vw,78px);line-height:1.08;lett
 .mrt-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px 10px;font-size:9px;color:rgba(238,247,255,.55)}.mrt-foot span{line-height:1.25}.mrt-foot a{flex:0 0 auto;color:#f0c874;text-decoration:none;font-weight:850}.mrt-foot a:hover{text-decoration:underline}
 @media(max-width:1450px){.ops-row{grid-template-columns:repeat(2,minmax(330px,1fr));max-width:980px}}
 @media(max-width:760px){.ops-row{grid-template-columns:1fr}.mrt-row{grid-template-columns:minmax(105px,1.15fr) minmax(80px,.8fr) minmax(80px,.8fr)}.mrt-foot{align-items:flex-start;flex-direction:column}}
+
+/* v8.2.81 — Bilingual help dialog for Hero data panels */
+.panel-help-dialog{width:min(520px,calc(100vw - 32px));max-height:min(80vh,620px);padding:0;border:1px solid rgba(216,178,93,.52);border-radius:16px;background:linear-gradient(180deg,rgba(10,31,53,.98),rgba(4,15,29,.98));color:#eef7ff;box-shadow:0 24px 70px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)}
+.panel-help-dialog::backdrop{background:rgba(0,5,14,.68);backdrop-filter:blur(3px)}
+.panel-help-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 20px 14px;border-bottom:1px solid rgba(255,255,255,.12)}
+.panel-help-dialog h2{margin:0;color:#f5d78e;font-size:19px;line-height:1.3;letter-spacing:.01em}
+.panel-help-dialog .panel-help-close{width:30px;height:30px;font-size:23px;font-weight:500}
+#panelHelpDescription{padding:17px 20px 20px}
+.panel-help-purpose{margin:0;color:#f2f7ff;font-size:15px;line-height:1.65}
+.panel-help-dialog h3{margin:18px 0 8px;color:#f5d78e;font-size:14px;letter-spacing:.03em}
+.panel-help-steps{margin:0;padding-left:23px;color:#d9e8f8;font-size:14px;line-height:1.65}
+.panel-help-steps li{padding-left:4px;margin:5px 0}
+.panel-help-note{margin:17px 0 0;padding:10px 12px;border-left:3px solid rgba(216,178,93,.78);background:rgba(216,178,93,.08);color:#cbd9e8;font-size:13px;line-height:1.55}
+@media(max-width:720px){.panel-help-button{width:30px;height:30px}.mrt-head-tools{gap:7px}.panel-help-dialog-head{padding:15px 16px 12px}.panel-help-dialog h2{font-size:17px}#panelHelpDescription{padding:15px 16px 17px}.panel-help-purpose{font-size:14px}.panel-help-steps{font-size:13px}}
 
 /* v8.2.62 — Leave the aircraft unobstructed in the desktop Hero view. */
 @media(min-width:1221px){.ops-row{margin-top:284px}}
