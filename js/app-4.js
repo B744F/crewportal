@@ -1,5 +1,5 @@
 (function(){
-  const VERSION = "8.2.85";
+  const VERSION = "8.2.86";
   const BUILD = "20260904-2156";
   const DEFAULT_FLIGHT_AIRLINE = "CI";
   const RAW_BASE="https://raw.githubusercontent.com/B744F/crewportal/main/data/";
