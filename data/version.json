@@ -1,7 +1,7 @@
 {
-  "version": "8.2.87",
-  "build": "20260904-2225",
+  "version": "8.2.88",
+  "build": "20260904-2230",
   "date": "2026-09-04",
   "workerVersion": "2.8.80",
-  "label": "Move PSX NAV DATA download to Google Drive"
+  "label": "Make PSX NAV DATA a direct Google Drive download"
 }
