@@ -1,3 +1,8 @@
+## v8.2.87 — 2026-09-04
+
+- 將 PSX NAV DATA 的下載連結改為 Google Drive 單檔公開唯讀連結，保留 AIRAC 2609 與有效日期 `Cycle Effective 03-Sep-26`。
+- 同步更新 Portal、Build、Worker 與靜態資產快取版本。
+
 ## v8.2.86 — 2026-09-04
 
 - 更新 PSX NAV DATA 為 AIRAC cycle 2609，並將下載按鈕下方的有效日期更新為 `Cycle Effective 03-Sep-26`。
