@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.84 部署
+# FlightDeck Crew Portal v8.2.85 部署
 
 ## 部署內容
 
@@ -14,11 +14,13 @@
 
 ```json
 {
-  "portalVersion": "v8.2.79",
-  "workerVersion": "2.8.79",
+  "portalVersion": "v8.2.85",
+  "workerVersion": "2.8.80",
   "timetableParser": "structured-official"
 }
 ```
+
+D-ATIS 來源規則：美國地區（含阿拉斯加、夏威夷與美國海外地區）使用 ATIS.info API；RCTP 與 RJAA 使用 CoffeeTeaOrMe 公開 API；其他全球機場使用 ATIS.guru。`/api/atis?airport=XXXX` 會回傳來源、資料時間與 90 分鐘 freshness 狀態，stale 或無法確認時不得視為目前有效 ATIS。
 
 訪客統計使用 `/api/visit` 記錄首頁造訪的國家層級計數，統計頁使用 `/api/visitor-stats`；不儲存 IP 位址。
 

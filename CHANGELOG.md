@@ -1,3 +1,9 @@
+## v8.2.85 — 2026-09-04
+
+- 將 D-ATIS 查詢依規則分流：美國地區使用 ATIS.info API，RCTP/RJAA 使用 CoffeeTeaOrMe，其他全球機場使用 ATIS.guru。
+- 新增 Worker freshness check，顯示來源、資料時間與 Fresh／Stale／Unavailable 狀態；過期或無法確認新鮮度的資料不標示為目前有效 ATIS。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.84 — 2026-09-01
 
 - 在 GATE INFO 說明補充：華航的班機僅輸入班號即可查詢，並附英文說明。

@@ -1,7 +1,7 @@
 {
-  "version": "8.2.84",
-  "build": "20260901-1350",
-  "date": "2026-09-01",
-  "workerVersion": "2.8.79",
-  "label": "Clarified China Airlines flight number lookup guidance"
+  "version": "8.2.85",
+  "build": "20260904-2024",
+  "date": "2026-09-04",
+  "workerVersion": "2.8.80",
+  "label": "Add routed D-ATIS sources and freshness guard"
 }

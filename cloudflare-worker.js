@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.79 (Crew Portal v8.2.79)
+ * Version 2.8.80 (Crew Portal v8.2.85)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,8 +12,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.79';
-const WORKER_VERSION = '2.8.79';
+const PORTAL_VERSION = 'v8.2.85';
+const WORKER_VERSION = '2.8.80';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -30,6 +30,12 @@ const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
 const TDX_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TYMC';
 const TDX_AIRPORT_FIDS_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Airport';
+const ATIS_INFO_API = 'https://atis.info/api';
+const ATIS_INFO_PAGE = 'https://atis.info';
+const COFFEE_ATIS_API = 'https://info.coffeeteaorme.vip/api/atis-proxy';
+const COFFEE_ATIS_PAGE = 'https://info.coffeeteaorme.vip/Public-D-ATIS';
+const ATIS_GURU_PAGE = 'https://atis.guru/atis';
+const ATIS_STALE_AFTER_MS = 90 * 60 * 1000;
 const GATE_AIRPORTS = {
   RCTP: { icao: 'RCTP', iata: 'TPE', name: '桃園國際機場' },
   RCSS: { icao: 'RCSS', iata: 'TSA', name: '臺北松山機場' },
@@ -1283,6 +1289,187 @@ async function handleMrt(request, env, ctx) {
   }
 }
 
+function normalizeAtisAirport(value) {
+  const airport = String(value || '').trim().toUpperCase();
+  return /^[A-Z]{4}$/.test(airport) ? airport : null;
+}
+
+function isAmericanAtisAirport(airport) {
+  return airport.startsWith('K')
+    || /^(PA|PF|PH|PG|PO|PP|PW)/.test(airport)
+    || ['TJSJ', 'TIST', 'TISX'].includes(airport);
+}
+
+function atisRoute(airport) {
+  if (isAmericanAtisAirport(airport)) {
+    return {
+      id: 'atis.info',
+      label: 'ATIS.info · FAA Digital ATIS',
+      pageUrl: `${ATIS_INFO_PAGE}/${airport}`,
+      apiUrl: `${ATIS_INFO_API}/${airport}`
+    };
+  }
+  if (airport === 'RCTP' || airport === 'RJAA') {
+    return {
+      id: 'coffeeteaorme',
+      label: 'CoffeeTeaOrMe · ACARS D-ATIS',
+      pageUrl: `${COFFEE_ATIS_PAGE}/${airport}`,
+      apiUrl: `${COFFEE_ATIS_API}?mode=public&text=${airport}`
+    };
+  }
+  return {
+    id: 'atis.guru',
+    label: 'ATIS.guru · Live digital ATIS',
+    pageUrl: `${ATIS_GURU_PAGE}/${airport}`,
+    apiUrl: `${ATIS_GURU_PAGE}/${airport}`
+  };
+}
+
+function parseAtisDate(value, now = new Date()) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const direct = new Date(raw);
+  if (!Number.isNaN(direct.getTime()) && /\d{4}/.test(raw)) return direct;
+  const compact = raw.match(/\b(\d{2})(\d{2})Z\b/i);
+  if (!compact) return null;
+  const hour = Number(compact[1]);
+  const minute = Number(compact[2]);
+  if (hour > 23 || minute > 59) return null;
+  const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, minute));
+  if (candidate.getTime() > now.getTime() + 15 * 60 * 1000) candidate.setUTCDate(candidate.getUTCDate() - 1);
+  return candidate;
+}
+
+function atisAge(dataTime, now = new Date()) {
+  if (!dataTime) return { status: 'unavailable', stale: true, ageMinutes: null, validForCurrentUse: false };
+  const ageMs = Math.max(0, now.getTime() - dataTime.getTime());
+  const ageMinutes = Math.floor(ageMs / 60000);
+  const stale = ageMs > ATIS_STALE_AFTER_MS;
+  return {
+    status: stale ? 'stale' : 'fresh',
+    stale,
+    ageMinutes,
+    validForCurrentUse: !stale
+  };
+}
+
+function parseCoffeeTimestamp(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const date = new Date(/Z$|[+-]\d\d:?\d\d$/.test(raw) ? raw : `${raw.replace(' ', 'T')}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function latestCoffeeAtis(payload, airport, now) {
+  const records = Array.isArray(payload?.data) ? payload.data : [];
+  const matches = records
+    .filter(item => /\b(?:ARR|DEP)\s+ATIS\b/i.test(String(item?.message || item?.displayMessage || item?.rawMessage || '')))
+    .sort((a, b) => (parseCoffeeTimestamp(b?.timestamp)?.getTime() || 0) - (parseCoffeeTimestamp(a?.timestamp)?.getTime() || 0));
+  const latest = matches[0];
+  if (!latest) return { dataTime: null, observedAt: null, recordCount: 0 };
+  const message = String(latest.message || latest.displayMessage || latest.rawMessage || '');
+  const scopedMessage = message.match(new RegExp(`${airport}\\s+(?:ARR|DEP)\\s+ATIS[\\s\\S]*`, 'i'))?.[0] || message;
+  const issuedAt = parseAtisDate(scopedMessage, now);
+  const observedAt = parseCoffeeTimestamp(latest.timestamp);
+  return {
+    dataTime: issuedAt || observedAt,
+    observedAt,
+    recordCount: matches.length
+  };
+}
+
+function decodeHtmlText(value) {
+  return String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, decimal) => String.fromCodePoint(Number(decimal)))
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function latestGuruAtis(html, airport, now) {
+  const records = [];
+  const pattern = /<div[^>]*class=["'][^"']*\batis\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi;
+  let match;
+  while ((match = pattern.exec(String(html || ''))) !== null) {
+    const text = decodeHtmlText(match[1]);
+    if (new RegExp(`${airport}\\s+(?:ARR|DEP)\\s+ATIS\\b`, 'i').test(text)) records.push(text);
+  }
+  const unique = [...new Set(records)];
+  unique.sort((a, b) => (parseAtisDate(b, now)?.getTime() || 0) - (parseAtisDate(a, now)?.getTime() || 0));
+  const dataTime = unique.length ? parseAtisDate(unique[0], now) : null;
+  return { dataTime, observedAt: null, recordCount: unique.length };
+}
+
+function atisResult(request, airport, route, now, details) {
+  const dataTime = details.dataTime;
+  const freshness = atisAge(dataTime, now);
+  return json(request, {
+    ok: true,
+    airport,
+    source: route.label,
+    sourceUrl: route.pageUrl,
+    route: route.id,
+    checkedAt: now.toISOString(),
+    dataTime: dataTime?.toISOString() || null,
+    observedAt: details.observedAt?.toISOString() || null,
+    recordCount: details.recordCount || 0,
+    ...freshness,
+    notice: freshness.status === 'stale'
+      ? '資料已過期，不可視為目前有效 ATIS。'
+      : freshness.status === 'fresh'
+        ? '資料時間在 freshness window 內。'
+        : '來源目前沒有可解析的 ATIS，無法確認目前有效資料。'
+  }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+async function handleAtis(request) {
+  const url = new URL(request.url);
+  const airport = normalizeAtisAirport(url.searchParams.get('airport'));
+  if (!airport) return json(request, { ok: false, error: '請輸入四碼 ICAO 機場代碼' }, { status: 400 });
+  const route = atisRoute(airport);
+  const now = new Date();
+  try {
+    if (route.id === 'atis.info') {
+      const response = await fetchUpstream(route.apiUrl, { headers: { Accept: 'application/json' } });
+      if (!response.ok) return atisResult(request, airport, route, now, { dataTime: null, recordCount: 0 });
+      const payload = await response.json();
+      const record = Array.isArray(payload) ? payload[0] : null;
+      const message = String(record?.datis || record?.message || '');
+      const issuedAt = parseAtisDate(message, now);
+      const observedAt = parseAtisDate(record?.updatedAt, now) || parseAtisDate(record?.time ? `${record.time}Z` : '', now);
+      return atisResult(request, airport, route, now, {
+        dataTime: observedAt || issuedAt,
+        observedAt,
+        recordCount: record ? 1 : 0
+      });
+    }
+    if (route.id === 'coffeeteaorme') {
+      const response = await fetchUpstream(route.apiUrl, { headers: { Accept: 'application/json' } });
+      if (!response.ok) return atisResult(request, airport, route, now, { dataTime: null, recordCount: 0 });
+      return atisResult(request, airport, route, now, latestCoffeeAtis(await response.json(), airport, now));
+    }
+    const response = await fetchUpstream(route.apiUrl, { headers: { Accept: 'text/html' } }, 15_000);
+    if (!response.ok) return atisResult(request, airport, route, now, { dataTime: null, recordCount: 0 });
+    return atisResult(request, airport, route, now, latestGuruAtis(await response.text(), airport, now));
+  } catch (error) {
+    return json(request, {
+      ok: false,
+      airport,
+      source: route.label,
+      sourceUrl: route.pageUrl,
+      route: route.id,
+      error: 'ATIS 來源暫時無法查詢，未能確認資料新鮮度。',
+      detail: String(error?.message || error)
+    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+  }
+}
+
 async function handleParking(request) {
   try {
     const response = await fetch(PARKING_API, { headers: { 'User-Agent': 'Mozilla/5.0' }, cf: { cacheTtl: 30, cacheEverything: true } });
@@ -1432,6 +1619,7 @@ export default {
     }
     if (request.method !== 'GET') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
     if (url.pathname === '/api/visitor-stats') return handleVisitorStats(request, env);
+    if (url.pathname === '/api/atis') return handleAtis(request);
     if (url.pathname === '/api/mrt') return handleMrt(request, env, ctx);
     if (url.pathname === '/api/flight-gate-source') return handleFlightGateSource(request);
     if (url.pathname === '/api/flight-gate-tdx-source') return handleFlightGateTdxSource(request, env, ctx);
@@ -1446,6 +1634,8 @@ export default {
       timetableParser: 'structured-official',
       cargoStandSource: 'TPE GOSS public ground-operations data',
       cargoStandRange: '501-525',
+      atisSources: 'ATIS.info API for US regions; CoffeeTeaOrMe API for RCTP/RJAA; ATIS.guru with 90-minute freshness guard elsewhere',
+      atisStaleAfterMinutes: 90,
       visitorStatsConfigured: Boolean(env.CREWPORTAL_VISITOR_STATS),
       tdxCredentialsConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
       liveBoardEnabled: false,
