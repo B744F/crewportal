@@ -1,3 +1,8 @@
+## v8.2.86 — 2026-09-04
+
+- 更新 PSX NAV DATA 為 AIRAC cycle 2609，並將下載按鈕下方的有效日期更新為 `Cycle Effective 03-Sep-26`。
+- 同步更新 Portal、Build 與靜態資產快取版本。
+
 ## v8.2.85 — 2026-09-04
 
 - 將 D-ATIS 查詢依規則分流：美國地區使用 ATIS.info API，RCTP/RJAA 使用 CoffeeTeaOrMe，其他全球機場使用 ATIS.guru。

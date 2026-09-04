@@ -1,7 +1,7 @@
 {
-  "version": "8.2.85",
-  "build": "20260904-2024",
+  "version": "8.2.86",
+  "build": "20260904-2156",
   "date": "2026-09-04",
   "workerVersion": "2.8.80",
-  "label": "Add routed D-ATIS sources and freshness guard"
+  "label": "Update PSX NAV DATA to AIRAC 2609"
 }

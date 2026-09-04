@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.85 部署
+# FlightDeck Crew Portal v8.2.86 部署
 
 ## 部署內容
 
@@ -14,7 +14,7 @@
 
 ```json
 {
-  "portalVersion": "v8.2.85",
+  "portalVersion": "v8.2.86",
   "workerVersion": "2.8.80",
   "timetableParser": "structured-official"
 }
