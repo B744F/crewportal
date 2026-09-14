@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.81 (Crew Portal v8.2.89)
+ * Version 2.8.82 (Crew Portal v8.2.89)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -13,7 +13,7 @@
  */
 
 const PORTAL_VERSION = 'v8.2.89';
-const WORKER_VERSION = '2.8.81';
+const WORKER_VERSION = '2.8.82';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -1378,7 +1378,11 @@ async function handleMrt(request, env, ctx) {
 
   const cache = caches.default;
   const cacheUrl = new URL(request.url);
-  cacheUrl.search = `station=${station}&slot=${Math.floor(Date.now() / 60_000)}`;
+  // Cloudflare's edge cache does not reliably separate responses by Vary:
+  // Origin here, so include the request origin in the cache key explicitly.
+  // Otherwise a local test response can be served to the production portal.
+  const origin = request.headers.get('Origin') || 'no-origin';
+  cacheUrl.search = `station=${station}&slot=${Math.floor(Date.now() / 60_000)}&origin=${encodeURIComponent(origin)}`;
   const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
   if (!debug) {
     const cached = await cache.match(cacheKey);

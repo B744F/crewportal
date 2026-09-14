@@ -7,7 +7,7 @@ D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷�
 ## 版本
 
 - Portal Version：v8.2.89
-- Worker Version：2.8.81
+- Worker Version：2.8.82
 - Timetable Parser：`structured-official`
 
 ## 本版重點
