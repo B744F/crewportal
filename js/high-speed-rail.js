@@ -104,5 +104,5 @@
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
     window.addEventListener('focus',refresh);
   }
-  fetch(`${DATA_URL}?v=20260914-1719`,{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json()}).then(populate).catch(error=>{console.error('HSR station data load failed',error);renderUnavailable('Station data unavailable · 車站資料無法載入')});
+  fetch(`${DATA_URL}?v=20260914-2024`,{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json()}).then(populate).catch(error=>{console.error('HSR station data load failed',error);renderUnavailable('Station data unavailable · 車站資料無法載入')});
 })();
