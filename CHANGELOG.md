@@ -1,3 +1,10 @@
+## v8.2.89 — 2026-09-14
+
+- 在 AIRPORT MRT 卡片下方整合 TAIWAN HSR 子區塊，採台灣高鐵橘色系視覺。
+- 新增高鐵車站下拉選單，預設高鐵桃園站。
+- 顯示所選車站北上／南下最近各 2 班，點選車次可展開全部停靠站。
+- 新增 `/api/hsr`，透過 TDX `Rail/THSR/DailyTimetable/Today` 取得官方每日班表，前端不放置 TDX 認證資訊。
+
 ## v8.2.88 — 2026-09-04
 
 - 將 PSX NAV DATA 按鈕改為 Google Drive 直接下載端點，按下後直接下載 `AIRAC.zip`，不再先開啟預覽頁。

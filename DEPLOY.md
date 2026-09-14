@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.88 部署
+# FlightDeck Crew Portal v8.2.89 部署
 
 ## 部署內容
 
@@ -14,8 +14,8 @@
 
 ```json
 {
-  "portalVersion": "v8.2.88",
-  "workerVersion": "2.8.80",
+  "portalVersion": "v8.2.89",
+  "workerVersion": "2.8.81",
   "timetableParser": "structured-official"
 }
 ```
@@ -31,5 +31,7 @@ D-ATIS 來源規則：美國地區（含阿拉斯加、夏威夷與美國海外�
 驗證車站：`A1`、`A3`、`A8`、`A12`、`A13`、`A21`、`A22`。
 
 每個 `/api/mrt?station=...&debug=1` 回應都必須使用官方結構化時刻表。主要來源為 TDX `StationTimeTable`，桃園市政府 XML 為官方結構化備援；TDX LiveBoard 已停用，不得取代官方時刻表，也不得在資料缺失時補造班次。
+
+高鐵查詢使用 `/api/hsr?station=1020`，以 TDX `Rail/THSR/DailyTimetable/Today` 為唯一班表來源；前端只顯示官方每日資料中尚未開出的最近 2 班，點選車次時展開同一筆資料的停靠站，不使用估算或虛構班次。
 
 完整結果請見 [MRT_TEST_REPORT.md](MRT_TEST_REPORT.md)。

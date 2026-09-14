@@ -56,8 +56,9 @@
       note:"資料由外部或官方來源提供；實際飛航與作業判斷請以公司程序及最新正式資料為準。"
     },
     mrt:{
-      title:"Airport MRT｜桃園機場捷運",
-      sections:[{
+      title:"Airport MRT & Taiwan HSR｜機場捷運與台灣高鐵",
+      sections:[
+      {
         heading:"AIRPORT MRT｜桃園機場捷運",
         purpose:"查詢指定車站往台北或往中壢的下一班普通車與直達車。",
         purposeEn:"Find the next Commuter and Express trains from a selected station toward Taipei or Zhongli.",
@@ -71,8 +72,24 @@
           "Check the times for To Taipei or To Zhongli.",
           "Commuter means the regular train; Express means the express train. Select Official timetable ↗ for the full schedule."
         ]
-      }],
-      note:"班次時間依官方時刻表或即時資料顯示，請預留轉乘與步行時間。"
+      },
+      {
+        heading:"TAIWAN HSR｜台灣高鐵",
+        purpose:"查詢所選高鐵車站北上與南下方向最近的 2 班車，並查看列車停靠站。",
+        purposeEn:"Find the next two northbound and southbound trains from a selected Taiwan HSR station, with each train's stop list.",
+        steps:[
+          "在 Station 車站下拉選單選擇高鐵車站，預設為桃園站。",
+          "查看北上或南下方向最近的 2 班車；點選車次即可展開各停靠站。",
+          "需要完整票價或訂位資訊時，按 Official timetable ↗ 前往高鐵官網。"
+        ],
+        stepsEn:[
+          "Choose a Taiwan HSR station from the Station dropdown; the default is Taoyuan Station.",
+          "Check the next two Northbound or Southbound trains; select a train to expand its stops.",
+          "Select Official timetable ↗ for the full fare and booking information on the THSR website."
+        ]
+      }
+      ],
+      note:"班次時間依官方時刻表資料顯示；實際搭乘前請再確認高鐵最新公告。"
     }
   };
 

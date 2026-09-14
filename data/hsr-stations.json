@@ -1,0 +1,18 @@
+{
+  "source": "Taiwan High Speed Rail stations via MOTC TDX",
+  "defaultStation": "1020",
+  "stations": [
+    {"code":"0990","zh":"南港站","en":"Nangang Station"},
+    {"code":"1000","zh":"台北站","en":"Taipei Station"},
+    {"code":"1010","zh":"板橋站","en":"Banqiao Station"},
+    {"code":"1020","zh":"高鐵桃園站","en":"Taoyuan HSR Station"},
+    {"code":"1030","zh":"新竹站","en":"Hsinchu Station"},
+    {"code":"1035","zh":"苗栗站","en":"Miaoli Station"},
+    {"code":"1040","zh":"台中站","en":"Taichung Station"},
+    {"code":"1043","zh":"彰化站","en":"Changhua Station"},
+    {"code":"1047","zh":"雲林站","en":"Yunlin Station"},
+    {"code":"1050","zh":"嘉義站","en":"Chiayi Station"},
+    {"code":"1060","zh":"台南站","en":"Tainan Station"},
+    {"code":"1070","zh":"左營站","en":"Zuoying Station"}
+  ]
+}
