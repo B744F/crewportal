@@ -28,12 +28,17 @@
   function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
   function stationName(code){return stations.find(station=>station.code===String(code))?.zh||String(code||'');}
   function trainDestination(train){return train.destinationName||stationName(train.destinationStationId)||'—';}
+  function stopsFromSelectedStation(train){
+    const stops=Array.isArray(train?.stops)?train.stops:[];
+    const selectedIndex=stops.findIndex(stop=>String(stop.stationId||'')===String(els.select.value||''));
+    return selectedIndex>=0?stops.slice(selectedIndex+1):stops;
+  }
   function renderEmpty(list,message='—'){list.innerHTML=`<div class="hsr-empty">${escapeHtml(message)}</div>`;}
   function renderTrainList(list,trains,direction){
     if(!Array.isArray(trains)||!trains.length){renderEmpty(list,'今日已無後續車班 · No more trains today');return}
     list.innerHTML=trains.slice(0,2).map((train,index)=>{
       const trainNo=String(train.trainNo||'—').padStart(4,'0');
-      const stops=Array.isArray(train.stops)?train.stops.length:0;
+      const stops=stopsFromSelectedStation(train).length;
       return `<button class="hsr-train-row" data-direction="${direction}" data-index="${index}" type="button">
         <span class="hsr-train-time">${escapeHtml(train.departureTime||'—')}</span>
         <span class="hsr-train-main"><b>車次 ${escapeHtml(trainNo)}</b><small>To ${escapeHtml(trainDestination(train))}</small></span>
@@ -52,7 +57,7 @@
     els.details.dataset.train=`${trainNo}-${train.departureTime}`;
     document.querySelectorAll('.hsr-train-row.is-selected').forEach(row=>row.classList.remove('is-selected'));
     button.classList.add('is-selected');
-    const stops=Array.isArray(train.stops)?train.stops:[];
+    const stops=stopsFromSelectedStation(train);
     els.details.innerHTML=`<div class="hsr-stop-head"><strong>車次 ${escapeHtml(trainNo)}</strong><span>${escapeHtml(train.departureTime||'—')} · ${escapeHtml(trainDestination(train))}</span><button aria-label="Close stop information" class="hsr-stop-close" type="button">×</button></div><div class="hsr-stop-list">${stops.map((stop,index)=>`<div class="hsr-stop-row"><span class="hsr-stop-index">${index+1}</span><span class="hsr-stop-name"><b>${escapeHtml(stop.stationName||stationName(stop.stationId)||'—')}</b><small>${escapeHtml(stop.stationNameEn||'')}</small></span><strong>${escapeHtml(stop.departureTime||stop.arrivalTime||'—')}</strong></div>`).join('')}</div>`;
     els.details.hidden=false;
     els.details.querySelector('.hsr-stop-close')?.addEventListener('click',()=>{els.details.hidden=true;delete els.details.dataset.train;button.classList.remove('is-selected')});
@@ -104,5 +109,5 @@
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
     window.addEventListener('focus',refresh);
   }
-  fetch(`${DATA_URL}?v=20260914-2109`,{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json()}).then(populate).catch(error=>{console.error('HSR station data load failed',error);renderUnavailable('Station data unavailable · 車站資料無法載入')});
+  fetch(`${DATA_URL}?v=20260914-2126`,{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json()}).then(populate).catch(error=>{console.error('HSR station data load failed',error);renderUnavailable('Station data unavailable · 車站資料無法載入')});
 })();
