@@ -3,8 +3,8 @@
     "id": 1,
     "name": "BOT",
     "total_space": null,
-    "remaining_space": 273,
-    "updateTime": "2026-09-14 21:25:34"
+    "remaining_space": 272,
+    "updateTime": "2026-09-14 21:30:42"
   },
   {
     "id": 5,
@@ -25,6 +25,6 @@
     "name": "RD1 B",
     "total_space": null,
     "remaining_space": 15,
-    "updateTime": "2026-09-14 21:25:01"
+    "updateTime": "2026-09-14 21:30:43"
   }
 ]
