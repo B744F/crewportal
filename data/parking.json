@@ -3,15 +3,15 @@
     "id": 1,
     "name": "BOT",
     "total_space": null,
-    "remaining_space": 208,
-    "updateTime": "2026-09-15 07:24:38"
+    "remaining_space": 205,
+    "updateTime": "2026-09-15 07:30:15"
   },
   {
     "id": 5,
     "name": "TSA",
     "total_space": null,
-    "remaining_space": 182,
-    "updateTime": "2026-09-15 07:23:20"
+    "remaining_space": 181,
+    "updateTime": "2026-09-15 07:30:15"
   },
   {
     "id": 6,
@@ -25,6 +25,6 @@
     "name": "RD1 B",
     "total_space": null,
     "remaining_space": 13,
-    "updateTime": "2026-09-15 07:25:11"
+    "updateTime": "2026-09-15 07:30:13"
   }
 ]
