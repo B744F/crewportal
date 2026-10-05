@@ -4,7 +4,7 @@
     "name": "BOT",
     "total_space": null,
     "remaining_space": 295,
-    "updateTime": "2026-10-06 02:25:20"
+    "updateTime": "2026-10-06 02:30:30"
   },
   {
     "id": 5,
@@ -17,14 +17,14 @@
     "id": 6,
     "name": "RD1 A",
     "total_space": null,
-    "remaining_space": 25,
-    "updateTime": "2026-10-06 02:25:22"
+    "remaining_space": 24,
+    "updateTime": "2026-10-06 02:30:29"
   },
   {
     "id": 7,
     "name": "RD1 B",
     "total_space": null,
     "remaining_space": 12,
-    "updateTime": "2026-10-06 02:24:11"
+    "updateTime": "2026-10-06 02:29:37"
   }
 ]
