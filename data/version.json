@@ -1,7 +1,7 @@
 {
-  "version": "8.2.93",
-  "build": "20261004-1037",
-  "date": "2026-10-04",
-  "workerVersion": "2.8.85",
-  "label": "Update PSX NAV DATA to AIRAC 2610"
+  "version": "8.2.94",
+  "build": "20261005-1519",
+  "date": "2026-10-05",
+  "workerVersion": "2.8.86",
+  "label": "Add Visitor Geography sorting controls"
 }

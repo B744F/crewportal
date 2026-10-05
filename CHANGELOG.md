@@ -1,3 +1,8 @@
+## v8.2.94 — 2026-10-05
+
+- Visitor Geography 新增「造訪次數」與「造訪時間」排序按鈕，可分別將造訪最多或最近造訪的國家排列在最上方。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.2.93 — 2026-10-04
 
 - 更新 PSX NAV DATA 為 AIRAC cycle 2610，生效日為 `Cycle Effective 01-Oct-26`。

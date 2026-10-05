@@ -2,6 +2,8 @@
   const API_URL="https://flightdeck-api.201505-login.workers.dev/api/visitor-stats";
   const $=id=>document.getElementById(id);
   const numberFormat=new Intl.NumberFormat("zh-TW");
+  let countries=[];
+  let sortMode="visits";
 
   function flagFor(code){
     const normalized=String(code||"").trim().toUpperCase();
@@ -24,17 +26,22 @@
     status.textContent=message;
     status.className=`visitor-stats-status ${level||""}`;
   }
-  function render(data){
-    const countries=Array.isArray(data.countries)?data.countries:[];
-    $("totalVisits").textContent=numberFormat.format(Number(data.totalVisits)||0);
-    $("countryCount").textContent=numberFormat.format(countries.length);
+  function sortedCountries(){
+    return [...countries].sort((a,b)=>{
+      const countDifference=(Number(b.visitCount)||0)-(Number(a.visitCount)||0);
+      const timeDifference=(Date.parse(b.lastSeenAt)||0)-(Date.parse(a.lastSeenAt)||0);
+      if(sortMode==="time")return timeDifference||countDifference||String(a.countryCode||"").localeCompare(String(b.countryCode||""));
+      return countDifference||timeDifference||String(a.countryCode||"").localeCompare(String(b.countryCode||""));
+    });
+  }
+  function renderCountries(){
     const tbody=$("visitorStatsBody");
     tbody.textContent="";
     if(!countries.length){
       const row=document.createElement("tr"),cell=document.createElement("td");
       cell.colSpan=4;cell.className="visitor-empty";cell.textContent="目前尚無統計資料。";row.appendChild(cell);tbody.appendChild(row);return;
     }
-    countries.forEach(country=>{
+    sortedCountries().forEach(country=>{
       const code=String(country.countryCode||"UN").toUpperCase();
       const row=document.createElement("tr");
       const nameCell=document.createElement("td");nameCell.className="visitor-country";
@@ -46,6 +53,20 @@
       const timeCell=document.createElement("td");timeCell.textContent=timeFor(country.lastSeenAt);
       row.append(nameCell,codeCell,countCell,timeCell);tbody.appendChild(row);
     });
+  }
+  function setSortMode(mode){
+    sortMode=mode;
+    const visitsButton=$("sortByVisits"),timeButton=$("sortByTime");
+    const byVisits=mode==="visits";
+    visitsButton.classList.toggle("is-active",byVisits);visitsButton.setAttribute("aria-pressed",String(byVisits));
+    timeButton.classList.toggle("is-active",!byVisits);timeButton.setAttribute("aria-pressed",String(!byVisits));
+    renderCountries();
+  }
+  function render(data){
+    countries=Array.isArray(data.countries)?data.countries:[];
+    $("totalVisits").textContent=numberFormat.format(Number(data.totalVisits)||0);
+    $("countryCount").textContent=numberFormat.format(countries.length);
+    renderCountries();
   }
   async function load(){
     showStatus("正在載入統計資料…");
@@ -60,5 +81,7 @@
       showStatus(`目前無法取得統計資料：${error.message||"請稍後再試"}`,"is-error");
     }
   }
+  $("sortByVisits").addEventListener("click",()=>setSortMode("visits"));
+  $("sortByTime").addEventListener("click",()=>setSortMode("time"));
   load();
 })();
