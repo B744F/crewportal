@@ -1,7 +1,7 @@
 {
-  "version": "8.2.95",
-  "build": "20261011-1229",
+  "version": "8.2.96",
+  "build": "20261011-1310",
   "date": "2026-10-11",
-  "workerVersion": "2.8.87",
-  "label": "Use official THSRC timetable with TDX fallback"
+  "workerVersion": "2.8.88",
+  "label": "Use official transit timetable snapshots with TDX fallback"
 }
