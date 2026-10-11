@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.86 (Crew Portal v8.2.94)
+ * Version 2.8.87 (Crew Portal v8.2.95)
  *
  * Primary MRT source: TDX TYMC StationTimeTable
  * Fallback MRT source: Taoyuan City Government Open Data XML
@@ -12,8 +12,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.94';
-const WORKER_VERSION = '2.8.86';
+const PORTAL_VERSION = 'v8.2.95';
+const WORKER_VERSION = '2.8.87';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -30,6 +30,7 @@ const TYM_OFFICIAL_TIMETABLE = 'https://www.tymetro.com.tw/tymetro-new/tw/_pages
 const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token';
 const TDX_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TYMC';
 const TDX_THSR_DAILY_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/THSR/DailyTimetable/Today';
+const THSRC_SNAPSHOT_URL = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/hsr-timetable.json';
 const TDX_AIRPORT_FIDS_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Airport';
 const ATIS_INFO_API = 'https://atis.info/api';
 const ATIS_INFO_PAGE = 'https://atis.info';
@@ -49,7 +50,7 @@ const THSR_STATIONS = {
   '1047': '雲林站', '1050': '嘉義站', '1060': '台南站', '1070': '左營站'
 };
 const THSR_STATION_EN = {
-  '0990': 'Nangang', '1000': 'Taipei', '1010': 'Banqiao', '1020': 'Taoyuan',
+  '0990': 'NanGang', '1000': 'TaiPei', '1010': 'BanQiao', '1020': 'TaoYuan',
   '1030': 'Hsinchu', '1035': 'Miaoli', '1040': 'Taichung', '1043': 'Changhua',
   '1047': 'Yunlin', '1050': 'Chiayi', '1060': 'Tainan', '1070': 'Zuoying'
 };
@@ -87,6 +88,8 @@ const ALLOWED_ORIGINS = new Set([
 let tokenCache = { token: '', expiresAt: 0 };
 const tdxTimetableCache = new Map();
 let tdxHsrCache = { loadedAt: 0, serviceDate: '', rows: [] };
+const thsrcHsrCache = new Map();
+let thsrcSnapshotCache = { loadedAt: 0, serviceDate: '', stations: null };
 let airportFlightCache = { version: '', loadedAt: 0, fetchedAt: 0, source: '', continuityRows: 0, rows: null };
 let airportFlightRefreshPromise = null;
 let tdxAirportFidsCache = { loadedAt: 0, rows: null };
@@ -1199,7 +1202,36 @@ function buildHsrNextTrains(rows, station) {
   return { northbound: byDirection('northbound'), southbound: byDirection('southbound') };
 }
 
-async function requestHsrTimetable(env) {
+async function requestThsrcTimetable(station) {
+  const now = taipeiNow();
+  const cached = thsrcHsrCache.get(station);
+  if (cached && cached.serviceDate === now.date && Date.now() - cached.loadedAt < 5 * 60 * 1000) return cached;
+  if (!thsrcSnapshotCache.stations || thsrcSnapshotCache.serviceDate !== now.date || Date.now() - thsrcSnapshotCache.loadedAt >= 5 * 60 * 1000) {
+    const response = await fetchUpstream(THSRC_SNAPSHOT_URL, {
+      headers: { Accept: 'application/json' },
+      cf: { cacheTtl: 300, cacheEverything: true }
+    }, 15_000);
+    if (!response.ok) throw new Error(`THSRC official timetable snapshot failed (${response.status})`);
+    const snapshot = await response.json();
+    if (snapshot?.serviceDate !== now.date || !snapshot?.stations || typeof snapshot.stations !== 'object') {
+      throw new Error(`THSRC official timetable snapshot is stale (serviceDate=${snapshot?.serviceDate || 'missing'}, expected=${now.date})`);
+    }
+    thsrcSnapshotCache = { loadedAt: Date.now(), serviceDate: snapshot.serviceDate, stations: snapshot.stations };
+  }
+  const rows = asArray(thsrcSnapshotCache.stations?.[station]?.rows);
+  if (!rows.length) throw new Error(`No upcoming THSRC timetable snapshot rows found for ${station}`);
+  const result = {
+    loadedAt: Date.now(),
+    serviceDate: now.date,
+    rows,
+    source: 'THSRC official timetable search snapshot',
+    sourceType: 'official-website-snapshot'
+  };
+  thsrcHsrCache.set(station, result);
+  return result;
+}
+
+async function requestTdxHsrTimetable(env) {
   const now = taipeiNow();
   if (tdxHsrCache.rows.length && tdxHsrCache.serviceDate === now.date && Date.now() - tdxHsrCache.loadedAt < 5 * 60 * 1000) return tdxHsrCache;
   const token = await getTdxToken(env);
@@ -1216,20 +1248,39 @@ async function requestHsrTimetable(env) {
   return tdxHsrCache;
 }
 
+async function requestHsrTimetable(env, station) {
+  let thsrcError;
+  try {
+    return await requestThsrcTimetable(station);
+  } catch (error) {
+    thsrcError = error;
+  }
+  try {
+    const fallback = await requestTdxHsrTimetable(env);
+    return {
+      ...fallback,
+      source: 'TDX Rail/THSR/DailyTimetable/Today (fallback after THSRC failure)',
+      sourceType: 'tdx-structured-fallback'
+    };
+  } catch (tdxError) {
+    throw new Error(`THSRC official timetable unavailable: ${thsrcError?.message || thsrcError}; TDX fallback unavailable: ${tdxError?.message || tdxError}`);
+  }
+}
+
 async function handleHsr(request, env) {
   const url = new URL(request.url);
   const station = String(url.searchParams.get('station') || '1020').trim();
   if (!Object.prototype.hasOwnProperty.call(THSR_STATIONS, station)) return json(request, { ok: false, error: 'Invalid HSR station' }, { status: 400 });
   try {
-    const timetable = await requestHsrTimetable(env);
+    const timetable = await requestHsrTimetable(env, station);
     return json(request, {
       ok: true,
       mode: 'daily-timetable',
       station,
       stationName: THSR_STATIONS[station],
       serviceDate: timetable.serviceDate,
-      source: 'TDX Rail/THSR/DailyTimetable/Today',
-      sourceType: 'structured-official',
+      source: timetable.source || 'THSRC official timetable search',
+      sourceType: timetable.sourceType || 'official-website-structured',
       fetchedAt: new Date().toISOString(),
       trains: buildHsrNextTrains(timetable.rows, station)
     }, { headers: { 'Cache-Control': 'public, max-age=45, stale-while-revalidate=120' } });
@@ -1758,7 +1809,7 @@ export default {
       workerVersion: WORKER_VERSION,
       portalVersion: PORTAL_VERSION,
       timetableSource: 'TDX StationTimeTable with Taoyuan City Government Open Data XML fallback',
-      hsrTimetableSource: 'TDX Rail/THSR/DailyTimetable/Today',
+      hsrTimetableSource: 'THSRC official timetable search with TDX Rail/THSR/DailyTimetable/Today fallback',
       timetableParser: 'structured-official',
       cargoStandSource: 'TPE GOSS public ground-operations data',
       cargoStandRange: '501-525',

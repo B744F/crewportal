@@ -1,7 +1,7 @@
 {
-  "version": "8.2.94",
-  "build": "20261005-1519",
-  "date": "2026-10-05",
-  "workerVersion": "2.8.86",
-  "label": "Add Visitor Geography sorting controls"
+  "version": "8.2.95",
+  "build": "20261011-1229",
+  "date": "2026-10-11",
+  "workerVersion": "2.8.87",
+  "label": "Use official THSRC timetable with TDX fallback"
 }

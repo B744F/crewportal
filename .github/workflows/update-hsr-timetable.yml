@@ -1,0 +1,40 @@
+name: Update Taiwan HSR Timetable
+
+on:
+  schedule:
+    - cron: "5 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crewportal-hsr-timetable-writes
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch and validate official THSRC timetable
+        run: timeout 360s python3 scripts/update_hsr_timetable.py
+
+      - name: Publish official timetable snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/hsr-timetable.json
+          if git diff --cached --quiet; then
+            echo "No HSR timetable changes to commit."
+            exit 0
+          fi
+          git commit -m "Update official HSR timetable"
+          git push
