@@ -31,13 +31,4 @@ jobs:
         run: timeout 90s python3 scripts/update_mrt_timetable.py
 
       - name: Publish official timetable snapshot
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/hsr-timetable.json data/mrt-timetable.json
-          if git diff --cached --quiet; then
-            echo "No official transit timetable changes to commit."
-            exit 0
-          fi
-          git commit -m "Update official transit timetables"
-          git push
+        run: bash scripts/commit_transit_files.sh
