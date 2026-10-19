@@ -3,28 +3,28 @@
     "id": 1,
     "name": "BOT",
     "total_space": null,
-    "remaining_space": 251,
-    "updateTime": "2026-10-20 06:00:38"
+    "remaining_space": 244,
+    "updateTime": "2026-10-20 06:10:30"
   },
   {
     "id": 5,
     "name": "TSA",
     "total_space": null,
-    "remaining_space": 210,
-    "updateTime": "2026-10-20 06:00:42"
+    "remaining_space": 208,
+    "updateTime": "2026-10-20 06:10:31"
   },
   {
     "id": 6,
     "name": "RD1 A",
     "total_space": null,
     "remaining_space": 15,
-    "updateTime": "2026-10-20 06:00:39"
+    "updateTime": "2026-10-20 06:10:28"
   },
   {
     "id": 7,
     "name": "RD1 B",
     "total_space": null,
-    "remaining_space": 6,
-    "updateTime": "2026-10-20 06:00:41"
+    "remaining_space": 5,
+    "updateTime": "2026-10-20 06:10:29"
   }
 ]
