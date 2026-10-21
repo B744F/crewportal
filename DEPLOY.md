@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.97 部署
+# FlightDeck Crew Portal v8.2.98 部署
 
 ## 部署內容
 
@@ -14,8 +14,8 @@
 
 ```json
 {
-  "portalVersion": "v8.2.97",
-  "workerVersion": "2.8.89",
+  "portalVersion": "v8.2.98",
+  "workerVersion": "2.8.90",
   "timetableParser": "structured-official"
 }
 ```
@@ -30,10 +30,10 @@ D-ATIS 來源規則：美國地區（含阿拉斯加、夏威夷與美國海外�
 
 驗證車站：`A1`、`A3`、`A8`、`A12`、`A13`、`A21`、`A22`。
 
-每個 `/api/mrt?station=...&debug=1` 回應都必須使用官方結構化時刻表。主要來源為桃園市政府／桃捷官方時刻表快照，桃園市政府 XML 與 TDX `StationTimeTable` 依序作官方備援；TDX LiveBoard 已停用，不得取代官方時刻表，也不得在資料缺失時補造班次。
+每個 `/api/mrt?station=...&debug=1` 回應都必須使用官方時刻表。主要來源為桃捷官方各站時刻表快照，桃捷官方即時頁面與 TDX `StationTimeTable` 依序作官方備援；TDX LiveBoard 已停用，不得取代官方時刻表，也不得在資料缺失時補造班次。
 
 高鐵查詢使用 `/api/hsr?station=1020`，主要讀取由每日工作流程 POST 台灣高鐵官方時刻表查詢 `https://www.thsrc.com.tw/TimeTable/Search` 產生的當日快照；若快照暫時失效，才使用 TDX `Rail/THSR/DailyTimetable/Today` 備援。前端只顯示官方每日資料中尚未開出的最近 2 班，點選車次時展開同一筆資料的停靠站，不使用估算或虛構班次。
 
-`.github/workflows/update-hsr-timetable.yml` 每日台北時間 00:05 直接抓取台灣高鐵官方班表與桃園市政府機捷 XML，驗證日期、車次與時刻後更新 `data/hsr-timetable.json`、`data/mrt-timetable.json`；推送前會同步最新 `main` 並自動重試，Worker 平常只讀取當日快照，避免 TDX 額度停用影響正常顯示。
+`.github/workflows/update-hsr-timetable.yml` 每日台北時間 00:05 直接抓取台灣高鐵官方班表與桃捷官方各站時刻表頁面，驗證日期、車次與時刻後更新 `data/hsr-timetable.json`、`data/mrt-timetable.json`；任一來源失敗時仍會先發布另一個成功快照，推送前會同步最新 `main` 並自動重試。Worker 平常讀取當日快照，必要時直接查詢桃捷官方頁面。
 
 完整結果請見 [MRT_TEST_REPORT.md](MRT_TEST_REPORT.md)。

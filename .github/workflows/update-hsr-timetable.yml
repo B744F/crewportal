@@ -25,10 +25,21 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch and validate official THSRC timetable
+        id: hsr
+        continue-on-error: true
         run: timeout 360s python3 scripts/update_hsr_timetable.py
 
       - name: Fetch and validate official Airport MRT timetable
+        id: mrt
+        continue-on-error: true
         run: timeout 90s python3 scripts/update_mrt_timetable.py
 
-      - name: Publish official timetable snapshot
+      - name: Publish successful official timetable snapshots
         run: bash scripts/commit_transit_files.sh
+
+      - name: Report timetable source failures
+        if: steps.hsr.outcome != 'success' || steps.mrt.outcome != 'success'
+        run: |
+          echo "THSRC updater outcome: ${{ steps.hsr.outcome }}" >&2
+          echo "Airport MRT updater outcome: ${{ steps.mrt.outcome }}" >&2
+          exit 1

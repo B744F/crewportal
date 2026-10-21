@@ -1,9 +1,9 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.89 (Crew Portal v8.2.97)
+ * Version 2.8.90 (Crew Portal v8.2.98)
  *
- * Primary MRT source: TDX TYMC StationTimeTable
- * Fallback MRT source: Taoyuan City Government Open Data XML
+ * Primary MRT source: daily snapshot of Taoyuan Metro official timetable pages
+ * Fallback MRT sources: live Taoyuan Metro official timetable page and TDX
  * TDX LiveBoard is intentionally disabled because the timetable is the
  * official data rendered by the portal and LiveBoard caused avoidable quota use.
  *
@@ -12,8 +12,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.97';
-const WORKER_VERSION = '2.8.89';
+const PORTAL_VERSION = 'v8.2.98';
+const WORKER_VERSION = '2.8.90';
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -1126,6 +1126,77 @@ async function requestOpenDataTimetable(station) {
   };
 }
 
+function htmlAttribute(tag, name) {
+  const match = String(tag || '').match(new RegExp(`\\b${name}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, 'i'));
+  return match ? decodeXml(match[2]) : '';
+}
+
+function parseOfficialPageRows(page, station) {
+  const now = taipeiNow();
+  const inputTags = String(page || '').match(/<input\b[^>]*>/gi) || [];
+  const dateInput = inputTags.find(tag => htmlAttribute(tag, 'id') === 'timetable_date');
+  const pageDate = htmlAttribute(dateInput, 'value');
+  if (pageDate !== now.date) {
+    throw new Error(`Taoyuan Metro official page date mismatch for ${station} (${pageDate || 'missing'} != ${now.date})`);
+  }
+
+  const rows = [];
+  const seenRows = new Set();
+  const seenDirections = new Set();
+  for (const table of String(page || '').matchAll(/<table\b([^>]*)>([\s\S]*?)<\/table>/gi)) {
+    const attrs = table[1];
+    if (!htmlAttribute(attrs, 'class').split(/\s+/).includes('time-table')) continue;
+    const summary = htmlAttribute(attrs, 'summary');
+    const direction = summary.includes('往台北') ? 'taipei' : summary.includes('中壢') ? 'zhongli' : '';
+    if (!direction || seenDirections.has(direction)) continue;
+    seenDirections.add(direction);
+
+    for (const row of table[2].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+      const hourMatch = row[1].match(/<th\b[^>]*scope\s*=\s*(["'])row\1[^>]*>([\s\S]*?)<\/th>/i);
+      const hour = hourMatch ? Number(decodeXml(hourMatch[2].replace(/<[^>]+>/g, ' ')).trim()) : NaN;
+      if (!Number.isInteger(hour) || hour < 0 || hour > 23) continue;
+      for (const span of row[1].matchAll(/<span\b([^>]*)>\s*<i\b[^>]*>\s*(\d{1,2})\s*<\/i>/gi)) {
+        const marker = htmlAttribute(span[1], 'class').match(/\b(des0[1-5])\b/i)?.[1]?.toLowerCase();
+        const minute = Number(span[2]);
+        if (!marker || !Number.isInteger(minute) || minute < 0 || minute > 59) continue;
+        const type = ['des01', 'des02'].includes(marker) ? 'express' : 'commuter';
+        const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        const key = `${direction}:${type}:${time}`;
+        if (seenRows.has(key)) continue;
+        seenRows.add(key);
+        rows.push({ direction, type, time, hour, minute });
+      }
+    }
+  }
+  const expectedDirections = station === 'A1' ? ['zhongli'] : station === 'A22' ? ['taipei'] : ['taipei', 'zhongli'];
+  if (!rows.length || expectedDirections.some(direction => !seenDirections.has(direction))) {
+    throw new Error(`Taoyuan Metro official page returned incomplete rows for ${station}`);
+  }
+  return { rows, serviceDate: now.date, recordCount: rows.length };
+}
+
+async function requestOfficialPageTimetable(station) {
+  const officialUrl = `${TYM_OFFICIAL_TIMETABLE}${officialStationCode(station)}`;
+  const response = await fetchUpstream(officialUrl, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml',
+      'User-Agent': 'Mozilla/5.0 (compatible; CrewPortal MRT timetable fallback)'
+    },
+    cf: { cacheTtl: 300, cacheEverything: true }
+  }, 15_000);
+  if (!response.ok) throw new Error(`Taoyuan Metro official page failed (${response.status})`);
+  const parsed = parseOfficialPageRows(await response.text(), station);
+  return {
+    trains: buildNextTrains(parsed.rows),
+    serviceDate: parsed.serviceDate,
+    sourceRows: parsed.rows.length,
+    sourceRecords: parsed.recordCount,
+    source: 'Taoyuan Metro official station timetable page',
+    officialUrl,
+    timetableParser: 'official-page-html'
+  };
+}
+
 function asArray(value) {
   if (Array.isArray(value)) return value;
   return value ? [value] : [];
@@ -1415,23 +1486,28 @@ async function requestOfficialTimetable(station, env, ctx) {
   } catch (error) {
     snapshotError = error;
   }
+
+  let officialPageError = null;
   try {
-    return await requestOpenDataTimetable(station);
+    return await requestOfficialPageTimetable(station);
   } catch (error) {
-    let tdxError = null;
-    try {
-      const token = await getTdxToken(env);
-      if (token) return await requestTdxTimetable(station, token, ctx);
-    } catch (fallbackError) {
-      tdxError = fallbackError;
-    }
-    const details = [
-      `MRT snapshot: ${snapshotError?.message || 'unavailable'}`,
-      `official XML: ${error?.message || error}`
-    ];
-    if (tdxError) details.push(`TDX fallback: ${tdxError.message}`);
-    throw new Error(details.join('; '));
+    officialPageError = error;
   }
+
+  let tdxError = null;
+  try {
+    const token = await getTdxToken(env);
+    if (token) return await requestTdxTimetable(station, token, ctx);
+    throw new Error('TDX credentials are not configured');
+  } catch (error) {
+    tdxError = error;
+  }
+
+  throw new Error([
+    `MRT snapshot: ${snapshotError?.message || 'unavailable'}`,
+    `official page: ${officialPageError?.message || 'unavailable'}`,
+    `TDX fallback: ${tdxError?.message || 'unavailable'}`
+  ].join('; '));
 }
 
 function trainType(row) {
@@ -1847,7 +1923,7 @@ export default {
       ok: true, service: 'Crew Portal API', version: WORKER_VERSION,
       workerVersion: WORKER_VERSION,
       portalVersion: PORTAL_VERSION,
-      timetableSource: 'Taoyuan Metro official timetable snapshot with XML and TDX fallback',
+      timetableSource: 'Taoyuan Metro official timetable snapshot with live official-page and TDX fallback',
       hsrTimetableSource: 'THSRC official timetable snapshot with TDX Rail/THSR/DailyTimetable/Today fallback',
       timetableParser: 'structured-official',
       cargoStandSource: 'TPE GOSS public ground-operations data',

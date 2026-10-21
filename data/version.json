@@ -1,7 +1,7 @@
 {
-  "version": "8.2.97",
-  "build": "20261013-0927",
-  "date": "2026-10-13",
-  "workerVersion": "2.8.89",
-  "label": "Harden official timetable snapshot publishing"
+  "version": "8.2.98",
+  "build": "20261021-0926",
+  "date": "2026-10-21",
+  "workerVersion": "2.8.90",
+  "label": "Restore official Airport MRT and HSR timetables"
 }

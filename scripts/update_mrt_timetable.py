@@ -1,136 +1,165 @@
 #!/usr/bin/env python3
-"""Fetch and validate the Taoyuan Metro official structured timetable."""
+"""Fetch and validate Taoyuan Metro's official station timetable pages."""
 
 from __future__ import annotations
 
+import concurrent.futures
 import datetime as dt
+import html
 import json
 import os
 import re
-import subprocess
 import tempfile
-import xml.etree.ElementTree as ET
+import urllib.request
 from zoneinfo import ZoneInfo
 
 
-SOURCE_URL = "https://opendata.tycg.gov.tw/api/dataset/8e6201c2-1968-4920-aba3-1a68093dab53/resource/83358afd-010a-4989-b63a-bbf20692e408/download"
-OFFICIAL_PAGE = "https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-"
+SOURCE_URL = "https://www.tymetro.com.tw/tymetro-new/tw/_pages/travel-guide/timetable-"
+OFFICIAL_PAGE = SOURCE_URL
 STATIONS = [
     "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12", "A13",
     "A14", "A14A", "A15", "A16", "A17", "A18", "A19", "A20", "A21", "A22",
 ]
-WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+ACTIVE_STATIONS = [station for station in STATIONS if station != "A14"]
+TABLE_RE = re.compile(r"<table\b(?P<attrs>[^>]*)>(?P<body>[\s\S]*?)</table>", re.IGNORECASE)
+ROW_RE = re.compile(r"<tr\b[^>]*>(?P<body>[\s\S]*?)</tr>", re.IGNORECASE)
+INPUT_RE = re.compile(r"<input\b[^>]*>", re.IGNORECASE)
+SPAN_RE = re.compile(
+    r"<span\b(?P<attrs>[^>]*)>\s*<i\b[^>]*>\s*(?P<minute>\d{1,2})\s*</i>",
+    re.IGNORECASE,
+)
 
 
-def text(element: ET.Element | None, path: str = "") -> str:
-    if element is None:
-        return ""
-    child = element.find(path) if path else element
-    return "" if child is None or child.text is None else child.text.strip()
+def attribute(tag: str, name: str) -> str:
+    match = re.search(rf"\b{re.escape(name)}\s*=\s*([\"'])(.*?)\1", tag, re.IGNORECASE | re.DOTALL)
+    return html.unescape(match.group(2)).strip() if match else ""
 
 
-def station_number(value: str) -> int | None:
-    match = re.fullmatch(r"A(\d+)(?:A)?", value.upper())
-    return int(match.group(1)) if match else None
+def text_content(value: str) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", " ", value)).strip()
 
 
-def runs_today(record: ET.Element, weekday: str) -> bool:
-    service_days = record.find("ServiceDays")
-    if service_days is None:
-        return True
-    value = text(service_days, weekday).lower()
-    return value in {"1", "true", "yes", "y"}
+def official_station_code(station: str) -> str:
+    return "A14a" if station == "A14A" else station
 
 
-def clock(value: str) -> tuple[str, int, int] | None:
-    match = re.fullmatch(r"(\d{1,2}):(\d{2})", value.strip())
-    if not match:
-        return None
-    hour, minute = int(match.group(1)), int(match.group(2))
-    if hour > 23 or minute > 59:
-        return None
-    return f"{hour:02d}:{minute:02d}", hour, minute
+def parse_official_page(page: str, station: str, service_date: str) -> list[dict]:
+    date_value = ""
+    for match in INPUT_RE.finditer(page):
+        tag = match.group(0)
+        if attribute(tag, "id") == "timetable_date":
+            date_value = attribute(tag, "value")
+            break
+    if date_value != service_date:
+        raise RuntimeError(
+            f"Official timetable page date mismatch for {station}: {date_value or 'missing'} != {service_date}"
+        )
 
-
-def direction(record: ET.Element, station: str) -> str | None:
-    station_index = station_number(station)
-    destination_index = station_number(text(record, "DestinationStationID") or text(record, "DestinationStaionID") or text(record, "DestinStationID"))
-    if station_index is None or destination_index is None:
-        return None
-    code = text(record, "Direction")
-    if code == "0" and destination_index > station_index:
-        return "zhongli"
-    if code == "1" and destination_index < station_index:
-        return "taipei"
-    return None
-
-
-def parse_rows(root: ET.Element, station: str, weekday: str) -> tuple[list[dict], int]:
     rows: list[dict] = []
-    seen: set[str] = set()
-    records = 0
-    for record in root.findall(".//StationTimeTable"):
-        record_station = text(record, "StationID").upper()
-        if record_station != station:
+    seen_rows: set[str] = set()
+    seen_directions: set[str] = set()
+    for table in TABLE_RE.finditer(page):
+        attrs = table.group("attrs")
+        if "time-table" not in attribute(attrs, "class").split():
             continue
-        records += 1
-        if not runs_today(record, weekday):
+        summary = attribute(attrs, "summary")
+        if "往台北" in summary:
+            direction = "taipei"
+        elif "中壢" in summary:
+            direction = "zhongli"
+        else:
             continue
-        route_direction = direction(record, station)
-        if not route_direction:
+        if direction in seen_directions:
             continue
-        entries = record.findall("./Timetables/Timetable") or record.findall("./Timetable")
-        for entry in entries:
-            value = text(entry, "DepartureTime") or text(entry, "ArrivalTime")
-            parsed_clock = clock(value)
-            train_type = text(entry, "TrainType")
-            if not parsed_clock or train_type not in {"0", "1", "2", "commuter", "express"}:
+        seen_directions.add(direction)
+
+        for row_match in ROW_RE.finditer(table.group("body")):
+            row_html = row_match.group("body")
+            hour_match = re.search(
+                r"<th\b[^>]*scope\s*=\s*([\"'])row\1[^>]*>([\s\S]*?)</th>",
+                row_html,
+                re.IGNORECASE,
+            )
+            if not hour_match:
                 continue
-            normalized_type = "express" if train_type in {"2", "express"} else "commuter"
-            time_value, hour, minute = parsed_clock
-            key = f"{route_direction}:{normalized_type}:{time_value}"
-            if key in seen:
+            hour_text = text_content(hour_match.group(2))
+            if not re.fullmatch(r"\d{1,2}", hour_text):
                 continue
-            seen.add(key)
-            rows.append({
-                "direction": route_direction,
-                "type": normalized_type,
-                "time": time_value,
-                "hour": hour,
-                "minute": minute,
-            })
-    return rows, records
+            hour = int(hour_text)
+            if hour > 23:
+                continue
+
+            for span in SPAN_RE.finditer(row_html):
+                class_match = re.search(r"\b(des0[1-5])\b", attribute(span.group("attrs"), "class"), re.IGNORECASE)
+                if not class_match:
+                    continue
+                minute = int(span.group("minute"))
+                if minute > 59:
+                    continue
+                marker = class_match.group(1).lower()
+                train_type = "express" if marker in {"des01", "des02"} else "commuter"
+                time_value = f"{hour:02d}:{minute:02d}"
+                key = f"{direction}:{train_type}:{time_value}"
+                if key in seen_rows:
+                    continue
+                seen_rows.add(key)
+                rows.append({
+                    "direction": direction,
+                    "type": train_type,
+                    "time": time_value,
+                    "hour": hour,
+                    "minute": minute,
+                })
+
+    expected_directions = {"zhongli"} if station == "A1" else {"taipei"} if station == "A22" else {"taipei", "zhongli"}
+    if not expected_directions.issubset(seen_directions) or not rows:
+        raise RuntimeError(
+            f"Official timetable page returned incomplete rows for {station}: "
+            f"directions={sorted(seen_directions)}, rows={len(rows)}"
+        )
+    return sorted(rows, key=lambda row: (row["direction"], row["hour"], row["minute"], row["type"]))
+
+
+def fetch_station(station: str, service_date: str) -> tuple[str, list[dict]]:
+    url = f"{SOURCE_URL}{official_station_code(station)}"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "text/html,application/xhtml+xml",
+            "User-Agent": "Mozilla/5.0 (compatible; CrewPortal MRT timetable updater)",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=45) as response:
+        content_type = response.headers.get_content_type()
+        payload = response.read()
+    if content_type != "text/html" or len(payload) < 10_000:
+        raise RuntimeError(f"Official timetable page returned invalid content for {station}: {content_type}, {len(payload)} bytes")
+    return station, parse_official_page(payload.decode("utf-8", errors="replace"), station, service_date)
 
 
 def main() -> None:
     now = dt.datetime.now(ZoneInfo("Asia/Taipei"))
     service_date = now.date().isoformat()
-    weekday = WEEKDAYS[now.weekday()]
-    completed = subprocess.run([
-        "curl", "--fail", "--silent", "--show-error", "--max-time", "45", SOURCE_URL,
-        "-H", "Accept: application/xml,text/xml,*/*",
-        "-H", "User-Agent: Mozilla/5.0 (compatible; CrewPortal MRT timetable updater)",
-    ], check=True, capture_output=True)
-    root = ET.fromstring(completed.stdout.lstrip(b"\xef\xbb\xbf"))
-    stations: dict[str, dict] = {}
-    valid_station_count = 0
-    for station in STATIONS:
-        rows, record_count = parse_rows(root, station, weekday)
-        stations[station] = {"rows": rows, "sourceRecords": record_count}
-        if rows:
-            valid_station_count += 1
-        print(f"{station}: {len(rows)} rows")
+    stations: dict[str, dict] = {"A14": {"rows": [], "sourceRecords": 0}}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(fetch_station, station, service_date): station for station in ACTIVE_STATIONS}
+        for future in concurrent.futures.as_completed(futures):
+            station, rows = future.result()
+            stations[station] = {"rows": rows, "sourceRecords": len(rows)}
+            print(f"{station}: {len(rows)} rows")
+
+    valid_station_count = sum(bool(stations.get(station, {}).get("rows")) for station in ACTIVE_STATIONS)
     if valid_station_count < 20:
-        raise RuntimeError(f"Official MRT XML returned too few usable stations: {valid_station_count}")
+        raise RuntimeError(f"Official MRT pages returned too few usable stations: {valid_station_count}")
 
     snapshot = {
-        "source": "Taoyuan Metro official timetable via Taoyuan City Open Data",
+        "source": "Taoyuan Metro official station timetable pages",
         "sourceUrl": SOURCE_URL,
         "officialPage": OFFICIAL_PAGE,
         "serviceDate": service_date,
-        "weekday": weekday,
         "fetchedAtUtc": dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "stations": stations,
+        "stations": {station: stations[station] for station in STATIONS},
     }
     output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "mrt-timetable.json")
     directory = os.path.dirname(output_path)
