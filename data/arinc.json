@@ -2,9 +2,9 @@
   "schemaVersion": 14,
   "source": "https://radio.arinc.net/pacific/",
   "proxy": "https://arinc-proxy.201505-login.workers.dev/",
-  "validFrom": "Oct. 20, 2026, 2035Z",
-  "validFromUtc": "2026-10-20T20:35:00Z",
-  "fetchedAtUtc": "2026-10-21T21:34:21Z",
+  "validFrom": "Oct. 21, 2026, 2222Z",
+  "validFromUtc": "2026-10-21T22:22:00Z",
+  "fetchedAtUtc": "2026-10-22T00:08:52Z",
   "northAmericaAsia": {
     "primary": 13288,
     "secondary": 11282
@@ -15,6 +15,6 @@
   },
   "guamArea": {
     "primary": 17904,
-    "secondary": 11384
+    "secondary": 13300
   }
 }
