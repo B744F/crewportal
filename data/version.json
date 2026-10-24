@@ -1,7 +1,7 @@
 {
-  "version": "8.2.98",
-  "build": "20261021-0926",
-  "date": "2026-10-21",
-  "workerVersion": "2.8.90",
-  "label": "Restore official Airport MRT and HSR timetables"
+  "version": "8.2.99",
+  "build": "20261024-1031",
+  "date": "2026-10-24",
+  "workerVersion": "2.8.91",
+  "label": "Add protected B744 AI foundation"
 }

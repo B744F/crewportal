@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07182a" />
+  <meta name="description" content="B744 AI 飛航助理：B747-400F 組員專用、來源可追溯的飛航決策支援介面。" />
+  <title>B744 AI 飛航助理</title>
+  <link rel="icon" href="../images/flightdeck-logo.webp" type="image/webp" />
+  <link rel="stylesheet" href="styles.css?v=20261024-1031-2" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../index.html" aria-label="返回 Crew Portal">
+      <img src="../images/flightdeck-logo.webp" alt="Crew Portal" />
+      <span><strong>B744 AI</strong><small>FLIGHT OPERATIONS ASSISTANT</small></span>
+    </a>
+    <div class="top-actions">
+      <span class="audience-badge">B747-400F CREW</span>
+      <button class="session-button" id="sessionButton" type="button">組員登入</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero" aria-labelledby="pageTitle">
+      <div>
+        <p class="eyebrow">SOURCE-GROUNDED DECISION SUPPORT</p>
+        <h1 id="pageTitle">AI飛航助理</h1>
+        <p class="lead">從有效手冊中尋找依據、交叉比對規定，並整理可行的處理方向。</p>
+      </div>
+      <div class="system-state" id="systemState" data-state="loading">
+        <span class="state-dot" aria-hidden="true"></span>
+        <div><strong id="stateTitle">系統檢查中</strong><small id="stateDetail">正在確認受保護服務狀態</small></div>
+      </div>
+    </section>
+
+    <section class="workspace" aria-label="B744 AI 工作區">
+      <aside class="source-panel">
+        <div class="panel-heading">
+          <p class="eyebrow">KNOWLEDGE BASE</p>
+          <h2>適用手冊</h2>
+          <p>第一階段以五本 B747-400F 手冊為依據；版本更新時必須同步重建索引。</p>
+        </div>
+
+        <fieldset class="manual-list" id="manualList">
+          <legend class="sr-only">選擇搜尋手冊</legend>
+          <label><input type="checkbox" value="b744_fcom_r82" checked /><span><b>FCOM</b><small>B747-400 Flight Crew Operations Manual</small></span><em>R82</em></label>
+          <label><input type="checkbox" value="b744_qrh_r82" checked /><span><b>QRH</b><small>B747-400 Quick Reference Handbook</small></span><em>R82</em></label>
+          <label><input type="checkbox" value="b744_mel_r51" checked /><span><b>MEL/CDL</b><small>Minimum Equipment List</small></span><em>R51</em></label>
+          <label><input type="checkbox" value="b744_fctm_r16" checked /><span><b>FCTM</b><small>B747 Flight Crew Training Manual</small></span><em>R16</em></label>
+          <label><input type="checkbox" value="fom_r52" checked /><span><b>FOM</b><small>Flight Operations Manual</small></span><em>R52</em></label>
+        </fieldset>
+
+        <div class="source-policy">
+          <strong>回答原則</strong>
+          <ul>
+            <li>只依據目前有效的受控文件</li>
+            <li>每項結論附手冊、章節與頁碼</li>
+            <li>資料不足或衝突時不自行推測</li>
+          </ul>
+        </div>
+      </aside>
+
+      <section class="assistant-panel" aria-label="AI飛航助理對話">
+        <div class="notice" role="note">
+          <b>決策支援，不取代正式程序</b>
+          <span>緊急或非正常狀況請以 QRH、核准檢查表、機上指示及公司程序為優先。</span>
+        </div>
+
+        <div class="messages" id="messages" aria-live="polite">
+          <article class="message assistant-message">
+            <div class="avatar" aria-hidden="true">✦</div>
+            <div class="message-body">
+              <div class="message-meta">B744 AI · 飛航助理</div>
+              <p>請描述你遇到的問題。若飛航階段、系統狀態或限制條件不足，我會先詢問必要資訊，再根據手冊提出有來源的建議。</p>
+              <div class="example-list" aria-label="問題範例">
+                <button type="button" data-question="請協助我確認這個狀況應該查閱哪些手冊與程序？">應該查哪些手冊？</button>
+                <button type="button" data-question="如果不同手冊的規定看起來不一致，應如何確認適用順序？">規定衝突怎麼辦？</button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <form class="composer" id="askForm">
+          <label for="question">輸入問題</label>
+          <textarea id="question" maxlength="600" rows="3" placeholder="請描述狀況、飛航階段、系統訊息及你需要確認的決策…" required></textarea>
+          <div class="composer-footer">
+            <span id="characterCount">0 / 600</span>
+            <button type="submit" id="askButton">詢問 B744 AI <span aria-hidden="true">➜</span></button>
+          </div>
+        </form>
+      </section>
+    </section>
+
+    <footer>
+      <span>B744 AI Preview</span>
+      <span>Build 20261024-1031</span>
+    </footer>
+  </main>
+
+  <dialog id="loginDialog" class="login-dialog">
+    <form method="dialog" id="loginForm">
+      <button class="dialog-close" value="cancel" aria-label="關閉登入視窗">×</button>
+      <p class="eyebrow">AUTHORIZED CREW ONLY</p>
+      <h2>B747-400F 組員登入</h2>
+      <p>目前採封閉測試。登入後才能搜尋受控手冊並使用AI決策支援。</p>
+      <label for="accessCode">組員存取碼</label>
+      <input id="accessCode" type="password" autocomplete="current-password" required />
+      <p class="login-error" id="loginError" role="alert"></p>
+      <button class="login-submit" type="submit">安全登入</button>
+    </form>
+  </dialog>
+
+  <script src="app.js?v=20261024-1031-2" defer></script>
+</body>
+</html>

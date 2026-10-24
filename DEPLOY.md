@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.98 部署
+# FlightDeck Crew Portal v8.2.99 部署
 
 ## 部署內容
 
@@ -7,6 +7,8 @@
 3. 綁定 Cloudflare D1 `crewportal-visitor-stats`（binding：`CREWPORTAL_VISITOR_STATS`），並套用 `migrations/0001_visitor_stats.sql`。
 4. 保留 Cloudflare secrets：`TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`。
 5. 不要把 TDX secrets 寫入 repository 或前端 JavaScript。
+6. B744 AI 使用獨立 D1 binding `B744AI_DB` 與 Workers AI binding `AI`。
+7. B744 AI 上線前必須設定 `B744AI_ACCESS_CODE`、`B744AI_SESSION_SECRET`，並完成私有手冊索引匯入；任何密鑰或手冊全文都不得提交到 repository。
 
 ## 上線驗證
 
@@ -14,11 +16,13 @@
 
 ```json
 {
-  "portalVersion": "v8.2.98",
-  "workerVersion": "2.8.90",
+  "portalVersion": "v8.2.99",
+  "workerVersion": "2.8.91",
   "timetableParser": "structured-official"
 }
 ```
+
+B744 AI 狀態使用 `/api/b744ai/status`。未設定安全密鑰時必須回傳 `setupRequired: true`，而 `/api/b744ai/session` 不得核發登入權杖。正式匯入手冊前先套用 `migrations/0002_b744ai.sql`，再用 `scripts/import_b744ai_manuals.py` 於 repository 外產生暫存匯入檔。
 
 D-ATIS 來源規則：美國地區（含阿拉斯加、夏威夷與美國海外地區）使用 ATIS.info API；RCTP 與 RJAA 使用 CoffeeTeaOrMe 公開 API；其他全球機場使用 ATIS.guru。`/api/atis?airport=XXXX` 會回傳來源、資料時間與 90 分鐘 freshness 狀態，stale 或無法確認時不得視為目前有效 ATIS。
 

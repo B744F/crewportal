@@ -6,3 +6,11 @@ compatibility_date = "2026-08-27"
 binding = "CREWPORTAL_VISITOR_STATS"
 database_name = "crewportal-visitor-stats"
 database_id = "8623b519-e742-4daf-8db3-23f50156b62d"
+
+[[d1_databases]]
+binding = "B744AI_DB"
+database_name = "crewportal-b744ai"
+database_id = "2e11079a-3a81-4734-b1f0-6352662be0ca"
+
+[ai]
+binding = "AI"

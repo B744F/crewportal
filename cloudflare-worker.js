@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.90 (Crew Portal v8.2.98)
+ * Version 2.8.91 (Crew Portal v8.2.99)
  *
  * Primary MRT source: daily snapshot of Taoyuan Metro official timetable pages
  * Fallback MRT sources: live Taoyuan Metro official timetable page and TDX
@@ -12,8 +12,11 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.2.98';
-const WORKER_VERSION = '2.8.90';
+const PORTAL_VERSION = 'v8.2.99';
+const WORKER_VERSION = '2.8.91';
+const B744AI_MODEL = '@cf/google/gemma-4-26b-a4b-it';
+const B744AI_DAILY_REQUEST_LIMIT = 25;
+const B744AI_SESSION_SECONDS = 12 * 60 * 60;
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
@@ -120,6 +123,274 @@ function json(request, body, init = {}) {
   headers.set('Content-Type', 'application/json; charset=utf-8');
   for (const [key, value] of Object.entries(corsHeaders(request))) headers.set(key, value);
   return new Response(JSON.stringify(body), { ...init, headers });
+}
+
+function base64Url(bytes) {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function decodeBase64Url(value) {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+async function hmac(value, secret) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(value)));
+}
+
+async function sameSecret(left, right) {
+  const encoder = new TextEncoder();
+  const [leftHash, rightHash] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(String(left || ''))),
+    crypto.subtle.digest('SHA-256', encoder.encode(String(right || '')))
+  ]);
+  const a = new Uint8Array(leftHash);
+  const b = new Uint8Array(rightHash);
+  let difference = 0;
+  for (let index = 0; index < a.length; index += 1) difference |= a[index] ^ b[index];
+  return difference === 0;
+}
+
+async function issueB744AiToken(secret) {
+  const payload = base64Url(new TextEncoder().encode(JSON.stringify({
+    audience: 'b744ai',
+    expiresAt: Math.floor(Date.now() / 1000) + B744AI_SESSION_SECONDS
+  })));
+  const signature = base64Url(await hmac(payload, secret));
+  return `${payload}.${signature}`;
+}
+
+async function verifyB744AiToken(request, env) {
+  const token = String(request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!token || !env.B744AI_SESSION_SECRET) return false;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return false;
+  const expected = base64Url(await hmac(payload, env.B744AI_SESSION_SECRET));
+  if (!(await sameSecret(signature, expected))) return false;
+  try {
+    const decoded = JSON.parse(new TextDecoder().decode(decodeBase64Url(payload)));
+    return decoded.audience === 'b744ai' && Number(decoded.expiresAt) > Math.floor(Date.now() / 1000);
+  } catch (_error) {
+    return false;
+  }
+}
+
+function b744AiSetupReady(env) {
+  return Boolean(env.B744AI_DB && env.B744AI_ACCESS_CODE && env.B744AI_SESSION_SECRET);
+}
+
+async function handleB744AiSession(request, env) {
+  if (!b744AiSetupReady(env)) {
+    return json(request, {
+      ok: false,
+      code: 'SETUP_REQUIRED',
+      message: '受保護服務正在設定中，手冊內容尚未上線。'
+    }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+  let body;
+  try {
+    body = await request.json();
+  } catch (_error) {
+    return json(request, { ok: false, error: 'Invalid JSON' }, { status: 400 });
+  }
+  if (!(await sameSecret(body?.accessCode, env.B744AI_ACCESS_CODE))) {
+    return json(request, { ok: false, error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+  }
+  return json(request, {
+    ok: true,
+    token: await issueB744AiToken(env.B744AI_SESSION_SECRET),
+    expiresIn: B744AI_SESSION_SECONDS
+  }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+async function handleB744AiStatus(request, env) {
+  const authenticated = await verifyB744AiToken(request, env);
+  let manualCount = 0;
+  if (authenticated && env.B744AI_DB) {
+    try {
+      const row = await env.B744AI_DB.prepare('SELECT COUNT(*) AS count FROM b744ai_manuals WHERE active = 1').first();
+      manualCount = Number(row?.count || 0);
+    } catch (_error) {
+      manualCount = 0;
+    }
+  }
+  return json(request, {
+    ok: true,
+    service: 'B744 AI',
+    version: '0.1.0',
+    authenticated,
+    setupRequired: !b744AiSetupReady(env),
+    manualCount,
+    aiReady: authenticated && Boolean(env.AI),
+    freeTierMode: true
+  }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+function b744AiSearchTerms(question) {
+  const normalized = String(question || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\u0000-\u001f"']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const terms = [];
+  const seen = new Set();
+  const add = term => {
+    if (term.length < 3 || seen.has(term)) return;
+    seen.add(term);
+    terms.push(term);
+  };
+  for (const segment of normalized.match(/[a-z0-9-]{3,}|[\u3400-\u9fff]{3,}/g) || []) {
+    if (/^[\u3400-\u9fff]+$/.test(segment) && segment.length > 4) {
+      for (let index = 0; index <= segment.length - 3 && terms.length < 10; index += 2) add(segment.slice(index, index + 3));
+    } else {
+      add(segment);
+    }
+    if (terms.length >= 10) break;
+  }
+  return terms;
+}
+
+function b744AiExcerpt(text, terms, limit = 1600) {
+  const source = String(text || '').replace(/\s+/g, ' ').trim();
+  const lowered = source.toLocaleLowerCase();
+  const positions = terms.map(term => lowered.indexOf(term)).filter(position => position >= 0);
+  const first = positions.length ? Math.min(...positions) : 0;
+  const start = Math.max(0, first - 220);
+  return source.slice(start, start + limit);
+}
+
+async function searchB744AiSources(env, question, manualIds) {
+  const terms = b744AiSearchTerms(question);
+  if (!terms.length) return [];
+  const allowed = new Set(['b744_fcom_r82', 'b744_qrh_r82', 'b744_mel_r51', 'b744_fctm_r16', 'fom_r52']);
+  const selected = Array.isArray(manualIds) ? manualIds.filter(id => allowed.has(id)) : [];
+  const manualFilter = selected.length ? ` AND b744ai_pages_fts.manual_id IN (${selected.map(() => '?').join(',')})` : '';
+  const expression = terms.map(term => `"${term}"`).join(' OR ');
+  const result = await env.B744AI_DB.prepare(`
+    SELECT b744ai_pages_fts.manual_id AS manualId,
+           b744ai_pages_fts.pdf_page AS pdfPage,
+           b744ai_pages_fts.printed_label AS printedLabel,
+           b744ai_pages_fts.chapter AS chapter,
+           b744ai_pages_fts.source_text AS sourceText,
+           b744ai_manuals.short_title AS shortTitle,
+           b744ai_manuals.title AS title,
+           b744ai_manuals.revision AS revision,
+           b744ai_manuals.effective_date AS effectiveDate,
+           bm25(b744ai_pages_fts) AS score
+    FROM b744ai_pages_fts
+    JOIN b744ai_manuals ON b744ai_manuals.id = b744ai_pages_fts.manual_id
+    WHERE b744ai_pages_fts MATCH ?
+      AND b744ai_manuals.active = 1
+      ${manualFilter}
+    ORDER BY score
+    LIMIT 8
+  `).bind(expression, ...selected).all();
+  return (result.results || []).map(row => ({
+    manualId: row.manualId,
+    shortTitle: row.shortTitle,
+    title: row.title,
+    revision: row.revision,
+    effectiveDate: row.effectiveDate,
+    pdfPage: Number(row.pdfPage),
+    printedLabel: row.printedLabel || '',
+    chapter: row.chapter || '',
+    excerpt: b744AiExcerpt(row.sourceText, terms)
+  }));
+}
+
+function b744AiSourceOnlyAnswer(sources, reason = '') {
+  if (!sources.length) {
+    return '目前有效手冊中沒有找到足夠的直接依據。請補充飛航階段、系統訊息、構型或更精確的關鍵字；在資料不足前，不建議據此作出操作或派遣決定。';
+  }
+  const lead = reason ? `${reason}\n\n` : '';
+  return `${lead}已找到 ${sources.length} 筆可能相關的受控文件來源。請先核對下方章節與頁碼；AI整理暫時不可用時，不會自行推測解決方案。`;
+}
+
+async function consumeB744AiDailyRequest(env) {
+  const usageDate = new Date().toISOString().slice(0, 10);
+  const current = await env.B744AI_DB.prepare('SELECT ai_requests AS count FROM b744ai_daily_usage WHERE usage_date = ?').bind(usageDate).first();
+  if (Number(current?.count || 0) >= B744AI_DAILY_REQUEST_LIMIT) return false;
+  await env.B744AI_DB.prepare(`
+    INSERT INTO b744ai_daily_usage (usage_date, ai_requests, updated_at)
+    VALUES (?, 1, ?)
+    ON CONFLICT(usage_date) DO UPDATE SET
+      ai_requests = ai_requests + 1,
+      updated_at = excluded.updated_at
+  `).bind(usageDate, new Date().toISOString()).run();
+  return true;
+}
+
+async function handleB744AiAsk(request, env) {
+  if (!(await verifyB744AiToken(request, env))) {
+    return json(request, { ok: false, error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+  }
+  let body;
+  try {
+    body = await request.json();
+  } catch (_error) {
+    return json(request, { ok: false, error: 'Invalid JSON' }, { status: 400 });
+  }
+  const question = String(body?.question || '').trim();
+  if (question.length < 3 || question.length > 600) {
+    return json(request, { ok: false, message: '問題長度必須介於 3 到 600 個字元。' }, { status: 400 });
+  }
+
+  let sources;
+  try {
+    sources = await searchB744AiSources(env, question, body?.manualIds);
+  } catch (_error) {
+    return json(request, { ok: false, message: '受控手冊索引目前無法查詢。' }, { status: 503 });
+  }
+  if (!sources.length) {
+    return json(request, { ok: true, mode: 'source-search', answer: b744AiSourceOnlyAnswer([]), sources: [] });
+  }
+  if (!env.AI) {
+    return json(request, { ok: true, mode: 'source-search', answer: b744AiSourceOnlyAnswer(sources, 'AI服務尚未啟用。'), sources });
+  }
+  if (!(await consumeB744AiDailyRequest(env))) {
+    return json(request, {
+      ok: true,
+      mode: 'source-search',
+      answer: b744AiSourceOnlyAnswer(sources, '今日免費AI額度保護上限已到，系統已自動切換為來源搜尋模式。'),
+      sources
+    });
+  }
+
+  const sourcePack = sources.map((source, index) => [
+    `[S${index + 1}] ${source.shortTitle} R${source.revision}`,
+    `章節：${source.chapter || '未標示'}；PDF頁：${source.pdfPage}；印刷頁：${source.printedLabel || '未標示'}`,
+    source.excerpt
+  ].join('\n')).join('\n\n');
+  const systemPrompt = `你是 B747-400F 組員使用的飛航決策支援助理。你只能根據 SOURCE PACK 回答，不得使用未提供的記憶補充規定、限制、數值或程序。\n\n回答規則：\n1. 先判斷資料是否足夠；不足時只提出最少必要的澄清問題。\n2. 提出建議時，分成「建議結論、適用條件、處理方向、風險與限制、需要協調、文件依據」。\n3. 每個實質判斷都用 [S1] 形式標示來源。\n4. 不重新排列 QRH、記憶項目或核准檢查表步驟。\n5. 緊急或非正常狀況要明確提醒以 QRH、核准檢查表、機上指示及公司程序為優先。\n6. 不確定、來源衝突或來源不足時，直接說明，絕不猜測。\n7. 使用繁體中文，保留必要的英文專有名詞。`;
+
+  try {
+    const result = await env.AI.run(B744AI_MODEL, {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `組員問題：\n${question}\n\nSOURCE PACK：\n${sourcePack}` }
+      ],
+      max_tokens: 900,
+      temperature: 0.1
+    });
+    const answer = String(result?.response || result?.result?.response || '').trim();
+    if (!answer) throw new Error('empty model response');
+    return json(request, { ok: true, mode: 'ai', model: B744AI_MODEL, answer, sources }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (_error) {
+    return json(request, {
+      ok: true,
+      mode: 'source-search',
+      answer: b744AiSourceOnlyAnswer(sources, '免費AI服務目前忙碌或額度已用完，系統已安全降級。'),
+      sources
+    }, { headers: { 'Cache-Control': 'no-store' } });
+  }
 }
 
 async function fetchUpstream(resource, init = {}, timeoutMs = FLIGHT_UPSTREAM_TIMEOUT_MS) {
@@ -1905,6 +2176,18 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+    if (url.pathname === '/api/b744ai/session') {
+      if (request.method !== 'POST') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
+      return handleB744AiSession(request, env);
+    }
+    if (url.pathname === '/api/b744ai/ask') {
+      if (request.method !== 'POST') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
+      return handleB744AiAsk(request, env);
+    }
+    if (url.pathname === '/api/b744ai/status') {
+      if (request.method !== 'GET') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
+      return handleB744AiStatus(request, env);
+    }
     if (url.pathname === '/api/visit') {
       if (request.method !== 'POST') return json(request, { ok: false, error: 'Method not allowed' }, { status: 405 });
       return handleVisitorVisit(request, env);
@@ -1931,6 +2214,9 @@ export default {
       atisSources: 'ATIS.info API for US regions; CoffeeTeaOrMe API for RCTP/RJAA; ATIS.guru with 90-minute freshness guard elsewhere',
       atisStaleAfterMinutes: 90,
       visitorStatsConfigured: Boolean(env.CREWPORTAL_VISITOR_STATS),
+      b744AiDatabaseConfigured: Boolean(env.B744AI_DB),
+      b744AiAccessConfigured: Boolean(env.B744AI_ACCESS_CODE && env.B744AI_SESSION_SECRET),
+      b744AiFreeTierMode: true,
       tdxCredentialsConfigured: Boolean(env.TDX_CLIENT_ID && env.TDX_CLIENT_SECRET),
       liveBoardEnabled: false,
       timestamp: new Date().toISOString()
