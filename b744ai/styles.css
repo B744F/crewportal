@@ -71,7 +71,6 @@ button { cursor: pointer; }
 .brand strong { letter-spacing: 0.08em; font-size: 1.02rem; }
 .brand small { color: var(--muted); font-size: 0.65rem; letter-spacing: 0.18em; }
 
-.top-actions { display: flex; align-items: center; gap: 10px; }
 .audience-badge {
   padding: 7px 10px;
   border: 1px solid rgba(231, 195, 106, 0.45);
@@ -80,15 +79,6 @@ button { cursor: pointer; }
   font-size: 0.68rem;
   letter-spacing: 0.12em;
 }
-
-.session-button, .login-submit {
-  border: 1px solid rgba(103, 217, 255, 0.52);
-  border-radius: 12px;
-  padding: 10px 15px;
-  color: var(--ink);
-  background: rgba(37, 191, 233, 0.12);
-}
-.session-button:hover, .login-submit:hover { background: rgba(37, 191, 233, 0.22); }
 
 .shell { width: min(1440px, 100%); margin: 0 auto; padding: 48px clamp(18px, 4vw, 58px) 24px; }
 
@@ -189,16 +179,6 @@ h1 { margin: 0; font-size: clamp(2.6rem, 6vw, 5.6rem); letter-spacing: -0.055em;
 
 footer { display: flex; justify-content: space-between; gap: 18px; padding: 18px 4px 0; color: #7f91a5; font-size: 0.72rem; }
 
-.login-dialog { width: min(440px, calc(100% - 30px)); padding: 0; border: 1px solid rgba(103, 217, 255, 0.24); border-radius: 22px; color: var(--ink); background: #0a2037; box-shadow: var(--shadow); }
-.login-dialog::backdrop { background: rgba(0, 7, 15, 0.74); backdrop-filter: blur(7px); }
-.login-dialog form { position: relative; display: grid; gap: 12px; padding: 30px; }
-.login-dialog h2 { margin: 0; }
-.login-dialog p:not(.eyebrow):not(.login-error) { margin: 0 0 8px; color: var(--muted); line-height: 1.6; }
-.login-dialog label { color: #cbd8e3; font-size: 0.82rem; }
-.login-dialog input { width: 100%; padding: 12px 13px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: rgba(2, 14, 25, 0.7); }
-.dialog-close { position: absolute; top: 14px; right: 14px; border: 0; color: var(--muted); background: transparent; font-size: 1.5rem; }
-.login-submit { margin-top: 4px; }
-.login-error { min-height: 1.2em; margin: 0; color: var(--danger); font-size: 0.8rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (max-width: 860px) {
@@ -218,7 +198,6 @@ footer { display: flex; justify-content: space-between; gap: 18px; padding: 18px
   .brand small { display: none; }
   .brand img { width: 38px; height: 38px; }
   .topbar { padding-inline: 14px; }
-  .session-button { padding: 9px 11px; font-size: 0.82rem; }
   .shell { padding-inline: 12px; }
   h1 { font-size: 3.05rem; }
   .workspace { border-radius: 18px; }

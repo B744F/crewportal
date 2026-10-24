@@ -1,7 +1,7 @@
 {
-  "version": "8.2.99",
-  "build": "20261024-1031",
+  "version": "8.3.0",
+  "build": "20261024-1050",
   "date": "2026-10-24",
-  "workerVersion": "2.8.91",
-  "label": "Add protected B744 AI foundation"
+  "workerVersion": "2.8.92",
+  "label": "Open unlisted B744 AI without access code"
 }

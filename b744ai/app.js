@@ -1,8 +1,6 @@
 const API_ROOT = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   ? 'http://127.0.0.1:8787/api/b744ai'
   : 'https://flightdeck-api.201505-login.workers.dev/api/b744ai';
-const TOKEN_KEY = 'b744ai-session';
-
 const elements = {
   askForm: document.querySelector('#askForm'),
   askButton: document.querySelector('#askButton'),
@@ -12,15 +10,9 @@ const elements = {
   manualList: document.querySelector('#manualList'),
   systemState: document.querySelector('#systemState'),
   stateTitle: document.querySelector('#stateTitle'),
-  stateDetail: document.querySelector('#stateDetail'),
-  sessionButton: document.querySelector('#sessionButton'),
-  loginDialog: document.querySelector('#loginDialog'),
-  loginForm: document.querySelector('#loginForm'),
-  accessCode: document.querySelector('#accessCode'),
-  loginError: document.querySelector('#loginError')
+  stateDetail: document.querySelector('#stateDetail')
 };
 
-let sessionToken = sessionStorage.getItem(TOKEN_KEY) || '';
 let serviceStatus = null;
 
 function setSystemState(state, title, detail) {
@@ -81,7 +73,6 @@ async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set('Accept', 'application/json');
   if (options.body) headers.set('Content-Type', 'application/json');
-  if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
   const response = await fetch(`${API_ROOT}${path}`, { ...options, headers, cache: 'no-store' });
   const data = await response.json().catch(() => ({ ok: false, error: '服務回應格式錯誤' }));
   if (!response.ok) {
@@ -96,55 +87,15 @@ async function api(path, options = {}) {
 async function refreshStatus() {
   try {
     serviceStatus = await api('/status');
-    if (serviceStatus.authenticated) {
-      setSystemState('ready', '受保護服務已連線', `${serviceStatus.manualCount || 0} 本有效手冊 · AI ${serviceStatus.aiReady ? '可用' : '待設定'}`);
-      elements.sessionButton.textContent = '已登入';
-    } else if (serviceStatus.setupRequired) {
+    if (serviceStatus.setupRequired) {
       setSystemState('offline', '安全設定進行中', '手冊內容尚未上線，不會公開資料');
     } else {
-      setSystemState('locked', '受保護服務已就緒', '請由 B747-400F 組員登入');
+      setSystemState('ready', '服務已連線', `${serviceStatus.manualCount || 0} 本有效手冊 · AI ${serviceStatus.aiReady ? '可用' : '待設定'}`);
     }
   } catch (error) {
     setSystemState('offline', '服務暫時無法連線', error.message);
   }
 }
-
-async function signIn(accessCode) {
-  const result = await api('/session', {
-    method: 'POST',
-    body: JSON.stringify({ accessCode })
-  });
-  sessionToken = result.token;
-  sessionStorage.setItem(TOKEN_KEY, sessionToken);
-  elements.loginDialog.close();
-  elements.loginForm.reset();
-  elements.loginError.textContent = '';
-  await refreshStatus();
-}
-
-elements.sessionButton.addEventListener('click', () => {
-  if (sessionToken) {
-    sessionToken = '';
-    sessionStorage.removeItem(TOKEN_KEY);
-    elements.sessionButton.textContent = '組員登入';
-    refreshStatus();
-    return;
-  }
-  elements.loginDialog.showModal();
-  setTimeout(() => elements.accessCode.focus(), 0);
-});
-
-elements.loginForm.addEventListener('submit', async event => {
-  event.preventDefault();
-  const code = elements.accessCode.value.trim();
-  if (!code) return;
-  elements.loginError.textContent = '';
-  try {
-    await signIn(code);
-  } catch (error) {
-    elements.loginError.textContent = error.status === 401 ? '存取碼不正確。' : error.message;
-  }
-});
 
 elements.question.addEventListener('input', () => {
   elements.characterCount.textContent = `${elements.question.value.length} / 600`;
@@ -162,11 +113,6 @@ elements.askForm.addEventListener('submit', async event => {
   event.preventDefault();
   const question = elements.question.value.trim();
   if (!question) return;
-  if (!sessionToken) {
-    elements.loginDialog.showModal();
-    return;
-  }
-
   appendMessage(question, 'user');
   elements.question.value = '';
   elements.question.dispatchEvent(new Event('input'));
@@ -182,14 +128,7 @@ elements.askForm.addEventListener('submit', async event => {
     appendMessage(result.answer, 'assistant', result.sources || []);
   } catch (error) {
     loading.remove();
-    if (error.status === 401) {
-      sessionToken = '';
-      sessionStorage.removeItem(TOKEN_KEY);
-      elements.sessionButton.textContent = '組員登入';
-      appendMessage('登入已失效，請重新登入後再試。');
-    } else {
-      appendMessage(error.message || '目前無法完成查詢，請稍後再試。');
-    }
+    appendMessage(error.message || '目前無法完成查詢，請稍後再試。');
   } finally {
     elements.askButton.disabled = false;
     elements.question.focus();

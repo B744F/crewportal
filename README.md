@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.2.99
+# FlightDeck Crew Portal v8.3.0
 
 正式版 FlightDeck Crew Portal。Airport MRT 優先使用桃捷官方各站時刻表快照，桃捷官方即時頁面與 TDX `StationTimeTable` 依序作備援；Airport MRT 卡片下方整合台灣高鐵每日車班，優先讀取台灣高鐵官方時刻表快照，TDX `Rail/THSR/DailyTimetable/Today` 僅作備援，顯示所選車站北上／南下最近 2 班及停靠站。
 
@@ -6,14 +6,14 @@ D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷�
 
 ## 版本
 
-- Portal Version：v8.2.99
-- Worker Version：2.8.91
+- Portal Version：v8.3.0
+- Worker Version：2.8.92
 - Timetable Parser：`structured-official`
 
 ## 本版重點
 
 - 新增獨立的 `/b744ai/` B747-400F 組員決策支援介面；Crew Portal 首頁尚未建立入口按鈕。
-- B744 AI 採私有 D1 手冊索引、短效登入權杖及 Cloudflare Workers AI 免費額度模式；未完成存取控制前不匯入或公開手冊全文。
+- B744 AI 以未公開連結直接使用，不設組員共用存取碼；手冊索引仍只存放在私有 D1，不提供全文下載。
 - AI每日到達保護上限或服務不可用時，自動降級為只顯示受控文件來源，不產生付費用量，也不自行推測答案。
 - 網頁版 B744 AI 不包含 iOS App 的 ATC 即時航空管制轉錄功能。
 - Visitor Geography 新增「造訪次數」與「造訪時間」排序按鈕，可快速查看造訪最多及最近造訪的國家。
