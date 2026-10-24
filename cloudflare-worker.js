@@ -14,7 +14,7 @@
 
 const PORTAL_VERSION = 'v8.3.0';
 const WORKER_VERSION = '2.8.92';
-const B744AI_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8';
+const B744AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const B744AI_DAILY_REQUEST_LIMIT = 25;
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
 const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
@@ -173,7 +173,7 @@ function b744AiSearchTerms(question) {
   return terms;
 }
 
-function b744AiExcerpt(text, terms, limit = 1600) {
+function b744AiExcerpt(text, terms, limit = 1200) {
   const source = String(text || '').replace(/\s+/g, ' ').trim();
   const lowered = source.toLocaleLowerCase();
   const positions = terms.map(term => lowered.indexOf(term)).filter(position => position >= 0);
@@ -263,6 +263,28 @@ function b744AiSourceOnlyAnswer(sources, reason = '') {
   return `${lead}已找到 ${sources.length} 筆可能相關的受控文件來源。請先核對下方章節與頁碼；AI整理暫時不可用時，不會自行推測解決方案。`;
 }
 
+function b744AiStructuredMelAnswer(sources) {
+  const sourceIndex = sources.findIndex(source =>
+    source.shortTitle === 'MEL/CDL' && /Repair Interval\s+Nbr Installed\s+Nbr Required\s+Procedure\s+Notify Dispatch/i.test(source.excerpt)
+  );
+  if (sourceIndex < 0) return '';
+  const source = sources[sourceIndex];
+  const match = source.excerpt.match(
+    /Repair Interval\s+Nbr Installed\s+Nbr Required\s+Procedure\s+Notify Dispatch\s+([A-D])\s+(\d+)\s+(\d+)\s+((?:\([A-Z]\))+?)\s+(YES|NO)\s+(.+?)(?=\s+NOTE\s*:|\s+\([OM]\)\s+[A-Z]|$)/i
+  );
+  if (!match) return '';
+  const [, repairInterval, installed, required, procedure, notifyDispatch, condition] = match;
+  const citation = `[S${sourceIndex + 1}]`;
+  return [
+    '依目前找到的受控文件，以下欄位直接取自 MEL 原表：',
+    `1. 放行條件（原文）：${condition.trim()} ${citation}`,
+    `2. Repair Interval：${repairInterval.toUpperCase()} ${citation}`,
+    `3. Nbr Installed：${installed}；Nbr Required：${required} ${citation}`,
+    `4. Procedure：${procedure.toUpperCase()} ${citation}`,
+    `5. Notify Dispatch：${notifyDispatch.toUpperCase()} ${citation}`
+  ].join('\n');
+}
+
 async function consumeB744AiDailyRequest(env) {
   const usageDate = new Date().toISOString().slice(0, 10);
   const current = await env.B744AI_DB.prepare('SELECT ai_requests AS count FROM b744ai_daily_usage WHERE usage_date = ?').bind(usageDate).first();
@@ -305,6 +327,10 @@ async function handleB744AiAsk(request, env) {
   if (!sources.length) {
     return json(request, { ok: true, mode: 'source-search', answer: b744AiSourceOnlyAnswer([]), sources: [] });
   }
+  const structuredMelAnswer = b744AiStructuredMelAnswer(sources);
+  if (structuredMelAnswer) {
+    return json(request, { ok: true, mode: 'structured-source', answer: structuredMelAnswer, sources }, { headers: { 'Cache-Control': 'no-store' } });
+  }
   if (!env.AI) {
     return json(request, { ok: true, mode: 'source-search', answer: b744AiSourceOnlyAnswer(sources, 'AI服務尚未啟用。'), sources });
   }
@@ -328,7 +354,7 @@ async function handleB744AiAsk(request, env) {
       content
     ].join('\n');
   }).join('\n\n');
-  const systemPrompt = `你是 B747-400F 組員使用的飛航決策支援助理。你只能根據 SOURCE PACK 回答，不得使用未提供的記憶補充規定、限制、數值、風險、程序或協調要求。\n\n回答規則：\n1. 先判斷資料是否足夠；不足時只提出最少必要的澄清問題。\n2. 回答最多五個簡短項目，每個項目最後都必須附上 [S1] 形式的來源編號。\n3. 沒有直接來源就明確寫「所提供來源未說明」，不可合理化推測。\n4. 清楚區分文件明文規定與你的整理，不得把 MEL 許可條件改寫成故障後的操作步驟。\n5. 不重新排列或補寫 QRH、記憶項目、維修程序或核准檢查表步驟；維修程序只說明存在並指向來源頁。\n6. 不重建表格或轉錄成組合數值；如來源含溫度、重量、時間或其他數值表，只提示使用者到來源頁核對原表。\n7. 緊急或非正常狀況要明確提醒以 QRH、核准檢查表、機上指示及公司程序為優先。\n8. 來源衝突、不確定或資料不足時直接說明，絕不猜測；不得臆測對貨物、系統或飛航安全的影響。\n9. 以繁體中文簡潔摘要，不要大段抄錄 SOURCE PACK，保留必要的英文專有名詞。`;
+  const systemPrompt = `你是 B747-400F 組員使用的飛航決策支援助理。你只能根據 SOURCE PACK 回答，不得使用未提供的記憶補充規定、限制、數值、風險、程序或協調要求。\n\n回答規則：\n1. 先判斷資料是否足夠；不足時只提出最少必要的澄清問題。\n2. 回答最多五個簡短項目，每個項目最後都必須附上 [S1] 形式的來源編號。\n3. 回答 MEL 項目時，第一項優先完整整理原文中的放行條件；若同頁有 Repair Interval、Nbr Installed、Nbr Required、Procedure 或 Notify Dispatch，也應照原文列出，不得自行改名或省略。\n4. 沒有直接來源就明確寫「所提供來源未說明」，不可合理化推測。\n5. 清楚區分文件明文規定與你的整理，不得把 MEL 許可條件改寫成故障後的操作步驟。\n6. 不重新排列或補寫 QRH、記憶項目、維修程序或核准檢查表步驟；維修程序只說明存在並指向來源頁。\n7. 不重建表格或轉錄成組合數值；如來源含溫度、重量、時間或其他數值表，只提示使用者到來源頁核對原表。\n8. 緊急或非正常狀況要明確提醒以 QRH、核准檢查表、機上指示及公司程序為優先。\n9. 來源衝突、不確定或資料不足時直接說明，絕不猜測；不得臆測對貨物、系統或飛航安全的影響。\n10. 以繁體中文簡潔摘要，不要大段抄錄 SOURCE PACK，保留必要的英文專有名詞。`;
 
   try {
     const result = await env.AI.run(B744AI_MODEL, {
