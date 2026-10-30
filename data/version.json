@@ -1,7 +1,7 @@
 {
-  "version": "8.3.2",
-  "build": "20261031-0352",
+  "version": "8.3.3",
+  "build": "20261031-0354",
   "date": "2026-10-31",
-  "workerVersion": "2.8.95",
-  "label": "Keep HSR available across midnight snapshot delays"
+  "workerVersion": "2.8.96",
+  "label": "Harden live HSR fallback station lookup"
 }

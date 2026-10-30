@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.95 (Crew Portal v8.3.2)
+ * Version 2.8.96 (Crew Portal v8.3.3)
  *
  * Primary MRT source: daily snapshot of Taoyuan Metro official timetable pages
  * Fallback MRT sources: live Taoyuan Metro official timetable page and TDX
@@ -13,8 +13,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.3.2';
-const WORKER_VERSION = '2.8.95';
+const PORTAL_VERSION = 'v8.3.3';
+const WORKER_VERSION = '2.8.96';
 const B744AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const B744AI_DAILY_REQUEST_LIMIT = 25;
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
@@ -62,7 +62,7 @@ const THSR_STATIONS = {
 const THSR_STATION_EN = {
   '0990': 'NanGang', '1000': 'TaiPei', '1010': 'BanQiao', '1020': 'TaoYuan',
   '1030': 'Hsinchu', '1035': 'Miaoli', '1040': 'Taichung', '1043': 'Changhua',
-  '1047': 'Yunlin', '1050': 'Chiayi', '1060': 'Tainan', '1070': 'Zuoying'
+  '1047': 'Yunlin', '1050': 'Chiayi', '1060': 'Tainan', '1070': 'ZuoYing'
 };
 const THSRC_STATION_CODES = {
   '01': '0990', '02': '1000', '03': '1010', '04': '1020', '05': '1030', '06': '1035',

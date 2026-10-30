@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.3.2
+# FlightDeck Crew Portal v8.3.3
 
 正式版 FlightDeck Crew Portal。Airport MRT 優先使用桃捷官方各站時刻表快照，桃捷官方即時頁面與 TDX `StationTimeTable` 依序作備援；Airport MRT 卡片下方整合台灣高鐵每日車班，優先讀取台灣高鐵官方時刻表快照，官方即時查詢與 TDX `Rail/THSR/DailyTimetable/Today` 依序作備援，顯示所選車站北上／南下最近 2 班及停靠站。
 
@@ -6,8 +6,8 @@ D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷�
 
 ## 版本
 
-- Portal Version：v8.3.2
-- Worker Version：2.8.95
+- Portal Version：v8.3.3
+- Worker Version：2.8.96
 - Timetable Parser：`structured-official`
 
 ## 本版重點
