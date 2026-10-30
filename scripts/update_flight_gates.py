@@ -405,10 +405,11 @@ def main() -> None:
             "todayDepartureRows": len(today_departure_rows),
             "departedRowsWithoutGate": len(missing_departure_gates),
         },
-        "continuityBaseRows": continuity_base_rows if is_tdx and continuity_base_rows else output_rows,
-        "officialRouteBaseRows": official_route_base_rows,
         "rows": output_rows,
     }
+    if is_tdx:
+        payload["continuityBaseRows"] = continuity_base_rows if continuity_base_rows else output_rows
+        payload["officialRouteBaseRows"] = official_route_base_rows
     OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     print(f"Published {len(output_rows)} official flight rows to {OUTPUT}")
 

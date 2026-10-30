@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.93 (Crew Portal v8.3.1)
+ * Version 2.8.94 (Crew Portal v8.3.1)
  *
  * Primary MRT source: daily snapshot of Taoyuan Metro official timetable pages
  * Fallback MRT sources: live Taoyuan Metro official timetable page and TDX
@@ -13,7 +13,7 @@
  */
 
 const PORTAL_VERSION = 'v8.3.1';
-const WORKER_VERSION = '2.8.93';
+const WORKER_VERSION = '2.8.94';
 const B744AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const B744AI_DAILY_REQUEST_LIMIT = 25;
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
@@ -21,7 +21,10 @@ const FLIGHT_UPSTREAM_TIMEOUT_MS = 7_000;
 const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
-const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
+const TPE_FLIGHT_SOURCES = [
+  'https://b744f.github.io/crewportal/data/flight-gates.json',
+  'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json'
+];
 const TPE_OFFICIAL_FLIGHT_FEED = 'https://www.taoyuan-airport.com/uploads/flightx/a_flight_v4.txt';
 const TPE_ADIP_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
 const TPE_OFFICIAL_FLIGHT_IPS = ['60.251.215.156', '60.251.184.156'];
@@ -968,25 +971,28 @@ async function loadAirportFlights(env, ctx, query = null) {
   if (airportFlightCache.rows && airportFlightCache.version === WORKER_VERSION && Date.now() - airportFlightCache.loadedAt < 60_000) {
     return airportFlightCache;
   }
-  const sourceUrl = new URL(TPE_FLIGHT_SOURCE);
-  sourceUrl.searchParams.set('v', `${WORKER_VERSION}-${Date.now()}`);
   let payload;
   let lastError;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      const response = await fetchUpstream(sourceUrl.toString(), {
-        headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
-        cf: { cacheTtl: 0, cacheEverything: false }
-      });
-      if (!response.ok) throw new Error(`Taoyuan Airport flight source failed (${response.status})`);
-      payload = await response.json();
-      break;
-    } catch (error) {
-      lastError = error;
-      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 500));
+  for (const source of TPE_FLIGHT_SOURCES) {
+    const sourceUrl = new URL(source);
+    sourceUrl.searchParams.set('v', `${WORKER_VERSION}-${Date.now()}`);
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const response = await fetchUpstream(sourceUrl.toString(), {
+          headers: { 'Accept': 'application/json', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
+          cf: { cacheTtl: 0, cacheEverything: false }
+        });
+        if (!response.ok) throw new Error(`Taoyuan Airport flight source failed (${response.status})`);
+        payload = await response.json();
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, attempt * 500));
+      }
     }
+    if (payload) break;
   }
-  if (!payload) throw new Error(`Taoyuan Airport flight source unavailable after 3 attempts: ${lastError?.message || lastError}`);
+  if (!payload) throw new Error(`Taoyuan Airport flight snapshot sources unavailable: ${lastError?.message || lastError}`);
   if (!Array.isArray(payload.rows) || !payload.rows.length) throw new Error('Taoyuan Airport flight source returned no rows');
   airportFlightCache = {
     version: WORKER_VERSION,
