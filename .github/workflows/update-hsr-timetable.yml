@@ -2,7 +2,9 @@ name: Update Official Transit Timetables
 
 on:
   schedule:
-    - cron: "5 16 * * *"
+    # 23:05, 00:05, 01:05, 02:05 and 03:05 Taipei time.
+    # GitHub schedule delivery can be delayed, so retry across the midnight window.
+    - cron: "5 15,16,17,18,19 * * *"
   workflow_dispatch:
 
 permissions:

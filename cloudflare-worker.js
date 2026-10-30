@@ -1,9 +1,10 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.94 (Crew Portal v8.3.1)
+ * Version 2.8.95 (Crew Portal v8.3.2)
  *
  * Primary MRT source: daily snapshot of Taoyuan Metro official timetable pages
  * Fallback MRT sources: live Taoyuan Metro official timetable page and TDX
+ * HSR fallback sources: live THSRC official timetable search and TDX
  * TDX LiveBoard is intentionally disabled because the timetable is the
  * official data rendered by the portal and LiveBoard caused avoidable quota use.
  *
@@ -12,8 +13,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.3.1';
-const WORKER_VERSION = '2.8.94';
+const PORTAL_VERSION = 'v8.3.2';
+const WORKER_VERSION = '2.8.95';
 const B744AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const B744AI_DAILY_REQUEST_LIMIT = 25;
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
@@ -37,6 +38,8 @@ const TDX_TOKEN_URL = 'https://tdx.transportdata.tw/auth/realms/TDXConnect/proto
 const TDX_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationTimeTable/TYMC';
 const TDX_THSR_DAILY_TIMETABLE_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Rail/THSR/DailyTimetable/Today';
 const THSRC_SNAPSHOT_URL = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/hsr-timetable.json';
+const THSRC_SEARCH_URL = 'https://www.thsrc.com.tw/TimeTable/Search';
+const THSRC_SOURCE_PAGE = 'https://www.thsrc.com.tw/ArticleContent/a3b630bb-1066-4352-a1ef-58c7b4e8ef7c';
 const MRT_SNAPSHOT_URL = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/mrt-timetable.json';
 const TDX_AIRPORT_FIDS_ROOT = 'https://tdx.transportdata.tw/api/basic/v2/Air/FIDS/Airport';
 const ATIS_INFO_API = 'https://atis.info/api';
@@ -60,6 +63,10 @@ const THSR_STATION_EN = {
   '0990': 'NanGang', '1000': 'TaiPei', '1010': 'BanQiao', '1020': 'TaoYuan',
   '1030': 'Hsinchu', '1035': 'Miaoli', '1040': 'Taichung', '1043': 'Changhua',
   '1047': 'Yunlin', '1050': 'Chiayi', '1060': 'Tainan', '1070': 'Zuoying'
+};
+const THSRC_STATION_CODES = {
+  '01': '0990', '02': '1000', '03': '1010', '04': '1020', '05': '1030', '06': '1035',
+  '07': '1040', '08': '1043', '09': '1047', '10': '1050', '11': '1060', '12': '1070'
 };
 const THSR_STATION_ORDER = ['0990', '1000', '1010', '1020', '1030', '1035', '1040', '1043', '1047', '1050', '1060', '1070'];
 const REGIONAL_GATE_SOURCES = {
@@ -1613,6 +1620,92 @@ function buildHsrNextTrains(rows, station) {
   return { northbound: byDirection('northbound'), southbound: byDirection('southbound') };
 }
 
+function parseThsrcSearchRows(payload, direction, serviceDate, destinationId) {
+  const trainItems = payload?.data?.DepartureTable?.TrainItem || [];
+  const rows = [];
+  for (const item of trainItems) {
+    const stops = asArray(item?.StationInfo).map((info, index) => {
+      const stationNo = String(info?.StationNo || '').trim().padStart(2, '0');
+      const stationId = THSRC_STATION_CODES[stationNo];
+      const departure = parseClock(info?.DepartureTime);
+      const arrival = parseClock(info?.ArrivalTime);
+      const time = departure || arrival;
+      if (!stationId || !time) return null;
+      return {
+        stationId,
+        stationName: String(info?.StationName || THSR_STATIONS[stationId] || stationId).trim(),
+        stationNameEn: THSR_STATION_EN[stationId] || '',
+        arrivalTime: arrival?.time || time.time,
+        departureTime: departure?.time || time.time,
+        stopSequence: THSR_STATION_ORDER.indexOf(stationId) >= 0 ? THSR_STATION_ORDER.indexOf(stationId) : index
+      };
+    }).filter(Boolean).sort((a, b) => {
+      const result = a.stopSequence - b.stopSequence;
+      return direction === 'northbound' ? -result : result;
+    });
+    const trainNo = String(item?.TrainNumber || '').trim();
+    if (!trainNo || stops.length < 2 || !stops.some(stop => stop.stationId === destinationId)) continue;
+    rows.push({
+      trainNo,
+      serviceDate: String(item?.RunDate || serviceDate).replaceAll('/', '-'),
+      direction,
+      stops
+    });
+  }
+  return rows;
+}
+
+async function requestThsrcOfficialSearch(station) {
+  const now = taipeiNow();
+  const cacheKey = `live:${station}`;
+  const cached = thsrcHsrCache.get(cacheKey);
+  if (cached && cached.serviceDate === now.date && Date.now() - cached.loadedAt < 5 * 60 * 1000) return cached;
+  const searches = [];
+  if (station !== '0990') searches.push({ direction: 'northbound', destinationId: '0990', destination: 'NanGang' });
+  if (station !== '1070') searches.push({ direction: 'southbound', destinationId: '1070', destination: 'ZuoYing' });
+  const responses = await Promise.all(searches.map(async search => {
+    const form = new URLSearchParams({
+      SearchType: 'S',
+      Lang: 'TW',
+      StartStation: THSR_STATION_EN[station],
+      EndStation: search.destination,
+      OutWardSearchDate: now.date.replaceAll('-', '/'),
+      OutWardSearchTime: '00:00',
+      ReturnSearchDate: '',
+      ReturnSearchTime: '',
+      DiscountType: ''
+    });
+    const response = await fetchUpstream(THSRC_SEARCH_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        Origin: 'https://www.thsrc.com.tw',
+        Referer: THSRC_SOURCE_PAGE,
+        'User-Agent': 'Mozilla/5.0 (compatible; CrewPortal official timetable fallback)',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: form.toString(),
+      cf: { cacheTtl: 300, cacheEverything: true }
+    }, 30_000);
+    if (!response.ok) throw new Error(`THSRC official search failed (${response.status})`);
+    const payload = await response.json();
+    if (payload?.success !== true) throw new Error('THSRC official search returned unsuccessful response');
+    return parseThsrcSearchRows(payload, search.direction, now.date, search.destinationId);
+  }));
+  const rows = responses.flat();
+  if (!rows.length) throw new Error(`No upcoming THSRC official search rows found for ${station}`);
+  const result = {
+    loadedAt: Date.now(),
+    serviceDate: now.date,
+    rows,
+    source: 'THSRC official timetable search live fallback',
+    sourceType: 'official-website-live'
+  };
+  thsrcHsrCache.set(cacheKey, result);
+  return result;
+}
+
 async function requestThsrcTimetable(station) {
   const now = taipeiNow();
   const cached = thsrcHsrCache.get(station);
@@ -1660,11 +1753,17 @@ async function requestTdxHsrTimetable(env) {
 }
 
 async function requestHsrTimetable(env, station) {
-  let thsrcError;
+  let snapshotError;
   try {
     return await requestThsrcTimetable(station);
   } catch (error) {
-    thsrcError = error;
+    snapshotError = error;
+  }
+  let liveError;
+  try {
+    return await requestThsrcOfficialSearch(station);
+  } catch (error) {
+    liveError = error;
   }
   try {
     const fallback = await requestTdxHsrTimetable(env);
@@ -1674,7 +1773,7 @@ async function requestHsrTimetable(env, station) {
       sourceType: 'tdx-structured-fallback'
     };
   } catch (tdxError) {
-    throw new Error(`THSRC official timetable unavailable: ${thsrcError?.message || thsrcError}; TDX fallback unavailable: ${tdxError?.message || tdxError}`);
+    throw new Error(`THSRC snapshot unavailable: ${snapshotError?.message || snapshotError}; official live search unavailable: ${liveError?.message || liveError}; TDX fallback unavailable: ${tdxError?.message || tdxError}`);
   }
 }
 
@@ -2270,7 +2369,7 @@ export default {
       workerVersion: WORKER_VERSION,
       portalVersion: PORTAL_VERSION,
       timetableSource: 'Taoyuan Metro official timetable snapshot with live official-page and TDX fallback',
-      hsrTimetableSource: 'THSRC official timetable snapshot with TDX Rail/THSR/DailyTimetable/Today fallback',
+      hsrTimetableSource: 'THSRC official timetable snapshot with live official search and TDX fallback',
       timetableParser: 'structured-official',
       flightGateSource: 'Taoyuan Airport official a_flight_v4 feed with ADIP and scheduled TDX fallback',
       cargoStandSource: 'TPE GOSS public ground-operations data',

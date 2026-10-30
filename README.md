@@ -1,13 +1,13 @@
-# FlightDeck Crew Portal v8.3.1
+# FlightDeck Crew Portal v8.3.2
 
-正式版 FlightDeck Crew Portal。Airport MRT 優先使用桃捷官方各站時刻表快照，桃捷官方即時頁面與 TDX `StationTimeTable` 依序作備援；Airport MRT 卡片下方整合台灣高鐵每日車班，優先讀取台灣高鐵官方時刻表快照，TDX `Rail/THSR/DailyTimetable/Today` 僅作備援，顯示所選車站北上／南下最近 2 班及停靠站。
+正式版 FlightDeck Crew Portal。Airport MRT 優先使用桃捷官方各站時刻表快照，桃捷官方即時頁面與 TDX `StationTimeTable` 依序作備援；Airport MRT 卡片下方整合台灣高鐵每日車班，優先讀取台灣高鐵官方時刻表快照，官方即時查詢與 TDX `Rail/THSR/DailyTimetable/Today` 依序作備援，顯示所選車站北上／南下最近 2 班及停靠站。
 
 D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷與美國海外地區）使用 ATIS.info API；RCTP/RJAA 使用 CoffeeTeaOrMe 公開 API；其他全球機場使用 ATIS.guru。Worker 會回傳來源、資料時間及 90 分鐘 freshness 狀態，stale 或無法確認時不得視為目前有效 ATIS。
 
 ## 版本
 
-- Portal Version：v8.3.1
-- Worker Version：2.8.94
+- Portal Version：v8.3.2
+- Worker Version：2.8.95
 - Timetable Parser：`structured-official`
 
 ## 本版重點
@@ -22,7 +22,7 @@ D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷�
 - 修正手機版高鐵車次時間與車次文字重疊，並改用去背後的台灣高鐵 Logo；北上／南下標題補上前往南港／左營方向。
 - 修正手機版 AIRPORT MRT 與 TAIWAN HSR 車站下拉選單箭頭顏色，改用符合深色背景的淺藍／高鐵橘色箭頭。
 - 高鐵車次展開時只顯示所選車站之後的停靠站，不再列出已經通過的站點；車次旁 stops 數量同步更新。
-- 高鐵官方班表由 GitHub Actions 每日依台北時間 00:05 更新驗證快照；任一交通來源失敗時仍會發布另一個已驗證成功的快照，推送前會同步最新 `main` 並自動重試。
+- 高鐵官方班表由 GitHub Actions 在台北時間 23:05 至 03:05 的午夜窗口重試更新；快照暫時過期時，Worker 會直接查詢台灣高鐵官方網站，再以 TDX 作最後備援。
 - Airport MRT 改為解析桃捷官方各站時刻表頁面；Worker 以同一官方頁面作即時備援，TDX `StationTimeTable` 為最後備援。
 - AIRPORT MRT 卡片下方新增 TAIWAN HSR；預設高鐵桃園站，可切換 12 個高鐵車站，顯示北上／南下最近 2 班，點選車次展開停靠站。
 

@@ -1,7 +1,7 @@
 {
-  "version": "8.3.1",
-  "build": "20261031-0030",
+  "version": "8.3.2",
+  "build": "20261031-0352",
   "date": "2026-10-31",
-  "workerVersion": "2.8.94",
-  "label": "Restore official Taoyuan passenger flight gates"
+  "workerVersion": "2.8.95",
+  "label": "Keep HSR available across midnight snapshot delays"
 }
