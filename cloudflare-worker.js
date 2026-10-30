@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.92 (Crew Portal v8.3.0)
+ * Version 2.8.93 (Crew Portal v8.3.1)
  *
  * Primary MRT source: daily snapshot of Taoyuan Metro official timetable pages
  * Fallback MRT sources: live Taoyuan Metro official timetable page and TDX
@@ -12,8 +12,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.3.0';
-const WORKER_VERSION = '2.8.92';
+const PORTAL_VERSION = 'v8.3.1';
+const WORKER_VERSION = '2.8.93';
 const B744AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const B744AI_DAILY_REQUEST_LIMIT = 25;
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
@@ -22,7 +22,8 @@ const LIVE_FLIGHT_REFRESH_AGE_SECONDS = 10 * 60;
 const TDX_FIDS_CACHE_BUCKET_SECONDS = 5 * 60;
 const PARKING_API = 'http://1.34.202.50:9130/parking_place/huahang';
 const TPE_FLIGHT_SOURCE = 'https://raw.githubusercontent.com/B744F/crewportal/main/data/flight-gates.json';
-const TPE_OFFICIAL_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
+const TPE_OFFICIAL_FLIGHT_FEED = 'https://www.taoyuan-airport.com/uploads/flightx/a_flight_v4.txt';
+const TPE_ADIP_FLIGHT_SOURCE = 'https://odp.taoyuan-airport.com/dataset/2025102001?format=csv';
 const TPE_OFFICIAL_FLIGHT_IPS = ['60.251.215.156', '60.251.184.156'];
 const TPE_GOSS_CARGO_SOURCE = 'https://www.tpegoss.com/api/db/gates/schedule';
 const RCTP_CARGO_STAND_MIN = 501;
@@ -656,7 +657,7 @@ function normalizeWorkerTdxRows(rows) {
   })).filter(row => row.flight && row.date && row.time);
 }
 
-function parseCsv(text) {
+function parseCsvMatrix(text) {
   const rows = [];
   let row = [], field = '', quoted = false;
   const source = String(text || '').replace(/^\uFEFF/, '');
@@ -675,17 +676,41 @@ function parseCsv(text) {
     } else field += char;
   }
   if (field || row.length) { row.push(field); if (row.some(value => String(value).trim())) rows.push(row); }
+  return rows;
+}
+
+function parseCsv(text) {
+  const rows = parseCsvMatrix(text);
   if (rows.length < 2) return [];
   const headers = rows.shift().map(value => String(value).trim());
   return rows.map(values => Object.fromEntries(headers.map((header, index) => [header, String(values[index] ?? '').trim()])))
     .filter(row => Object.values(row).some(Boolean));
 }
 
+function normalizeOfficialLegacyRows(rows) {
+  return rows.map(values => ({
+    '航廈': values[0],
+    '方向': values[1],
+    '航空公司代碼': values[2],
+    '航空公司中文': values[3],
+    '班次': values[4],
+    '機門': values[5],
+    '表訂日期': values[6],
+    '表訂時間': values[7],
+    '預計日期': values[8],
+    '預計時間': values[9],
+    '往來地點': values[10],
+    '往來地點英文': values[11],
+    '往來地點中文': values[12],
+    '航班動態中文': values[13]
+  })).filter(row => Object.values(row).some(value => String(value || '').trim()));
+}
+
 function normalizeOfficialCsvRows(rows) {
   return rows.map(row => {
     const airline = String(row['航空公司代碼'] || '').trim().toUpperCase();
     const number = String(row['班次'] || '').trim().replace(/^0+(?=\d)/, '');
-    const date = String(row['表訂日期'] || '').trim().slice(0, 10);
+    const date = String(row['表訂日期'] || '').trim().slice(0, 10).replaceAll('/', '-');
     const time = String(row['表訂時間'] || '').trim().slice(0, 5);
     return {
       flight: `${airline}${number}`,
@@ -696,7 +721,7 @@ function normalizeOfficialCsvRows(rows) {
       direction: String(row['方向'] || '').trim(),
       date,
       time,
-      estimatedDate: String(row['預計日期'] || '').trim().slice(0, 10),
+      estimatedDate: String(row['預計日期'] || '').trim().slice(0, 10).replaceAll('/', '-'),
       estimatedTime: String(row['預計時間'] || '').trim().slice(0, 5),
       gate: String(row['機門'] || '').trim(),
       airportCode: String(row['往來地點'] || '').trim().toUpperCase(),
@@ -804,13 +829,14 @@ async function loadLiveAdipFlights(continuitySourceRows = []) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const rows = normalizeOfficialCsvRows(parseCsv(await fetchOfficialAdipCsv()));
-      if (rows.length < 100 || !rows.some(row => row.gate)) throw new Error('Taoyuan official ADIP source returned insufficient flight data');
+      const official = await fetchOfficialFlightRows();
+      const rows = official.rows;
+      if (rows.length < 100 || !rows.some(row => row.gate)) throw new Error('Taoyuan official source returned insufficient flight data');
       return {
         version: WORKER_VERSION,
         loadedAt: Date.now(),
         fetchedAt: Date.now(),
-        source: 'Taoyuan Airport ADIP official real-time flight data',
+        source: official.source,
         continuityRows: 0,
         rows
       };
@@ -822,11 +848,27 @@ async function loadLiveAdipFlights(continuitySourceRows = []) {
   throw lastError;
 }
 
+async function fetchOfficialLegacyFlightRows() {
+  const response = await fetchUpstream(TPE_OFFICIAL_FLIGHT_FEED, {
+    headers: { 'Accept': 'text/plain,*/*', 'User-Agent': 'CrewPortal-FlightGate/1.0' },
+    cf: { cacheTtl: 0, cacheEverything: false }
+  });
+  if (!response.ok) throw new Error(`Taoyuan official a_flight_v4 source failed (${response.status})`);
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength < 10_000) throw new Error('Taoyuan official a_flight_v4 source returned insufficient data');
+  const text = new TextDecoder('big5').decode(bytes);
+  const rows = normalizeOfficialCsvRows(normalizeOfficialLegacyRows(parseCsvMatrix(text)));
+  if (rows.length < 100 || !rows.some(row => row.gate)) {
+    throw new Error('Taoyuan official a_flight_v4 source returned invalid flight rows');
+  }
+  return rows;
+}
+
 async function fetchOfficialAdipCsv() {
   const targets = [
-    { url: TPE_OFFICIAL_FLIGHT_SOURCE, cf: {} },
+    { url: TPE_ADIP_FLIGHT_SOURCE, cf: {} },
     ...TPE_OFFICIAL_FLIGHT_IPS.map(ip => ({
-      url: TPE_OFFICIAL_FLIGHT_SOURCE,
+      url: TPE_ADIP_FLIGHT_SOURCE,
       cf: { resolveOverride: ip }
     })),
     ...TPE_OFFICIAL_FLIGHT_IPS.map(ip => ({
@@ -853,6 +895,28 @@ async function fetchOfficialAdipCsv() {
   }
 }
 
+async function fetchOfficialFlightRows() {
+  const errors = [];
+  try {
+    return {
+      source: 'Taoyuan Airport official a_flight_v4 real-time flight data',
+      rows: await fetchOfficialLegacyFlightRows()
+    };
+  } catch (error) {
+    errors.push(String(error?.message || error));
+  }
+  try {
+    const rows = normalizeOfficialCsvRows(parseCsv(await fetchOfficialAdipCsv()));
+    if (rows.length < 100 || !rows.some(row => row.gate)) {
+      throw new Error('Taoyuan official ADIP source returned insufficient flight data');
+    }
+    return { source: 'Taoyuan Airport ADIP official real-time flight data', rows };
+  } catch (error) {
+    errors.push(String(error?.message || error));
+  }
+  throw new Error(errors.join('; ') || 'Taoyuan official flight sources unavailable');
+}
+
 async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
   const response = await handleFlightGateTdxSource(tdxAirportFidsCacheKey(), env, ctx);
   const payload = await response.json();
@@ -875,7 +939,7 @@ async function loadLiveTdxFlights(env, ctx, continuitySourceRows = []) {
 async function loadCombinedLiveFlights(env, ctx, continuitySourceRows = []) {
   const adipPromise = loadLiveAdipFlights(continuitySourceRows);
   try {
-    // Keep user-triggered refreshes on the official ADIP source. TDX FIDS
+    // Keep user-triggered refreshes on the official airport sources. TDX FIDS
     // remains a scheduled fallback only, so public traffic cannot multiply
     // TDX calls when the snapshot is stale.
     const first = await adipPromise;
@@ -928,7 +992,7 @@ async function loadAirportFlights(env, ctx, query = null) {
     version: WORKER_VERSION,
     loadedAt: Date.now(),
     fetchedAt: Date.parse(payload.fetchedAtUtc) || Date.now(),
-    source: payload.source || 'Taoyuan Airport ADIP official real-time flight data',
+    source: payload.source || 'Taoyuan Airport official real-time flight data',
     continuityRows: Number(payload.quality?.continuityRows) || 0,
     rows: payload.rows
   };
@@ -965,11 +1029,14 @@ async function handleFlightGateSource(request) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const text = await fetchOfficialAdipCsv();
-      const headers = new Headers(corsHeaders(request));
-      headers.set('Content-Type', 'text/csv; charset=utf-8');
-      headers.set('Cache-Control', 'public, max-age=30, s-maxage=60');
-      return new Response(text, { headers });
+      const official = await fetchOfficialFlightRows();
+      return json(request, {
+        ok: true,
+        source: official.source,
+        fetchedAtUtc: new Date().toISOString(),
+        gateRows: official.rows.filter(row => row.gate).length,
+        rows: official.rows
+      }, { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=60' } });
     } catch (error) {
       lastError = error;
       if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 500));
@@ -977,7 +1044,7 @@ async function handleFlightGateSource(request) {
   }
   return json(request, {
     ok: false,
-    source: 'Taoyuan Airport ADIP official real-time flight data',
+    source: 'Taoyuan Airport official real-time flight data',
     error: `Official source unavailable after 3 attempts: ${lastError?.message || lastError}`
   }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
 }
@@ -2081,7 +2148,7 @@ async function handleFlightGate(request, env, ctx) {
       airportName: airportInfo.name,
       query: `${query.airline}${query.number}`,
       fetchedAt: new Date(source.fetchedAt).toISOString(),
-      source: source.source || 'Taoyuan Airport ADIP official real-time flight data',
+      source: source.source || 'Taoyuan Airport official real-time flight data',
       freshness: freshness.status,
       dataAgeSeconds: freshness.ageSeconds,
       warning: freshness.warning,
@@ -2199,6 +2266,7 @@ export default {
       timetableSource: 'Taoyuan Metro official timetable snapshot with live official-page and TDX fallback',
       hsrTimetableSource: 'THSRC official timetable snapshot with TDX Rail/THSR/DailyTimetable/Today fallback',
       timetableParser: 'structured-official',
+      flightGateSource: 'Taoyuan Airport official a_flight_v4 feed with ADIP and scheduled TDX fallback',
       cargoStandSource: 'TPE GOSS public ground-operations data',
       cargoStandRange: '501-525',
       atisSources: 'ATIS.info API for US regions; CoffeeTeaOrMe API for RCTP/RJAA; ATIS.guru with 90-minute freshness guard elsewhere',

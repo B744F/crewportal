@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.3.0 部署
+# FlightDeck Crew Portal v8.3.1 部署
 
 ## 部署內容
 
@@ -16,8 +16,8 @@
 
 ```json
 {
-  "portalVersion": "v8.3.0",
-  "workerVersion": "2.8.92",
+  "portalVersion": "v8.3.1",
+  "workerVersion": "2.8.93",
   "timetableParser": "structured-official"
 }
 ```
@@ -28,7 +28,7 @@ D-ATIS 來源規則：美國地區（含阿拉斯加、夏威夷與美國海外�
 
 訪客統計使用 `/api/visit` 記錄首頁造訪的國家層級計數，統計頁使用 `/api/visitor-stats`；不儲存 IP 位址。
 
-航班登機門查詢使用 `/api/flight-gate?airport=RCTP&flight=CI100`，支援 RCTP、RCSS、RCMQ、RCKH；公開查詢使用桃園機場 ADIP／快照與各機場官方即時資料，RCSS 不再由使用者查詢直接觸發 TDX Airport FIDS；TDX FIDS 僅保留給排程備援。若抵達機門未公布，會以同航空公司、同往返航線、抵達後短時間內唯一對應的官方出發機門標示為「推定」。即時來源的航班號會保留完整數字，不會將 CI602 誤解析為 CI2；同日已確認的登機門也不會因即時來源短暫空值而退回「未定」。
+航班登機門查詢使用 `/api/flight-gate?airport=RCTP&flight=CI100`，支援 RCTP、RCSS、RCMQ、RCKH；RCTP 主要使用桃園機場官方 `a_flight_v4.txt` 即時檔，ADIP 與排程專用 TDX Airport FIDS 依序備援，快照只發布通過今日／次日日期、筆數及登機門覆蓋驗證的資料。所有官方來源失敗時，排程必須保留最後驗證快照並以失敗結束。RCSS 不再由使用者查詢直接觸發 TDX Airport FIDS。若抵達機門未公布，會以同航空公司、同往返航線、抵達後短時間內唯一對應的官方出發機門標示為「推定」。即時來源的航班號會保留完整數字，不會將 CI602 誤解析為 CI2；同日已確認的登機門也不會因即時來源短暫空值而退回「未定」。
 
 貨機坪查詢使用 `/api/cargo-stand?flight=5X61`，由 Worker 取得 TPE GOSS 公開地面作業資料，只接受今日且落在 RCTP 貨機坪 501–525 的停機位；前端在 RCTP GATE INFO 中將貨機坪與客機登機門分開顯示。
 

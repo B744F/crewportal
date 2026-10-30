@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch and publish the official Taoyuan Airport ADIP flight-gate snapshot."""
+"""Fetch and publish the official Taoyuan Airport flight-gate snapshot."""
 
 import csv
 import json
@@ -10,7 +10,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
-SOURCE_URL = "https://odp.taoyuan-airport.com/dataset/2025102001?format=csv"
+SOURCE_URL = "https://www.taoyuan-airport.com/uploads/flightx/a_flight_v4.txt"
+ADIP_FALLBACK_URL = "https://odp.taoyuan-airport.com/dataset/2025102001?format=csv"
 DIRECT_IP_RESOLVES = (
     "odp.taoyuan-airport.com:443:60.251.215.156",
     "odp.taoyuan-airport.com:443:60.251.184.156",
@@ -19,6 +20,12 @@ FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/fligh
 TDX_FALLBACK_SOURCE_URL = "https://flightdeck-api.201505-login.workers.dev/api/flight-gate-tdx-source"
 OUTPUT = Path(__file__).resolve().parents[1] / "data" / "flight-gates.json"
 TAIPEI = ZoneInfo("Asia/Taipei")
+LEGACY_HEADERS = (
+    "航廈", "方向", "航空公司代碼", "航空公司中文", "班次", "機門",
+    "表訂日期", "表訂時間", "預計日期", "預計時間", "往來地點",
+    "往來地點英文", "往來地點中文", "航班動態中文", "機型",
+    "其他航點", "其他航點英文", "其他航點中文", "行李轉盤", "報到櫃台",
+)
 # The public ADIP endpoint can be slow during the morning peak.  Retry each
 # official route before falling back so a transient edge timeout does not
 # publish a lower-quality TDX-only snapshot.
@@ -33,7 +40,7 @@ def value(row: dict[str, str], key: str) -> str:
 
 
 def date_part(raw: str) -> str:
-    return value({"value": raw}, "value")[:10]
+    return value({"value": raw}, "value")[:10].replace("/", "-")
 
 
 def time_part(raw: str) -> str:
@@ -41,11 +48,57 @@ def time_part(raw: str) -> str:
     return text[0:5] if len(text) >= 5 and text[2] == ":" else ""
 
 
+def official_dict_from_normalized(row: dict[str, str]) -> dict[str, str]:
+    return {
+        "航廈": str(row.get("terminal") or ""),
+        "方向": str(row.get("direction") or ""),
+        "航空公司代碼": str(row.get("airline") or ""),
+        "航空公司中文": str(row.get("airlineName") or ""),
+        "班次": str(row.get("number") or ""),
+        "機門": str(row.get("gate") or ""),
+        "表訂日期": str(row.get("date") or ""),
+        "表訂時間": str(row.get("time") or ""),
+        "預計日期": str(row.get("estimatedDate") or ""),
+        "預計時間": str(row.get("estimatedTime") or ""),
+        "往來地點": str(row.get("airportCode") or ""),
+        "往來地點中文": str(row.get("destination") or ""),
+        "航班動態中文": str(row.get("status") or ""),
+    }
+
+
+def parse_official_payload(raw: bytes) -> list[dict[str, str]]:
+    if raw.lstrip().startswith(b"{"):
+        payload = json.loads(raw.decode("utf-8"))
+        rows = payload.get("rows") if isinstance(payload, dict) else None
+        if not isinstance(rows, list) or not rows:
+            raise RuntimeError("Official JSON source returned no rows")
+        return [official_dict_from_normalized(row) for row in rows if isinstance(row, dict)]
+
+    try:
+        body = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        body = raw.decode("big5")
+    matrix = list(csv.reader(body.splitlines()))
+    if not matrix:
+        raise RuntimeError("Official flight source returned no rows")
+    first = [cell.strip() for cell in matrix[0]]
+    if "航空公司代碼" in first and "班次" in first:
+        return list(csv.DictReader(body.splitlines()))
+    if len(first) < len(LEGACY_HEADERS):
+        raise RuntimeError("Official flight source returned an unknown format")
+    return [
+        dict(zip(LEGACY_HEADERS, (str(cell).strip() for cell in row)))
+        for row in matrix
+        if len(row) >= len(LEGACY_HEADERS)
+    ]
+
+
 def fetch_rows() -> tuple[list[dict[str, str]], str]:
     last_errors: list[str] = []
-    sources = [(SOURCE_URL, "direct", FETCH_ATTEMPTS, [])]
+    sources = [(SOURCE_URL, "airport-official-feed", FETCH_ATTEMPTS, [])]
+    sources.append((ADIP_FALLBACK_URL, "adip-direct", FETCH_ATTEMPTS, []))
     sources.extend(
-        (SOURCE_URL, f"official-ip-{index + 1}", FETCH_ATTEMPTS, ["--resolve", resolve])
+        (ADIP_FALLBACK_URL, f"adip-ip-{index + 1}", FETCH_ATTEMPTS, ["--resolve", resolve])
         for index, resolve in enumerate(DIRECT_IP_RESOLVES)
     )
     sources.append((FALLBACK_SOURCE_URL, "cloudflare-proxy", 1, []))
@@ -66,17 +119,10 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
                     timeout=FETCH_TIMEOUT_SECONDS + FETCH_CONNECT_TIMEOUT_SECONDS + 5,
                     check=True,
                 )
-                body = result.stdout.decode("utf-8-sig")
-                if source_label == "tdx-official":
-                    payload = json.loads(body)
-                    rows = payload.get("rows") if isinstance(payload, dict) else None
-                    if not isinstance(rows, list) or not rows:
-                        raise RuntimeError("TDX source returned no rows")
-                    print("Fetched official TDX flight data")
-                    return rows, source_label
-                print(f"Fetched official ADIP data via {source_label}")
-                return list(csv.DictReader(body.splitlines())), source_label
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, UnicodeDecodeError, OSError) as error:
+                rows = parse_official_payload(result.stdout)
+                print(f"Fetched official Taoyuan Airport flight data via {source_label}")
+                return rows, source_label
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, UnicodeDecodeError, json.JSONDecodeError, OSError, RuntimeError) as error:
                 last_errors.append(f"{source_label} attempt {attempt}: {error}")
                 if attempt < attempts:
                     print(f"{source_label} fetch attempt {attempt}/{attempts} failed: {error}; retrying")
@@ -105,7 +151,7 @@ def fetch_rows() -> tuple[list[dict[str, str]], str]:
         last_errors.append(f"tdx-official: {error}")
 
     detail = "; ".join(last_errors)
-    raise RuntimeError(f"Unable to fetch official ADIP CSV from direct and fallback sources: {detail}")
+    raise RuntimeError(f"Unable to fetch official flight data from direct and fallback sources: {detail}")
 
 
 def continuity_merge(rows: list[dict[str, str]], previous_rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
@@ -224,13 +270,14 @@ def main() -> None:
         rows, fetch_route = fetch_rows()
     except RuntimeError as error:
         if previous.get("rows"):
-            print(f"No official source available; preserving the last validated snapshot: {error}")
-            return
+            raise RuntimeError(
+                f"No official source available; preserved the last validated snapshot without publishing: {error}"
+            ) from error
         raise
 
     required = {"航空公司代碼", "班次", "機門", "往來地點", "表訂日期", "表訂時間"}
     if not rows or not required.issubset(rows[0]):
-        raise RuntimeError("Official ADIP CSV is missing required fields")
+        raise RuntimeError("Official flight data is missing required fields")
 
     now = datetime.now(TAIPEI)
     today = now.date()
@@ -269,11 +316,11 @@ def main() -> None:
     today_rows = [row for row in output_rows if row["date"] == today.isoformat()]
     today_gate_rows = [row for row in today_rows if row["gate"]]
     if len(output_rows) < 100:
-        raise RuntimeError(f"Official ADIP snapshot is unexpectedly small: {len(output_rows)} rows")
+        raise RuntimeError(f"Official flight snapshot is unexpectedly small: {len(output_rows)} rows")
     if not today_rows:
-        raise RuntimeError("Official ADIP snapshot contains no flights for today")
+        raise RuntimeError("Official flight snapshot contains no flights for today")
     if not today_gate_rows:
-        raise RuntimeError("Official ADIP snapshot contains no gate assignments for today; refusing to publish")
+        raise RuntimeError("Official flight snapshot contains no gate assignments for today; refusing to publish")
     if fetch_route == "tdx-official" and not any(row["date"] == last_date.isoformat() for row in output_rows):
         raise RuntimeError("TDX Airport FIDS is missing next-day rows; refusing to publish a stale snapshot")
 
@@ -343,7 +390,7 @@ def main() -> None:
             if is_tdx and continuity_rows
             else "TDX official Airport FIDS real-time flight data"
             if is_tdx
-            else "Taoyuan Airport ADIP official real-time flight data"
+            else "Taoyuan Airport official a_flight_v4 real-time flight data"
         ),
         "sourceUrl": TDX_FALLBACK_SOURCE_URL if is_tdx else SOURCE_URL,
         "fetchRoute": fetch_route,
