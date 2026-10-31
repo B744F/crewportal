@@ -1,7 +1,7 @@
 {
-  "version": "8.3.3",
-  "build": "20261031-0354",
+  "version": "8.3.4",
+  "build": "20261031-1930",
   "date": "2026-10-31",
   "workerVersion": "2.8.96",
-  "label": "Harden live HSR fallback station lookup"
+  "label": "Update PSX NAV DATA to AIRAC 2611"
 }
