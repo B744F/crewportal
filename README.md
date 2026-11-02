@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.3.4
+# FlightDeck Crew Portal v8.3.5
 
 正式版 FlightDeck Crew Portal。Airport MRT 優先使用桃捷官方各站時刻表快照，桃捷官方即時頁面與 TDX `StationTimeTable` 依序作備援；Airport MRT 卡片下方整合台灣高鐵每日車班，優先讀取台灣高鐵官方時刻表快照，官方即時查詢與 TDX `Rail/THSR/DailyTimetable/Today` 依序作備援，顯示所選車站北上／南下最近 2 班及停靠站。
 
@@ -6,13 +6,14 @@ D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷�
 
 ## 版本
 
-- Portal Version：v8.3.4
-- Worker Version：2.8.96
+- Portal Version：v8.3.5
+- Worker Version：2.8.97
 - Timetable Parser：`structured-official`
 
 ## 本版重點
 
 - 桃園客機登機門以機場官方 `a_flight_v4.txt` 即時資料為主要來源，ADIP 與排程專用 TDX Airport FIDS 依序備援。
+- 桃園貨機坪查詢會在航站欄位的相同位置以藍色顯示飛機註冊號，並保留貨機機型與 501–525 貨機坪資訊。
 - 航班更新排程在所有官方來源失敗時會保留最後驗證快照並明確失敗，避免舊資料被誤報為成功更新。
 - 新增獨立的 `/b744ai/` B747-400F 組員決策支援介面；Crew Portal 首頁尚未建立入口按鈕。
 - B744 AI 以未公開連結直接使用，不設組員共用存取碼；手冊索引仍只存放在私有 D1，不提供全文下載。

@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.96 (Crew Portal v8.3.4)
+ * Version 2.8.97 (Crew Portal v8.3.5)
  *
  * Primary MRT source: daily snapshot of Taoyuan Metro official timetable pages
  * Fallback MRT sources: live Taoyuan Metro official timetable page and TDX
@@ -13,8 +13,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.3.4';
-const WORKER_VERSION = '2.8.96';
+const PORTAL_VERSION = 'v8.3.5';
+const WORKER_VERSION = '2.8.97';
 const B744AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const B744AI_DAILY_REQUEST_LIMIT = 25;
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
@@ -631,6 +631,13 @@ function cargoStandNumber(value) {
   return Number.isInteger(stand) && stand >= RCTP_CARGO_STAND_MIN && stand <= RCTP_CARGO_STAND_MAX ? String(stand) : '';
 }
 
+function normalizeAircraftRegistration(value) {
+  const registration = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (/^\d{5}$/.test(registration)) return `B-${registration}`;
+  if (/^B\d{4,5}$/.test(registration)) return `B-${registration.slice(1)}`;
+  return registration;
+}
+
 function cargoDateTimeParts(value) {
   const text = String(value || '').trim();
   const match = text.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
@@ -1101,6 +1108,7 @@ async function handleCargoStand(request) {
         origin: String(row.origin || '').trim().toUpperCase(),
         destination: String(row.destination || '').trim().toUpperCase(),
         status: String(row.flight_status || '').trim(),
+        registration: normalizeAircraftRegistration(row.registration),
         aircraftType: String(row.aircraft_type || '').trim(),
         updatedAt: String(row.updated_at || row.last_contact || '').trim()
       };

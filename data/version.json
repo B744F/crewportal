@@ -1,7 +1,7 @@
 {
-  "version": "8.3.4",
-  "build": "20261031-1930",
-  "date": "2026-10-31",
-  "workerVersion": "2.8.96",
-  "label": "Update PSX NAV DATA to AIRAC 2611"
+  "version": "8.3.5",
+  "build": "20261102-1348",
+  "date": "2026-11-02",
+  "workerVersion": "2.8.97",
+  "label": "Show cargo aircraft registration in gate lookup"
 }
