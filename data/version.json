@@ -1,7 +1,7 @@
 {
-  "version": "8.3.5",
-  "build": "20261102-1348",
+  "version": "8.3.6",
+  "build": "20261102-1359",
   "date": "2026-11-02",
-  "workerVersion": "2.8.97",
-  "label": "Show cargo aircraft registration in gate lookup"
+  "workerVersion": "2.8.98",
+  "label": "Move cargo registration beside direction label"
 }
