@@ -1,7 +1,7 @@
 {
-  "version": "8.3.6",
-  "build": "20261102-1359",
-  "date": "2026-11-02",
-  "workerVersion": "2.8.98",
-  "label": "Move cargo registration beside direction label"
+  "version": "8.3.7",
+  "build": "20261118-2210",
+  "date": "2026-11-18",
+  "workerVersion": "2.8.99",
+  "label": "Restore RCTP ATIS.guru source"
 }

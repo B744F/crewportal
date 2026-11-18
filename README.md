@@ -1,13 +1,13 @@
-# FlightDeck Crew Portal v8.3.6
+# FlightDeck Crew Portal v8.3.7
 
 正式版 FlightDeck Crew Portal。Airport MRT 優先使用桃捷官方各站時刻表快照，桃捷官方即時頁面與 TDX `StationTimeTable` 依序作備援；Airport MRT 卡片下方整合台灣高鐵每日車班，優先讀取台灣高鐵官方時刻表快照，官方即時查詢與 TDX `Rail/THSR/DailyTimetable/Today` 依序作備援，顯示所選車站北上／南下最近 2 班及停靠站。
 
-D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷與美國海外地區）使用 ATIS.info API；RCTP/RJAA 使用 CoffeeTeaOrMe 公開 API；其他全球機場使用 ATIS.guru。Worker 會回傳來源、資料時間及 90 分鐘 freshness 狀態，stale 或無法確認時不得視為目前有效 ATIS。
+D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷與美國海外地區）使用 ATIS.info API；RJAA 使用 CoffeeTeaOrMe 公開 API；RCTP 與其他全球機場使用 ATIS.guru。Worker 會回傳來源、資料時間及 90 分鐘 freshness 狀態，stale 或無法確認時不得視為目前有效 ATIS。
 
 ## 版本
 
-- Portal Version：v8.3.6
-- Worker Version：2.8.98
+- Portal Version：v8.3.7
+- Worker Version：2.8.99
 - Timetable Parser：`structured-official`
 
 ## 本版重點
@@ -47,7 +47,7 @@ D-ATIS 依 ICAO 機場代碼分流：美國地區（含阿拉斯加、夏威夷�
 
 ## 資料來源
 
-- D-ATIS：ATIS.info API、CoffeeTeaOrMe 公開 API、ATIS.guru 頁面與 freshness guard
+- D-ATIS：ATIS.info API、RJAA 的 CoffeeTeaOrMe 公開 API、RCTP 與其他全球機場的 ATIS.guru 頁面，以及 freshness guard
 - 桃園國際機場官方即時航班檔：`https://www.taoyuan-airport.com/uploads/flightx/a_flight_v4.txt`
 
 - 桃園市政府／桃捷官方機捷時刻表快照（官方 XML 與 TDX `StationTimeTable` 僅作依序備援）

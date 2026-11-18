@@ -11,7 +11,7 @@
 
   function sourceFor(code){
     if(isAmericanAirport(code))return {label:'ATIS.info · FAA Digital ATIS',url:`https://atis.info/${code}`};
-    if(code==='RCTP'||code==='RJAA')return {label:'CoffeeTeaOrMe · ACARS D-ATIS',url:`https://info.coffeeteaorme.vip/Public-D-ATIS/${code}`};
+    if(code==='RJAA')return {label:'CoffeeTeaOrMe · ACARS D-ATIS',url:`https://info.coffeeteaorme.vip/Public-D-ATIS/${code}`};
     return {label:'ATIS.guru · Live digital ATIS',url:`https://atis.guru/atis/${code}`};
   }
 

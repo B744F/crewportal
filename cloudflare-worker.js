@@ -1,6 +1,6 @@
 /**
  * Crew Portal API — Cloudflare Worker
- * Version 2.8.98 (Crew Portal v8.3.6)
+ * Version 2.8.99 (Crew Portal v8.3.7)
  *
  * Primary MRT source: daily snapshot of Taoyuan Metro official timetable pages
  * Fallback MRT sources: live Taoyuan Metro official timetable page and TDX
@@ -13,8 +13,8 @@
  *   TDX_CLIENT_SECRET
  */
 
-const PORTAL_VERSION = 'v8.3.6';
-const WORKER_VERSION = '2.8.98';
+const PORTAL_VERSION = 'v8.3.7';
+const WORKER_VERSION = '2.8.99';
 const B744AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const B744AI_DAILY_REQUEST_LIMIT = 25;
 const DEFAULT_FLIGHT_AIRLINE = 'CI';
@@ -2046,7 +2046,7 @@ function atisRoute(airport) {
       apiUrl: `${ATIS_INFO_API}/${airport}`
     };
   }
-  if (airport === 'RCTP' || airport === 'RJAA') {
+  if (airport === 'RJAA') {
     return {
       id: 'coffeeteaorme',
       label: 'CoffeeTeaOrMe · ACARS D-ATIS',
@@ -2382,7 +2382,7 @@ export default {
       flightGateSource: 'Taoyuan Airport official a_flight_v4 feed with ADIP and scheduled TDX fallback',
       cargoStandSource: 'TPE GOSS public ground-operations data',
       cargoStandRange: '501-525',
-      atisSources: 'ATIS.info API for US regions; CoffeeTeaOrMe API for RCTP/RJAA; ATIS.guru with 90-minute freshness guard elsewhere',
+      atisSources: 'ATIS.info API for US regions; CoffeeTeaOrMe API for RJAA; ATIS.guru for RCTP and elsewhere with 90-minute freshness guard',
       atisStaleAfterMinutes: 90,
       visitorStatsConfigured: Boolean(env.CREWPORTAL_VISITOR_STATS),
       b744AiDatabaseConfigured: Boolean(env.B744AI_DB),

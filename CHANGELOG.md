@@ -1,3 +1,9 @@
+## v8.3.7 — 2026-11-18
+
+- 將 RCTP 的 AIRPORT ATIS 資料來源改回 ATIS.guru（`https://atis.guru/atis/RCTP`）。
+- Worker freshness 查詢與前端開啟來源同步更新；RJAA 仍維持 CoffeeTeaOrMe。
+- 同步更新 Portal、Worker、Build 與靜態資產快取版本。
+
 ## v8.3.6 — 2026-11-02
 
 - 將貨機註冊號移至「抵達 ARRIVAL／出發 DEPARTURE」後方，以較小的藍色文字顯示。

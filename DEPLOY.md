@@ -1,4 +1,4 @@
-# FlightDeck Crew Portal v8.3.6 部署
+# FlightDeck Crew Portal v8.3.7 部署
 
 ## 部署內容
 
@@ -16,15 +16,15 @@
 
 ```json
 {
-  "portalVersion": "v8.3.6",
-  "workerVersion": "2.8.98",
+  "portalVersion": "v8.3.7",
+  "workerVersion": "2.8.99",
   "timetableParser": "structured-official"
 }
 ```
 
 B744 AI 狀態使用 `/api/b744ai/status`；完成私有索引匯入後，應回傳 `accessMode: "unlisted-link"`、`manualCount: 5` 及 `setupRequired: false`。正式匯入手冊前先套用 `migrations/0002_b744ai.sql`，再用 `scripts/import_b744ai_manuals.py` 於 repository 外產生暫存匯入檔。
 
-D-ATIS 來源規則：美國地區（含阿拉斯加、夏威夷與美國海外地區）使用 ATIS.info API；RCTP 與 RJAA 使用 CoffeeTeaOrMe 公開 API；其他全球機場使用 ATIS.guru。`/api/atis?airport=XXXX` 會回傳來源、資料時間與 90 分鐘 freshness 狀態，stale 或無法確認時不得視為目前有效 ATIS。
+D-ATIS 來源規則：美國地區（含阿拉斯加、夏威夷與美國海外地區）使用 ATIS.info API；RJAA 使用 CoffeeTeaOrMe 公開 API；RCTP 與其他全球機場使用 ATIS.guru。`/api/atis?airport=XXXX` 會回傳來源、資料時間與 90 分鐘 freshness 狀態，stale 或無法確認時不得視為目前有效 ATIS。
 
 訪客統計使用 `/api/visit` 記錄首頁造訪的國家層級計數，統計頁使用 `/api/visitor-stats`；不儲存 IP 位址。
 
